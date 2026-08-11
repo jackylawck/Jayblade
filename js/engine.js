@@ -12,7 +12,6 @@ class SoundFX {
     }
   }
 
-  // 倒數與發射聲音
   playCountBeep(isFinal = false) {
     if (!this.ctx) return;
     const osc = this.ctx.createOscillator();
@@ -29,7 +28,6 @@ class SoundFX {
     osc.stop(this.ctx.currentTime + (isFinal ? 0.35 : 0.12));
   }
 
-  // 純合成節奏 BGM 循環
   toggleBGM() {
     this.init();
     this.isBgmActive = !this.isBgmActive;
@@ -197,33 +195,34 @@ class PhysicalTop {
     this.trail.push({ x: this.x, y: this.y, angle: this.angle });
     if (this.trail.length > 6) this.trail.shift();
 
-    const decay = this.tip.friction * 15;
+    // 自然耗損放緩，保持戰鬥時間
+    const decay = this.tip.friction * 8;
     this.rpm -= decay * dt * 60;
     if (this.rpm < 0) this.rpm = 0;
     this.angularVelocity = (this.rpm * Math.PI) / 30;
 
-    // 陀螺進動
+    // 陀螺進動 (傾倒速度放緩 5 倍)
     const g = 9.8;
     const distCM = 4;
-    const stabilityThreshold = 800;
+    const stabilityThreshold = 600;
 
     if (this.rpm > stabilityThreshold) {
-      this.tilt *= 0.95;
+      this.tilt *= 0.96;
     } else {
-      this.tilt += (stabilityThreshold - this.rpm) * 0.0001 * dt;
+      this.tilt += (stabilityThreshold - this.rpm) * 0.00002 * dt; // 調低數值
     }
 
     if (this.rpm > 50 && this.tilt > 0.01) {
       const precessionRate = (this.mass * g * distCM) / (this.inertia * this.angularVelocity);
       this.precessionAngle += precessionRate * dt * 100;
-      const wobbleOffset = Math.sin(this.tilt) * 20;
+      const wobbleOffset = Math.sin(this.tilt) * 15;
       this.vx += Math.cos(this.precessionAngle) * wobbleOffset * dt;
       this.vy += Math.sin(this.precessionAngle) * wobbleOffset * dt;
     }
 
     // CPU AI
     if (this.isCpu && targetOpponent && targetOpponent.shatterHp > 0) {
-      if (this.tip.shape === 'FLAT' && this.rpm > 500) {
+      if (this.tip.shape === 'FLAT' && this.rpm > 400) {
         const dx = targetOpponent.x - this.x;
         const dy = targetOpponent.y - this.y;
         this.vx += dx * this.aiRate * dt;
@@ -232,31 +231,31 @@ class PhysicalTop {
     }
 
     // 底軸邏輯
-    if (this.tip.shape === 'FLAT' && this.rpm > 200) {
+    if (this.tip.shape === 'FLAT' && this.rpm > 150) {
       const moveAngle = this.angle + Math.PI / 2;
       this.vx += Math.cos(moveAngle) * this.tip.moveForce * dt;
       this.vy += Math.sin(moveAngle) * this.tip.moveForce * dt;
     } else if (this.tip.shape === 'PINPOINT') {
-      this.vx *= 0.95;
-      this.vy *= 0.95;
+      this.vx *= 0.96;
+      this.vy *= 0.96;
     }
 
-    // X-Dash
+    // X-Dash 加速
     const distToCenter = Math.hypot(this.x - arenaCenter.x, this.y - arenaCenter.y);
-    const railInner = 185;
-    const railOuter = 225;
+    const railInner = 180;
+    const railOuter = 228;
 
-    if (distToCenter > railInner && distToCenter < railOuter && this.rpm > 300) {
+    if (distToCenter > railInner && distToCenter < railOuter && this.rpm > 250) {
       const rx = (arenaCenter.x - this.x) / distToCenter;
       const ry = (arenaCenter.y - this.y) / distToCenter;
       const tx = -ry;
       const ty = rx;
 
-      const boostPower = 180 + (this.rpm / 2200) * 300;
+      const boostPower = 200 + (this.rpm / 2200) * 350;
       this.vx += tx * boostPower * dt;
       this.vy += ty * boostPower * dt;
 
-      this.rpm -= 12 * dt * 60;
+      this.rpm -= 4 * dt * 60; // 降低發動代價
       this.hasTriggeredXDashKO = true;
 
       if (this.xdashCooldown <= 0) {
@@ -279,12 +278,13 @@ class PhysicalTop {
     this.y += this.vy * dt;
     this.angle += this.angularVelocity * dt;
 
-    if (this.tilt > 0.8) {
+    // 傾倒門檻放寬
+    if (this.tilt > 1.2) {
       this.shatterHp = 0;
       this.rpm = 0;
     }
 
-    // 牆壁碰撞
+    // 牆壁碰撞 (增加反彈力)
     const maxRadius = arenaCenter.radius - this.radius;
     if (distToCenter > maxRadius) {
       const nx = (this.x - arenaCenter.x) / distToCenter;
@@ -292,16 +292,16 @@ class PhysicalTop {
       const vn = this.vx * nx + this.vy * ny;
 
       if (vn > 0) {
-        this.vx -= (1 + 0.6) * vn * nx;
-        this.vy -= (1 + 0.6) * vn * ny;
+        this.vx -= (1 + 0.75) * vn * nx; // 高反彈力
+        this.vy -= (1 + 0.75) * vn * ny;
         sfx.playHit(0.5);
 
         for (let i = 0; i < 3; i++) {
           particlesArr.push(new Particle(
             this.x + nx * this.radius,
             this.y + ny * this.radius,
-            (Math.random() - 0.5) * 100,
-            (Math.random() - 0.5) * 100,
+            (Math.random() - 0.5) * 120,
+            (Math.random() - 0.5) * 120,
             '#ff9f43'
           ));
         }
@@ -323,7 +323,6 @@ class PhysicalTop {
     }
   }
 
-  // 匯出實時物理 Debug 數據
   getDebugData() {
     return `
     <b>${this.name}</b><br>
@@ -388,6 +387,7 @@ class PhysicalTop {
   }
 }
 
+// 兩體碰撞演算法 (改為多次強烈彈開，減低單次損害)
 function resolveAdvancedCollision(p1, p2, particlesArr) {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
@@ -404,7 +404,8 @@ function resolveAdvancedCollision(p1, p2, particlesArr) {
     const normalVel = kx * nx + ky * ny;
 
     if (normalVel > 0) {
-      const e = (p1.restitution + p2.restitution) / 2;
+      // 增加彈飛力 (Elasticity Multiplier)
+      const e = 1.25; 
       const impulse = ((1 + e) * normalVel) / ((1 / p1.mass) + (1 / p2.mass));
 
       p1.vx -= (impulse / p1.mass) * nx;
@@ -413,20 +414,21 @@ function resolveAdvancedCollision(p1, p2, particlesArr) {
       p2.vy += (impulse / p2.mass) * ny;
 
       const tangVel = kx * tx + ky * ty;
-      const tangImpulse = tangVel * 0.3;
+      const tangImpulse = tangVel * 0.2;
       p1.vx -= (tangImpulse / p1.mass) * tx;
       p1.vy -= (tangImpulse / p1.mass) * ty;
       p2.vx += (tangImpulse / p2.mass) * tx;
       p2.vy += (tangImpulse / p2.mass) * ty;
 
-      p1.rpm -= impulse * 4;
-      p2.rpm -= impulse * 4;
-      p1.shatterHp -= impulse * 0.12;
-      p2.shatterHp -= impulse * 0.12;
+      // 關鍵修飾：每次碰撞只扣減少許 RPM 與 HP，實現連續來回衝撞
+      p1.rpm -= impulse * 0.4;
+      p2.rpm -= impulse * 0.4;
+      p1.shatterHp -= impulse * 0.02;
+      p2.shatterHp -= impulse * 0.02;
 
       sfx.playHit(impulse / 150);
-      if (impulse > 100 && navigator.vibrate) {
-        navigator.vibrate(25);
+      if (impulse > 80 && navigator.vibrate) {
+        navigator.vibrate(20);
       }
 
       const hitX = p1.x + nx * p1.radius;
@@ -434,8 +436,8 @@ function resolveAdvancedCollision(p1, p2, particlesArr) {
       for (let i = 0; i < 8; i++) {
         particlesArr.push(new Particle(
           hitX, hitY,
-          (Math.random() - 0.5) * 320,
-          (Math.random() - 0.5) * 320,
+          (Math.random() - 0.5) * 350,
+          (Math.random() - 0.5) * 350,
           '#fffa65'
         ));
       }
