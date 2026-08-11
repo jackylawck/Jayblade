@@ -1,22 +1,48 @@
-// 配件資料庫 (物理參數與名稱)
+// 配件資料庫與 CPU 難度設定
 const PARTS_DATABASE = {
   crowns: {
-    'jarvis_dragon': { name: '上桓飛龍 (Jarvis Special)', mass: 36, radius: 28, weightDist: 0.8, restitution: 0.75, color: '#ff3838' },
-    'iron_fang':     { name: '鐵牙衝鋒 (高攻擊重擊)', mass: 40, radius: 27, weightDist: 0.5, restitution: 0.90, color: '#eccc68' },
-    'aero_shield':   { name: '風輪壁壘 (外重心持久)', mass: 34, radius: 30, weightDist: 0.95, restitution: 0.40, color: '#1e90ff' }
+    'dragon_blade': { name: '龍刃衝鋒 (高攻擊重擊)', mass: 40, radius: 28, weightDist: 0.6, restitution: 0.88, color: '#ff3838' },
+    'iron_fang':    { name: '鐵牙破壞 (重裝擊飛)', mass: 42, radius: 27, weightDist: 0.5, restitution: 0.92, color: '#eccc68' },
+    'aero_shield':  { name: '風輪壁壘 (外重心持久)', mass: 35, radius: 30, weightDist: 0.95, restitution: 0.40, color: '#1e90ff' }
   },
   tips: {
-    'dash_flat':    { name: 'Flat-X (極速平頭/衝撞)', shape: 'FLAT', friction: 0.08, moveForce: 260 },
+    'dash_flat':    { name: 'Flat-X (極速平頭/衝撞)', shape: 'FLAT', friction: 0.08, moveForce: 270 },
     'needle_point': { name: 'Needle-S (極限針尖/守心)', shape: 'PINPOINT', friction: 0.01, moveForce: 30 }
   }
 };
 
-// LocalStorage 紀錄偏好設定
-function saveUserPreferences(crown, tip, power, grid) {
-  localStorage.setItem('beyblade_j_pref', JSON.stringify({ crown, tip, power, grid }));
+const CPU_DIFFICULTIES = {
+  EASY: {
+    name: '簡單',
+    counterStrategy: false,
+    launchPower: 'LIGHT',
+    aiReactionRate: 0.1
+  },
+  MEDIUM: {
+    name: '普通',
+    counterStrategy: true,
+    launchPower: 'MEDIUM',
+    aiReactionRate: 0.4
+  },
+  HARD: {
+    name: '困難',
+    counterStrategy: true,
+    launchPower: 'HEAVY',
+    aiReactionRate: 0.85
+  }
+};
+
+const ACHIEVEMENTS_DB = {
+  FIRST_WIN: { id: 'FIRST_WIN', name: '首勝達人', desc: '贏得 1 場對戰', unlocked: false },
+  STREAK_3:  { id: 'STREAK_3',  name: '連勝霸主', desc: '達成 3 連勝', unlocked: false },
+  XDASH_KO:  { id: 'XDASH_KO',  name: '極速衝撞', desc: '觸發 X-Dash 擊飛對手出界', unlocked: false }
+};
+
+function saveUserPreferences(p1Data, p2Data, grid, diff) {
+  localStorage.setItem('jayblade_pref_pro', JSON.stringify({ p1Data, p2Data, grid, diff }));
 }
 
 function loadUserPreferences() {
-  const saved = localStorage.getItem('beyblade_j_pref');
+  const saved = localStorage.getItem('jayblade_pref_pro');
   return saved ? JSON.parse(saved) : null;
 }
