@@ -15,6 +15,7 @@ const CANVAS_SIZE = 500;
 const arenaCenter = { x: 250, y: 250, radius: 230 };
 
 function initOffscreenBackground() {
+  if (!offscreenCanvas) return;
   offscreenCanvas.width = CANVAS_SIZE;
   offscreenCanvas.height = CANVAS_SIZE;
 
@@ -37,20 +38,30 @@ function initOffscreenBackground() {
 }
 
 function setupRetinaCanvas() {
+  if (!canvas) return;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = CANVAS_SIZE * dpr;
   canvas.height = CANVAS_SIZE * dpr;
   ctx.scale(dpr, dpr);
 }
 
+// 數據與成就管理
 function getStats() {
-  const stats = localStorage.getItem('jayblade_stats');
-  return stats ? JSON.parse(stats) : { matches: 0, wins: 0, streak: 0 };
+  try {
+    const stats = localStorage.getItem('jayblade_stats');
+    return stats ? JSON.parse(stats) : { matches: 0, wins: 0, streak: 0 };
+  } catch (e) {
+    return { matches: 0, wins: 0, streak: 0 };
+  }
 }
 
 function getAchievements() {
-  const ach = localStorage.getItem('jayblade_achievements');
-  return ach ? JSON.parse(ach) : ACHIEVEMENTS_DB;
+  try {
+    const ach = localStorage.getItem('jayblade_achievements');
+    return ach ? JSON.parse(ach) : ACHIEVEMENTS_DB;
+  } catch (e) {
+    return ACHIEVEMENTS_DB;
+  }
 }
 
 function unlockAchievement(achId) {
@@ -97,7 +108,8 @@ function displayStatsUI() {
 
 function toggleDebugPanel() {
   isDebugVisible = !isDebugVisible;
-  document.getElementById('debug-panel').style.display = isDebugVisible ? 'block' : 'none';
+  const panel = document.getElementById('debug-panel');
+  if (panel) panel.style.display = isDebugVisible ? 'block' : 'none';
 }
 
 function toggleBGM() {
@@ -105,68 +117,88 @@ function toggleBGM() {
   alert(active ? '🎵 BGM 已開啟' : '🔇 BGM 已關閉');
 }
 
-window.onload = () => {
+// 頁面初始化：防摔機制
+document.addEventListener('DOMContentLoaded', () => {
   initOffscreenBackground();
   setupRetinaCanvas();
 
+  // 1. 填充選單
   ['p1', 'p2'].forEach(prefix => {
     const crownSel = document.getElementById(`${prefix}-crown`);
     const tipSel = document.getElementById(`${prefix}-tip`);
-    
-    Object.keys(PARTS_DATABASE.crowns).forEach(key => {
-      crownSel.innerHTML += `<option value="${key}">${PARTS_DATABASE.crowns[key].name}</option>`;
-    });
-    Object.keys(PARTS_DATABASE.tips).forEach(key => {
-      tipSel.innerHTML += `<option value="${key}">${PARTS_DATABASE.tips[key].name}</option>`;
-    });
+
+    if (crownSel && typeof PARTS_DATABASE !== 'undefined') {
+      crownSel.innerHTML = '';
+      Object.keys(PARTS_DATABASE.crowns).forEach(key => {
+        crownSel.innerHTML += `<option value="${key}">${PARTS_DATABASE.crowns[key].name}</option>`;
+      });
+    }
+
+    if (tipSel && typeof PARTS_DATABASE !== 'undefined') {
+      tipSel.innerHTML = '';
+      Object.keys(PARTS_DATABASE.tips).forEach(key => {
+        tipSel.innerHTML += `<option value="${key}">${PARTS_DATABASE.tips[key].name}</option>`;
+      });
+    }
   });
 
-  const pref = loadUserPreferences();
-  if (pref) {
-    if (pref.p1Data) {
-      document.getElementById('p1-name').value = pref.p1Data.name;
-      document.getElementById('p1-color').value = pref.p1Data.color;
-      document.getElementById('p1-crown').value = pref.p1Data.crown;
-      document.getElementById('p1-tip').value = pref.p1Data.tip;
-      document.getElementById('p1-power').value = pref.p1Data.power;
+  // 2. 載入歷史偏好設定（加入安全可選鏈 ?. 避免舊格式引致崩潰）
+  try {
+    const pref = loadUserPreferences();
+    if (pref) {
+      if (pref.p1Data) {
+        if (document.getElementById('p1-name')) document.getElementById('p1-name').value = pref.p1Data.name || '破空飛龍';
+        if (document.getElementById('p1-color')) document.getElementById('p1-color').value = pref.p1Data.color || '#ff3838';
+        if (document.getElementById('p1-crown')) document.getElementById('p1-crown').value = pref.p1Data.crown || 'dragon_blade';
+        if (document.getElementById('p1-tip')) document.getElementById('p1-tip').value = pref.p1Data.tip || 'dash_flat';
+        if (document.getElementById('p1-power')) document.getElementById('p1-power').value = pref.p1Data.power || 'MEDIUM';
+      }
+      if (pref.p2Data) {
+        if (document.getElementById('p2-name')) document.getElementById('p2-name').value = pref.p2Data.name || '影武赤狼';
+        if (document.getElementById('p2-color')) document.getElementById('p2-color').value = pref.p2Data.color || '#1e90ff';
+        if (document.getElementById('p2-crown')) document.getElementById('p2-crown').value = pref.p2Data.crown || 'iron_fang';
+        if (document.getElementById('p2-tip')) document.getElementById('p2-tip').value = pref.p2Data.tip || 'needle_point';
+        if (document.getElementById('p2-power')) document.getElementById('p2-power').value = pref.p2Data.power || 'MEDIUM';
+      }
+      if (document.getElementById('cpu-difficulty')) document.getElementById('cpu-difficulty').value = pref.diff || 'MEDIUM';
+      if (pref.grid) selectedGrid = pref.grid;
     }
-    if (pref.p2Data) {
-      document.getElementById('p2-name').value = pref.p2Data.name;
-      document.getElementById('p2-color').value = pref.p2Data.color;
-      document.getElementById('p2-crown').value = pref.p2Data.crown;
-      document.getElementById('p2-tip').value = pref.p2Data.tip;
-      document.getElementById('p2-power').value = pref.p2Data.power;
-    }
-    document.getElementById('cpu-difficulty').value = pref.diff || 'MEDIUM';
-    selectedGrid = pref.grid;
+  } catch (err) {
+    console.warn('舊格式偏好載入忽略:', err);
   }
 
+  // 3. 生成 18 格網格
   const gridContainer = document.getElementById('grid-selector');
-  for (let i = 1; i <= 18; i++) {
-    const item = document.createElement('div');
-    item.className = `grid-item ${i === selectedGrid ? 'selected' : ''}`;
-    item.innerText = i;
-    item.onclick = () => {
-      document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('selected'));
-      item.classList.add('selected');
-      selectedGrid = i;
-    };
-    gridContainer.appendChild(item);
+  if (gridContainer) {
+    gridContainer.innerHTML = '';
+    for (let i = 1; i <= 18; i++) {
+      const item = document.createElement('div');
+      item.className = `grid-item ${i === selectedGrid ? 'selected' : ''}`;
+      item.innerText = i;
+      item.onclick = () => {
+        document.querySelectorAll('.grid-item').forEach(el => el.classList.remove('selected'));
+        item.classList.add('selected');
+        selectedGrid = i;
+      };
+      gridContainer.appendChild(item);
+    }
   }
-};
+});
 
 window.addEventListener('click', () => sfx.init(), { once: true });
 window.addEventListener('touchstart', () => sfx.init(), { once: true });
 
 function setGameMode(mode) {
   gameMode = mode;
-  document.getElementById('cpu-difficulty-group').style.display = mode === 'SINGLE' ? 'block' : 'none';
-  document.getElementById('p2-setup-group').style.display = mode === 'VERSUS' ? 'block' : 'none';
+  const cpuGroup = document.getElementById('cpu-difficulty-group');
+  const p2Group = document.getElementById('p2-setup-group');
+  if (cpuGroup) cpuGroup.style.display = mode === 'SINGLE' ? 'block' : 'none';
+  if (p2Group) p2Group.style.display = mode === 'VERSUS' ? 'block' : 'none';
   alert(mode === 'SINGLE' ? '模式：單人對戰 (VS CPU)' : '模式：雙人對決 (1P VS 2P)');
 }
 
 function generateCpuTactics(p1Config, difficultyKey) {
-  const diff = CPU_DIFFICULTIES[difficultyKey] || CPU_DIFFICULTIES.MEDIUM;
+  const diff = (typeof CPU_DIFFICULTIES !== 'undefined' && CPU_DIFFICULTIES[difficultyKey]) ? CPU_DIFFICULTIES[difficultyKey] : { launchPower: 'MEDIUM', counterStrategy: true, aiReactionRate: 0.4 };
   
   let cpuCrown = 'iron_fang';
   let cpuTip = 'dash_flat';
@@ -192,11 +224,11 @@ function playLaunchSequence(onComplete) {
   
   const timer = setInterval(() => {
     if (count > 0) {
-      statusBar.innerText = `READY... ${count}`;
+      if (statusBar) statusBar.innerText = `READY... ${count}`;
       sfx.playCountBeep(false);
       count--;
     } else {
-      statusBar.innerText = `3, 2, 1... Go Shoot!`;
+      if (statusBar) statusBar.innerText = `3, 2, 1... Go Shoot!`;
       sfx.playCountBeep(true);
       clearInterval(timer);
       setTimeout(onComplete, 200);
@@ -208,22 +240,22 @@ function startGame() {
   sfx.init();
 
   const p1Data = {
-    name: document.getElementById('p1-name').value,
-    color: document.getElementById('p1-color').value,
-    crown: document.getElementById('p1-crown').value,
-    tip: document.getElementById('p1-tip').value,
-    power: document.getElementById('p1-power').value
+    name: document.getElementById('p1-name')?.value || '破空飛龍',
+    color: document.getElementById('p1-color')?.value || '#ff3838',
+    crown: document.getElementById('p1-crown')?.value || 'dragon_blade',
+    tip: document.getElementById('p1-tip')?.value || 'dash_flat',
+    power: document.getElementById('p1-power')?.value || 'MEDIUM'
   };
 
   const p2Data = {
-    name: document.getElementById('p2-name').value,
-    color: document.getElementById('p2-color').value,
-    crown: document.getElementById('p2-crown').value,
-    tip: document.getElementById('p2-tip').value,
-    power: document.getElementById('p2-power').value
+    name: document.getElementById('p2-name')?.value || '影武赤狼',
+    color: document.getElementById('p2-color')?.value || '#1e90ff',
+    crown: document.getElementById('p2-crown')?.value || 'iron_fang',
+    tip: document.getElementById('p2-tip')?.value || 'needle_point',
+    power: document.getElementById('p2-power')?.value || 'MEDIUM'
   };
 
-  const diffKey = document.getElementById('cpu-difficulty').value;
+  const diffKey = document.getElementById('cpu-difficulty')?.value || 'MEDIUM';
 
   saveUserPreferences(p1Data, p2Data, selectedGrid, diffKey);
 
@@ -245,7 +277,8 @@ function startGame() {
       const cpuX = 100 + cpuCol * 60;
       const cpuY = 100 + cpuRow * 80;
 
-      p2 = new PhysicalTop(cpuX, cpuY, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, `CPU (${CPU_DIFFICULTIES[diffKey].name})`, null, true, cpuSetup.aiRate);
+      const diffName = CPU_DIFFICULTIES[diffKey]?.name || '普通';
+      p2 = new PhysicalTop(cpuX, cpuY, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, `CPU (${diffName})`, null, true, cpuSetup.aiRate);
     } else {
       p2 = new PhysicalTop(350, 250, p2Data.crown, p2Data.tip, p2Data.power, p2Data.name, p2Data.color, false);
     }
@@ -268,7 +301,8 @@ function mainGameLoop(now) {
 
   frameCount++;
   if (now - lastFpsUpdate > 1000) {
-    document.getElementById('fps-counter').innerText = frameCount;
+    const fpsEl = document.getElementById('fps-counter');
+    if (fpsEl) fpsEl.innerText = frameCount;
     frameCount = 0;
     lastFpsUpdate = now;
   }
@@ -288,7 +322,6 @@ function mainGameLoop(now) {
     if (particles[i].life <= 0) particles.splice(i, 1);
   }
 
-  // 畫面震動 Offset 繪製
   ctx.save();
   if (screenShakeTime > 0) {
     screenShakeTime -= dt;
@@ -311,8 +344,10 @@ function mainGameLoop(now) {
   ctx.restore();
 
   if (isDebugVisible) {
-    document.getElementById('p1-debug').innerHTML = p1.getDebugData();
-    document.getElementById('p2-debug').innerHTML = p2.getDebugData();
+    const p1D = document.getElementById('p1-debug');
+    const p2D = document.getElementById('p2-debug');
+    if (p1D) p1D.innerHTML = p1.getDebugData();
+    if (p2D) p2D.innerHTML = p2.getDebugData();
   }
 
   const statusBar = document.getElementById('status-bar');
@@ -320,55 +355,48 @@ function mainGameLoop(now) {
   const d2 = Math.hypot(p2.x - arenaCenter.x, p2.y - arenaCenter.y);
 
   if (!matchEnded) {
-    // 1. Extreme Finish (3 分)
     if (d1 > arenaCenter.radius && p2.lastHitWasExtreme) {
-      statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p2.name} 以極限衝撞將對手淘汰！`;
+      if (statusBar) statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p2.name} 以極限衝撞將對手淘汰！`;
       updateWinStats(false);
       matchEnded = true;
       sfx.stopBGM();
     } else if (d2 > arenaCenter.radius && p1.lastHitWasExtreme) {
-      statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p1.name} 發動極速 X-Dash 取得 3 分！`;
+      if (statusBar) statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p1.name} 發動極速 X-Dash 取得 3 分！`;
       updateWinStats(true, true);
       matchEnded = true;
       sfx.stopBGM();
-    } 
-    // 2. Over Finish (2 分)
-    else if (d1 > arenaCenter.radius) {
-      statusBar.innerText = `🚨 OVER FINISH! (2分) ${p2.name} 將對手擊出場外！`;
+    } else if (d1 > arenaCenter.radius) {
+      if (statusBar) statusBar.innerText = `🚨 OVER FINISH! (2分) ${p2.name} 將對手擊出場外！`;
       updateWinStats(false);
       matchEnded = true;
       sfx.stopBGM();
     } else if (d2 > arenaCenter.radius) {
-      statusBar.innerText = `🚨 OVER FINISH! (2分) ${p1.name} 將對手擊出場外！`;
+      if (statusBar) statusBar.innerText = `🚨 OVER FINISH! (2分) ${p1.name} 將對手擊出場外！`;
       updateWinStats(true, false);
       matchEnded = true;
       sfx.stopBGM();
-    } 
-    // 3. Burst Finish (2 分)
-    else if (p1.shatterHp <= 0) {
+    } else if (p1.shatterHp <= 0) {
       p1.triggerShatterEffect(particles);
-      statusBar.innerText = `💥 BURST FINISH! (2分) ${p1.name} 承受強烈衝擊崩解！${p2.name} 勝出！`;
+      if (statusBar) statusBar.innerText = `💥 BURST FINISH! (2分) ${p1.name} 承受強烈衝擊崩解！${p2.name} 勝出！`;
       updateWinStats(false);
       matchEnded = true;
       sfx.stopBGM();
     } else if (p2.shatterHp <= 0) {
       p2.triggerShatterEffect(particles);
-      statusBar.innerText = `💥 BURST FINISH! (2分) ${p2.name} 承受強烈衝擊崩解！${p1.name} 勝出！`;
+      if (statusBar) statusBar.innerText = `💥 BURST FINISH! (2分) ${p2.name} 承受強烈衝擊崩解！${p1.name} 勝出！`;
       updateWinStats(true, false);
       matchEnded = true;
       sfx.stopBGM();
-    } 
-    // 4. Spin Finish (1 分)
-    else if (p1.rpm <= 0 && p2.rpm <= 0) {
+    } else if (p1.rpm <= 0 && p2.rpm <= 0) {
       const isP1Win = p1.rpm > p2.rpm;
-      statusBar.innerText = isP1Win 
+      if (statusBar) statusBar.innerText = isP1Win 
         ? `🌀 SPIN FINISH! (1分) ${p1.name} 以自轉持久力勝出！` 
         : `🌀 SPIN FINISH! (1分) ${p2.name} 以自轉持久力勝出！`;
       updateWinStats(isP1Win, false);
       matchEnded = true;
       sfx.stopBGM();
     } else {
-      statusBar.innerText = `${p1.name}: ${Math.round(p1.rpm)} RPM | ${p2.name}: ${Math.round(p2.rpm)} RPM`;
+      if (statusBar) statusBar.innerText = `${p1.name}: ${Math.round(p1.rpm)} RPM | ${p2.name}: ${Math.round(p2.rpm)} RPM`;
     }
   }
 
