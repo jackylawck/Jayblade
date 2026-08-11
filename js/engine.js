@@ -1,13 +1,66 @@
-// 1. Web Audio API 純代碼音效合成器
+// 1. Web Audio API 音效與 BGM 合成器
 class SoundFX {
   constructor() {
     this.ctx = null;
+    this.bgmTimer = null;
+    this.isBgmActive = false;
   }
 
   init() {
     if (!this.ctx) {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     }
+  }
+
+  // 倒數與發射聲音
+  playCountBeep(isFinal = false) {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(isFinal ? 880 : 440, this.ctx.currentTime);
+    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + (isFinal ? 0.35 : 0.12));
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + (isFinal ? 0.35 : 0.12));
+  }
+
+  // 純合成節奏 BGM 循環
+  toggleBGM() {
+    this.init();
+    this.isBgmActive = !this.isBgmActive;
+
+    if (this.isBgmActive) {
+      this.bgmTimer = setInterval(() => {
+        if (!this.isBgmActive || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(65, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.15);
+
+        gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+      }, 250);
+    } else {
+      if (this.bgmTimer) clearInterval(this.bgmTimer);
+    }
+    return this.isBgmActive;
+  }
+
+  stopBGM() {
+    if (this.bgmTimer) clearInterval(this.bgmTimer);
+    this.isBgmActive = false;
   }
 
   playHit(intensity = 1.0) {
@@ -70,7 +123,7 @@ class SoundFX {
 
 const sfx = new SoundFX();
 
-// 2. 粒子系統 (火花與爆裂碎片)
+// 2. 粒子類別
 class Particle {
   constructor(x, y, vx, vy, color, isDebris = false) {
     this.x = x;
@@ -102,12 +155,13 @@ class Particle {
 
 // 3. 實體陀螺類別
 class PhysicalTop {
-  constructor(x, y, crownKey, tipKey, powerLevel, name, isCpu = false) {
+  constructor(x, y, crownKey, tipKey, powerLevel, name, customColor = null, isCpu = false, aiRate = 0.4) {
     const crown = PARTS_DATABASE.crowns[crownKey];
     const tip = PARTS_DATABASE.tips[tipKey];
 
-    this.name = name;
+    this.name = name || '陀螺';
     this.isCpu = isCpu;
+    this.aiRate = aiRate;
     this.x = x;
     this.y = y;
     this.vx = (Math.random() - 0.5) * 40;
@@ -116,7 +170,7 @@ class PhysicalTop {
     this.mass = crown.mass;
     this.radius = crown.radius;
     this.restitution = crown.restitution;
-    this.color = crown.color;
+    this.color = customColor || crown.color;
     this.tip = tip;
     this.weightDist = crown.weightDist;
 
@@ -132,6 +186,7 @@ class PhysicalTop {
     this.trail = [];
     this.hasShatteredEffect = false;
     this.xdashCooldown = 0;
+    this.hasTriggeredXDashKO = false;
   }
 
   update(dt, arenaCenter, particlesArr, targetOpponent = null) {
@@ -147,7 +202,7 @@ class PhysicalTop {
     if (this.rpm < 0) this.rpm = 0;
     this.angularVelocity = (this.rpm * Math.PI) / 30;
 
-    // 陀螺效應與進動
+    // 陀螺進動
     const g = 9.8;
     const distCM = 4;
     const stabilityThreshold = 800;
@@ -166,17 +221,17 @@ class PhysicalTop {
       this.vy += Math.sin(this.precessionAngle) * wobbleOffset * dt;
     }
 
-    // CPU AI 導向
+    // CPU AI
     if (this.isCpu && targetOpponent && targetOpponent.shatterHp > 0) {
-      if (this.tip.shape === 'FLAT' && this.rpm > 600) {
+      if (this.tip.shape === 'FLAT' && this.rpm > 500) {
         const dx = targetOpponent.x - this.x;
         const dy = targetOpponent.y - this.y;
-        this.vx += dx * 0.4 * dt;
-        this.vy += dy * 0.4 * dt;
+        this.vx += dx * this.aiRate * dt;
+        this.vy += dy * this.aiRate * dt;
       }
     }
 
-    // 底軸軌跡
+    // 底軸邏輯
     if (this.tip.shape === 'FLAT' && this.rpm > 200) {
       const moveAngle = this.angle + Math.PI / 2;
       this.vx += Math.cos(moveAngle) * this.tip.moveForce * dt;
@@ -186,7 +241,7 @@ class PhysicalTop {
       this.vy *= 0.95;
     }
 
-    // X-Dash 齒輪加速
+    // X-Dash
     const distToCenter = Math.hypot(this.x - arenaCenter.x, this.y - arenaCenter.y);
     const railInner = 185;
     const railOuter = 225;
@@ -202,6 +257,7 @@ class PhysicalTop {
       this.vy += ty * boostPower * dt;
 
       this.rpm -= 12 * dt * 60;
+      this.hasTriggeredXDashKO = true;
 
       if (this.xdashCooldown <= 0) {
         sfx.playXDash();
@@ -267,6 +323,18 @@ class PhysicalTop {
     }
   }
 
+  // 匯出實時物理 Debug 數據
+  getDebugData() {
+    return `
+    <b>${this.name}</b><br>
+    RPM: ${Math.round(this.rpm)}<br>
+    速度: ${Math.round(Math.hypot(this.vx, this.vy))}<br>
+    傾角: ${(this.tilt * 57.3).toFixed(1)}°<br>
+    耐久: ${Math.round(this.shatterHp)} HP<br>
+    慣量: ${Math.round(this.inertia)}
+    `;
+  }
+
   draw(ctx) {
     if (this.shatterHp <= 0) return;
 
@@ -302,7 +370,6 @@ class PhysicalTop {
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Jarvis 專屬 J 字黃金徽章
     ctx.beginPath();
     ctx.arc(0, 0, 10, 0, Math.PI * 2);
     ctx.fillStyle = '#ffcc00';
@@ -315,13 +382,12 @@ class PhysicalTop {
     ctx.font = 'bold 11px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('J', 0, 1);
+    ctx.fillText('★', 0, 1);
 
     ctx.restore();
   }
 }
 
-// 兩體碰撞演算法
 function resolveAdvancedCollision(p1, p2, particlesArr) {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
