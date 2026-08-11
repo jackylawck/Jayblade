@@ -3,57 +3,123 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>爆上陀螺 Jayblade</title>
+  <title>爆上陀螺 Jayblade Pro</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <h1>🌀 爆上陀螺 Jayblade 🌀</h1>
-  <p class="subtitle">Jarvis 上桓專屬 物理對戰模擬器</p>
+  <h1>🌀 爆上陀螺 Jayblade Pro 🌀</h1>
+  <p class="subtitle">全功能物理對戰模擬器 (包含實時 Debug 面板)</p>
 
   <!-- 選單面板 -->
   <div id="setup-panel" class="card">
     <div class="mode-buttons">
       <button class="btn" onclick="setGameMode('SINGLE')">🎮 單人對戰 (VS CPU)</button>
-      <button class="btn btn-secondary" onclick="setGameMode('VERSUS')">⚔️ 雙人對決 (1P VS 2P)</button>
+      <button class="btn btn-secondary" onclick="setGameMode('VERSUS')">⚔️ 雙人同機對決 (1P VS 2P)</button>
     </div>
 
     <hr>
 
     <div id="config-section">
-      <h3>P1 (Jarvis 上桓) 陀螺配件設定</h3>
-      <div class="form-group">
-        <label>撞擊環 (Crown): </label>
-        <select id="p1-crown"></select>
+      <!-- P1 設定 -->
+      <div class="player-box p1-box">
+        <h3>🔵 P1 陀螺自訂</h3>
+        <div class="form-group">
+          <label>名稱: </label>
+          <input type="text" id="p1-name" value="破空飛龍">
+        </div>
+        <div class="form-group">
+          <label>顏色: </label>
+          <input type="color" id="p1-color" value="#ff3838">
+        </div>
+        <div class="form-group">
+          <label>撞擊環: </label>
+          <select id="p1-crown"></select>
+        </div>
+        <div class="form-group">
+          <label>動力底軸: </label>
+          <select id="p1-tip"></select>
+        </div>
+        <div class="form-group">
+          <label>發射力度: </label>
+          <select id="p1-power">
+            <option value="MEDIUM">中度 (穩定平衡)</option>
+            <option value="HEAVY">重度 (極速衝撞)</option>
+            <option value="LIGHT">輕度 (高精準)</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group">
-        <label>動力底軸 (Tip): </label>
-        <select id="p1-tip"></select>
+
+      <!-- P2 設定 (雙人模式時顯示) -->
+      <div class="player-box p2-box" id="p2-setup-group" style="display:none;">
+        <h3>🔴 P2 陀螺自訂</h3>
+        <div class="form-group">
+          <label>名稱: </label>
+          <input type="text" id="p2-name" value="影武赤狼">
+        </div>
+        <div class="form-group">
+          <label>顏色: </label>
+          <input type="color" id="p2-color" value="#1e90ff">
+        </div>
+        <div class="form-group">
+          <label>撞擊環: </label>
+          <select id="p2-crown"></select>
+        </div>
+        <div class="form-group">
+          <label>動力底軸: </label>
+          <select id="p2-tip"></select>
+        </div>
+        <div class="form-group">
+          <label>發射力度: </label>
+          <select id="p2-power">
+            <option value="MEDIUM">中度 (穩定平衡)</option>
+            <option value="HEAVY">重度 (極速衝撞)</option>
+            <option value="LIGHT">輕度 (高精準)</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group">
-        <label>發射力度: </label>
-        <select id="p1-power">
-          <option value="MEDIUM">中度 (穩定平衡)</option>
-          <option value="HEAVY">重度 (極速衝撞/微晃動)</option>
-          <option value="LIGHT">輕度 (高精準/低耗損)</option>
+
+      <!-- CPU 難度 -->
+      <div class="form-group" id="cpu-difficulty-group">
+        <label>CPU 對手難度: </label>
+        <select id="cpu-difficulty">
+          <option value="EASY">簡單 (輕鬆入門)</option>
+          <option value="MEDIUM" selected>普通 (戰術相剋)</option>
+          <option value="HARD">困難 (極速鎖定 + X-Dash 強攻)</option>
         </select>
       </div>
 
-      <h4>選擇降落位置 (網格 1-18):</h4>
+      <h4>選擇 P1 降落位置 (網格 1-18):</h4>
       <div id="grid-selector" class="grid-container"></div>
     </div>
 
     <button class="btn launch-btn" onclick="startGame()">3, 2, 1... Go Shoot!</button>
   </div>
 
-  <!-- 戰鬥畫布 -->
+  <!-- 戰鬥畫布與控制 -->
   <div id="game-panel" class="card" style="display:none;">
     <div id="status-bar">準備發射...</div>
-    <div id="stats-display">🏆 Jarvis 戰績載入中...</div>
-    <div id="fps-counter">FPS: 60</div>
+    <div id="stats-display">🏆 戰績載入中...</div>
+    <div id="achieve-display">🎖️ 成就數量: 0/3</div>
+    
+    <div class="canvas-controls">
+      <button class="btn btn-sm" onclick="toggleDebugPanel()">📊 切換物理調試面板</button>
+      <button class="btn btn-sm btn-secondary" onclick="toggleBGM()">🎵 切換 BGM 音效</button>
+    </div>
+
     <div id="canvas-container">
       <canvas id="arena"></canvas>
     </div>
+
+    <!-- 物理參數實時調試面板 (Debug Panel) -->
+    <div id="debug-panel" class="debug-box" style="display:none;">
+      <h4>⚙️ 物理實時數據調試 (FPS: <span id="fps-counter">60</span>)</h4>
+      <div class="debug-grid">
+        <div id="p1-debug">P1: 載入中...</div>
+        <div id="p2-debug">P2: 載入中...</div>
+      </div>
+    </div>
+
     <br>
     <button class="btn" onclick="resetGame()">🔄 重新設定 / 再次對戰</button>
   </div>
