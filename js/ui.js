@@ -1,3 +1,14 @@
+// 🛡️ 資安防護: DOM-based XSS 特殊字元消毒淨化工具函式
+export function escapeHtml(unsafeStr) {
+    if (typeof unsafeStr !== 'string') return '';
+    return unsafeStr
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 export class EnergyTrackerUI {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
