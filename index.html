@@ -27,15 +27,16 @@
 
     <hr>
 
-    <!-- 連線面板 -->
+    <!-- 連線等候大廳 -->
     <div id="online-panel" class="form-group physics-mode-box" style="display:none;">
-      <h4 id="ui-online-title">🌐 WebRTC P2P 連線大廳</h4>
+      <h4 id="ui-online-title">🌐 WebRTC P2P 連線等候大廳</h4>
       <p style="font-size:12px; color:#aaa; margin-bottom:6px;"><span id="ui-my-id">你的 ID</span>: <b id="my-peer-id" style="color:#00d2d3;">生成中...</b></p>
       <div style="display:flex; gap:6px;">
         <input type="text" id="join-peer-id" placeholder="貼上對手的 Host ID">
         <button class="btn btn-sm btn-secondary" id="btn-join" onclick="connectToPeer()">加入房間</button>
       </div>
       <div id="network-status" style="font-size:12px; color:#ffcc00; margin-top:6px;">狀態: 未連線</div>
+      <div id="lobby-ready-status" style="font-size:13px; color:#00d2d3; font-weight:bold; margin-top:4px;"></div>
     </div>
 
     <div id="config-section">
@@ -58,7 +59,7 @@
         
         <!-- 旋轉方向選擇 -->
         <div class="form-group">
-          <label id="lbl-p1-spin">🔄 旋轉方向 (Spin Direction): </label>
+          <label id="lbl-p1-spin">🔄 旋轉方向: </label>
           <select id="p1-spin">
             <option value="RIGHT" selected id="opt-p1-spin-r">右迴旋 (順時針)</option>
             <option value="LEFT" id="opt-p1-spin-l">左迴旋 (逆時針/異旋吸轉)</option>
@@ -67,11 +68,11 @@
 
         <!-- 降落角度設定 -->
         <div class="form-group">
-          <label id="lbl-p1-angle">📐 降落角度 (Launch Angle): </label>
+          <label id="lbl-p1-angle">📐 降落角度: </label>
           <select id="p1-angle">
             <option value="0" id="opt-p1-angle-0">垂直直射 (0° 平穩居中)</option>
-            <option value="15" selected id="opt-p1-angle-15">斜角傾射 (15° 不規則衝刺/易發動 X-Dash)</option>
-            <option value="30" id="opt-p1-angle-30">極限斜射 (30° 極速側攻/消耗初期轉速)</option>
+            <option value="15" selected id="opt-p1-angle-15">斜角傾射 (15° 不規則衝刺)</option>
+            <option value="30" id="opt-p1-angle-30">極限斜射 (30° 極速側攻)</option>
           </select>
         </div>
 
@@ -89,7 +90,7 @@
         </div>
       </div>
 
-      <!-- P2 設定 -->
+      <!-- P2 設定 (僅雙人同機時顯示) -->
       <div class="player-box p2-box" id="p2-setup-group" style="display:none;">
         <h3 id="ui-p2-title">🔴 P2 陀螺自訂</h3>
         <div class="form-group"><label id="lbl-p2-name">名稱: </label><input type="text" id="p2-name" value="影武赤狼"></div>
@@ -130,7 +131,7 @@
         <select id="cpu-difficulty">
           <option value="EASY" id="opt-easy">簡單 (輕鬆入門)</option>
           <option value="MEDIUM" selected id="opt-medium">普通 (戰術相剋)</option>
-          <option value="HARD" id="opt-hard">困難 (行為樹 AI / 戰術引誘)</option>
+          <option value="HARD" id="opt-hard">困難 (行為樹 AI)</option>
         </select>
       </div>
 
@@ -143,7 +144,7 @@
       <span id="swipe-label">👆 手機手勢：在此區域向上快速滑動進行拉線發射！</span>
     </div>
 
-    <button class="btn launch-btn" id="btn-launch" onclick="startGame()">3, 2, 1... Go Shoot!</button>
+    <button class="btn launch-btn" id="btn-launch" onclick="onShootBtnClick()">3, 2, 1... Go Shoot!</button>
   </div>
 
   <!-- 戰鬥畫布 -->
