@@ -76,6 +76,34 @@ const LANG_DICT = {
   }
 };
 
+// 重新渲染配件下拉選單 (支援雙語切換)
+function updatePartsDropdowns() {
+  ['p1', 'p2'].forEach(prefix => {
+    const crownSel = document.getElementById(`${prefix}-crown`);
+    const tipSel = document.getElementById(`${prefix}-tip`);
+
+    if (crownSel && typeof PARTS_DATABASE !== 'undefined') {
+      const currentVal = crownSel.value;
+      crownSel.innerHTML = '';
+      Object.keys(PARTS_DATABASE.crowns).forEach(k => {
+        const name = getLocalizedPartName('crowns', k, CURRENT_LANG);
+        crownSel.innerHTML += `<option value="${k}">${name}</option>`;
+      });
+      if (currentVal) crownSel.value = currentVal;
+    }
+
+    if (tipSel && typeof PARTS_DATABASE !== 'undefined') {
+      const currentVal = tipSel.value;
+      tipSel.innerHTML = '';
+      Object.keys(PARTS_DATABASE.tips).forEach(k => {
+        const name = getLocalizedPartName('tips', k, CURRENT_LANG);
+        tipSel.innerHTML += `<option value="${k}">${name}</option>`;
+      });
+      if (currentVal) tipSel.value = currentVal;
+    }
+  });
+}
+
 function toggleLanguage() {
   CURRENT_LANG = CURRENT_LANG === 'ZH' ? 'EN' : 'ZH';
   const dict = LANG_DICT[CURRENT_LANG];
@@ -113,6 +141,9 @@ function toggleLanguage() {
   document.getElementById('btn-debug').innerText = dict.debugBtn;
   document.getElementById('btn-bgm').innerText = dict.bgmBtn;
   document.getElementById('btn-reset').innerText = dict.resetBtn;
+
+  // 動態更新配件下拉選單文字
+  updatePartsDropdowns();
 }
 
 function initOffscreenBackground() {
@@ -143,7 +174,8 @@ function unlockAchievement(achId) {
   if (ach[achId] && !ach[achId].unlocked) {
     ach[achId].unlocked = true;
     localStorage.setItem('jayblade_achievements', JSON.stringify(ach));
-    alert(`🎉 解鎖成就：【${ach[achId].name}】`);
+    const name = CURRENT_LANG === 'EN' ? ach[achId].name_en : ach[achId].name_zh;
+    alert(`🎉 解鎖成就 / Achievement Unlocked: 【${name}】`);
   }
 }
 function updateWinStats(isP1Win, isXDashKO = false) {
@@ -162,8 +194,16 @@ function displayStatsUI() {
   const stats = getStats(), ach = getAchievements();
   const winRate = stats.matches > 0 ? Math.round((stats.wins / stats.matches) * 100) : 0;
   const unl = Object.keys(ach).filter(k => ach[k].unlocked).length;
-  if (document.getElementById('stats-display')) document.getElementById('stats-display').innerText = `🏆 戰績：總對戰 ${stats.matches} 場 | 勝率 ${winRate}% (${stats.wins} 勝) | 連勝: ${stats.streak}`;
-  if (document.getElementById('achieve-display')) document.getElementById('achieve-display').innerText = `🎖️ 成就：解鎖 ${unl} / ${Object.keys(ach).length}`;
+  if (document.getElementById('stats-display')) {
+    document.getElementById('stats-display').innerText = CURRENT_LANG === 'EN' 
+      ? `🏆 Stats: Matches ${stats.matches} | Win Rate ${winRate}% (${stats.wins} W) | Streak: ${stats.streak}`
+      : `🏆 戰績：總對戰 ${stats.matches} 場 | 勝率 ${winRate}% (${stats.wins} 勝) | 連勝: ${stats.streak}`;
+  }
+  if (document.getElementById('achieve-display')) {
+    document.getElementById('achieve-display').innerText = CURRENT_LANG === 'EN'
+      ? `🎖️ Achievements: ${unl} / ${Object.keys(ach).length}`
+      : `🎖️ 成就：解鎖 ${unl} / ${Object.keys(ach).length}`;
+  }
 }
 
 function exportShareCode(prefix) {
@@ -176,10 +216,10 @@ function exportShareCode(prefix) {
     angle: document.getElementById(`${prefix}-angle`)?.value || '15',
     power: document.getElementById(`${prefix}-power`)?.value || 'MEDIUM'
   });
-  navigator.clipboard.writeText(code).then(() => alert(`🎉 塗裝分享碼已複製！`));
+  navigator.clipboard.writeText(code).then(() => alert(`🎉 分享碼已複製 / Share code copied!`));
 }
 function importShareCode(prefix) {
-  const code = prompt('貼上塗裝分享碼:');
+  const code = prompt('貼上塗裝分享碼 / Paste Share Code:');
   if (!code) return;
   const cfg = parseShareCode(code);
   if (cfg) {
@@ -190,11 +230,11 @@ function importShareCode(prefix) {
     if (document.getElementById(`${prefix}-spin`)) document.getElementById(`${prefix}-spin`).value = cfg.spin || 'RIGHT';
     if (document.getElementById(`${prefix}-angle`)) document.getElementById(`${prefix}-angle`).value = cfg.angle || '15';
     if (document.getElementById(`${prefix}-power`)) document.getElementById(`${prefix}-power`).value = cfg.power;
-    alert(`✅ 匯入：【${cfg.name}】！`);
-  } else { alert('❌ 分享碼無效'); }
+    alert(`✅ 成功匯入 / Successfully Imported: 【${cfg.name}】！`);
+  } else { alert('❌ 分享碼無效 / Invalid Code'); }
 }
 
-// 🌐 WebRTC PeerJS 初始化與對連 (已設定為 6 位數簡短房號)
+// 🌐 WebRTC PeerJS 初始化與對連 (6 位數簡短房號 100000 - 999999)
 function initPeerJS() {
   if (peer || typeof Peer === 'undefined') return;
 
@@ -225,7 +265,7 @@ function initPeerJS() {
 
 function connectToPeer() {
   const targetId = document.getElementById('join-peer-id')?.value;
-  if (!targetId) return alert('請輸入對手的 Host ID');
+  if (!targetId) return alert('請輸入對手的 Host ID / Enter Host ID');
   initPeerJS();
   peerConn = peer.connect(targetId);
   isOnlineHost = false;
@@ -260,7 +300,7 @@ function toggleDebugPanel() {
   const panel = document.getElementById('debug-panel');
   if (panel) panel.style.display = isDebugVisible ? 'block' : 'none';
 }
-function toggleBGM() { const active = sfx.toggleBGM(); alert(active ? '🎵 BGM 已開啟' : '🔇 BGM 已關閉'); }
+function toggleBGM() { const active = sfx.toggleBGM(); alert(active ? '🎵 BGM ON' : '🔇 BGM OFF'); }
 
 // 手機觸控滑動拉線發射 (Swipe Launch Gesture)
 document.addEventListener('DOMContentLoaded', () => {
@@ -292,16 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  ['p1', 'p2'].forEach(prefix => {
-    const crownSel = document.getElementById(`${prefix}-crown`);
-    const tipSel = document.getElementById(`${prefix}-tip`);
-    if (crownSel && typeof PARTS_DATABASE !== 'undefined') {
-      crownSel.innerHTML = ''; Object.keys(PARTS_DATABASE.crowns).forEach(k => { crownSel.innerHTML += `<option value="${k}">${PARTS_DATABASE.crowns[k].name}</option>`; });
-    }
-    if (tipSel && typeof PARTS_DATABASE !== 'undefined') {
-      tipSel.innerHTML = ''; Object.keys(PARTS_DATABASE.tips).forEach(k => { tipSel.innerHTML += `<option value="${k}">${PARTS_DATABASE.tips[k].name}</option>`; });
-    }
-  });
+  updatePartsDropdowns();
 
   try {
     const pref = loadUserPreferences();
@@ -415,7 +446,8 @@ function startGame() {
     if (gameMode === 'SINGLE') {
       const cpuSetup = generateCpuTactics(p1Data, diffKey);
       const cpuCol = (cpuSetup.grid - 1) % 6, cpuRow = Math.floor((cpuSetup.grid - 1) / 6);
-      p2 = new PhysicalTop(100 + cpuCol * 60, 100 + cpuRow * 80, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, '0', cpuSetup.spin, `CPU (${CPU_DIFFICULTIES[diffKey]?.name || '普通'})`, '#ff3838', true, cpuSetup.aiRate);
+      const cpuDiffName = getLocalizedPartName('cpu', diffKey, CURRENT_LANG) || (CPU_DIFFICULTIES[diffKey] ? (CURRENT_LANG === 'EN' ? CPU_DIFFICULTIES[diffKey].name_en : CPU_DIFFICULTIES[diffKey].name_zh) : '普通');
+      p2 = new PhysicalTop(100 + cpuCol * 60, 100 + cpuRow * 80, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, '0', cpuSetup.spin, `CPU (${cpuDiffName})`, '#ff3838', true, cpuSetup.aiRate);
     } else {
       p2 = new PhysicalTop(350, 250, p2Data.crown, p2Data.tip, p2Data.power, p2Data.angle, p2Data.spin, p2Data.name, p2Data.color, false);
     }
@@ -500,24 +532,24 @@ function mainGameLoop(now) {
 
   if (!matchEnded) {
     if (d1 > arenaCenter.radius && p2.lastHitWasExtreme) {
-      if (statusBar) statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p2.name} 以極限衝撞將對手淘汰！`;
+      if (statusBar) statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p2.name} 勝出！`;
       updateWinStats(false); matchEnded = true; sfx.stopBGM();
     } else if (d2 > arenaCenter.radius && p1.lastHitWasExtreme) {
-      if (statusBar) statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p1.name} 發動極速 X-Dash 取得 3 分！`;
+      if (statusBar) statusBar.innerText = `💥⚡ EXTREME FINISH! (3分) ${p1.name} 勝出！`;
       updateWinStats(true, true); matchEnded = true; sfx.stopBGM();
     } else if (d1 > arenaCenter.radius) {
-      if (statusBar) statusBar.innerText = `🚨 OVER FINISH! (2分) ${p2.name} 將對手擊出場外！`;
+      if (statusBar) statusBar.innerText = `🚨 OVER FINISH! (2分) ${p2.name} 勝出！`;
       updateWinStats(false); matchEnded = true; sfx.stopBGM();
     } else if (d2 > arenaCenter.radius) {
-      if (statusBar) statusBar.innerText = `🚨 OVER FINISH! (2分) ${p1.name} 將對手擊出場外！`;
+      if (statusBar) statusBar.innerText = `🚨 OVER FINISH! (2分) ${p1.name} 勝出！`;
       updateWinStats(true, false); matchEnded = true; sfx.stopBGM();
     } else if (p1.shatterHp <= 0) {
       p1.triggerShatterEffect();
-      if (statusBar) statusBar.innerText = `💥 BURST FINISH! (2分) ${p1.name} 承受強烈衝擊崩解！${p2.name} 勝出！`;
+      if (statusBar) statusBar.innerText = `💥 BURST FINISH! (2分) ${p2.name} 勝出！`;
       updateWinStats(false); matchEnded = true; sfx.stopBGM();
     } else if (p2.shatterHp <= 0) {
       p2.triggerShatterEffect();
-      if (statusBar) statusBar.innerText = `💥 BURST FINISH! (2分) ${p2.name} 承受強烈衝擊崩解！${p1.name} 勝出！`;
+      if (statusBar) statusBar.innerText = `💥 BURST FINISH! (2分) ${p1.name} 勝出！`;
       updateWinStats(true, false); matchEnded = true; sfx.stopBGM();
     } else if (p1.rpm <= 0 && p2.rpm <= 0) {
       const isP1Win = p1.rpm > p2.rpm;
