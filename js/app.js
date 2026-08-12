@@ -33,7 +33,7 @@ function init() {
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     const dirLight = new THREE.DirectionalLight(0xffddaa, 1.2);
     dirLight.position.set(15, 30, 10);
     dirLight.castShadow = true;
@@ -64,6 +64,7 @@ function init() {
     stadiumMaterial = new CANNON.Material('stadium');
 
     createStadium();
+    createInvoluteGearRail(); // 🛠️ 補回齒輪軌道生成呼叫！
     bindUIEvents();
     setupTouchGestures();
 
@@ -72,23 +73,64 @@ function init() {
     animate(performance.now());
 }
 
-// 🛠️ 關鍵修復：Cannon.js Cylinder 剛體姿態旋轉 -90 度 (橫臥改為豎立平放)
+// 🛠️ 戰鬥盤視覺與發光邊框生成
 function createStadium() {
     const geo = new THREE.CylinderGeometry(STADIUM_RADIUS, 2, 3, 48, 1, true);
-    const mat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.2, metalness: 0.8, side: THREE.DoubleSide });
+    const mat = new THREE.MeshStandardMaterial({ 
+        color: 0x222244, 
+        roughness: 0.3, 
+        metalness: 0.7, 
+        side: THREE.DoubleSide 
+    });
     const stadiumMesh = new THREE.Mesh(geo, mat);
     stadiumMesh.position.y = -1.5;
     scene.add(stadiumMesh);
 
+    // 外圍青色發光邊框
+    const ringGeo = new THREE.RingGeometry(STADIUM_RADIUS - 0.2, STADIUM_RADIUS + 0.1, 64);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00d2d3, side: THREE.DoubleSide });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.rotation.x = Math.PI / 2;
+    ringMesh.position.y = 0.01;
+    scene.add(ringMesh);
+
     const groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
     const cylinderShape = new CANNON.Cylinder(STADIUM_RADIUS, 2, 3, 32);
-    
-    // 旋轉剛體形狀 90 度，使圓柱體沿 Y 軸放置
     const q = new CANNON.Quaternion();
     q.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
     groundBody.addShape(cylinderShape, new CANNON.Vec3(0, -1.5, 0), q);
-    
     world.addBody(groundBody);
+}
+
+// 🛠️ 紅色 X-DASH 齒輪軌道生成
+function createInvoluteGearRail() {
+    const numTeeth = 32;
+    const vertices = [], indices = [];
+
+    for (let i = 0; i < numTeeth; i++) {
+        const a1 = (i / numTeeth) * Math.PI * 2;
+        const a2 = ((i + 0.5) / numTeeth) * Math.PI * 2;
+        const a3 = ((i + 1) / numTeeth) * Math.PI * 2;
+        const rBase = GEAR_RAIL_RADIUS - 0.2;
+        const rPitch = GEAR_RAIL_RADIUS + 0.35;
+
+        vertices.push(rBase * Math.cos(a1), 0, rBase * Math.sin(a1));
+        vertices.push(rPitch * Math.cos(a2), 0.25, rPitch * Math.sin(a2));
+        vertices.push(rBase * Math.cos(a3), 0, rBase * Math.sin(a3));
+    }
+    for (let i = 0; i < numTeeth * 3; i += 3) indices.push(i, i + 1, i + 2);
+
+    const railGeo = new THREE.TorusGeometry(GEAR_RAIL_RADIUS, 0.35, 16, 64);
+    const railMat = new THREE.MeshStandardMaterial({ color: 0xff3366, emissive: 0x550022, roughness: 0.2, metalness: 0.9 });
+    const gearRailMesh = new THREE.Mesh(railGeo, railMat);
+    gearRailMesh.rotation.x = Math.PI / 2;
+    gearRailMesh.position.y = 0.2;
+    scene.add(gearRailMesh);
+
+    const trimeshShape = new CANNON.Trimesh(vertices, indices);
+    const gearRailBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
+    gearRailBody.addShape(trimeshShape, new CANNON.Vec3(0, 0.2, 0));
+    world.addBody(gearRailBody);
 }
 
 function spawnArenaObstacles() {
@@ -154,7 +196,6 @@ function handleMultiTopImpacts() {
     }
 }
 
-// 🛡️ 離場判定保護期 (開局 2 秒不判 Over Finish)
 function checkMatchRules() {
     if (!isSimulating || matchEnded) return;
     const statusEl = document.getElementById('match-status');
