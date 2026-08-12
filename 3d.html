@@ -157,7 +157,7 @@
                 </div>
             </div>
 
-            <div class="status-banner" id="match-status">準備發射...</div>
+            <div class="status-banner" id="match-status">請選擇對戰模式並發射...</div>
             <button class="btn btn-ai" id="btn-vs-ai">🎮 單人對戰 (VS AI)</button>
             <button class="btn" id="btn-2p">⚔️ 1P vs 2P 自訂對戰</button>
             <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
@@ -276,7 +276,8 @@
             window.addEventListener('resize', onWindowResize);
             animate(performance.now());
             
-            launchCustom3DBattle('VS_AI');
+            // 進入 3D 版時顯示 UI 選單，不自動發射陀螺
+            document.getElementById('ui-overlay-box').style.display = 'block';
         }
 
         function create3DStadium() {
@@ -365,7 +366,7 @@
 
             isSimulating = true;
 
-            // 📱 手機端自動收起選單
+            // 📱 手機端點擊發射後自動收起選單
             if (window.innerWidth <= 768) {
                 document.getElementById('ui-overlay-box').style.display = 'none';
             }
