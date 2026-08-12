@@ -1,19 +1,102 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>爆上陀螺 Jayblade</title>
-  
-  <!-- PWA 設定 -->
-  <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="JaybladeICON-192.png">
-  <meta name="theme-color" content="#121218">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- 
+      ================================================================
+      🌀 爆上陀螺 Jayblade
+      Designed & Developed by 羅子淇 Jacky Law
+      Personal Site: https://jackylawck.github.io/jackylawck/
+      Repository: https://github.com/jackylawck/Jayblade/
+      ================================================================
+    -->
 
-  <link rel="stylesheet" href="style.css">
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- 🔍 1. Google Search Console 驗證標籤 -->
+    <meta name="google-site-verification" content="JZ5UohX-CcP_fQV0_DI9VadkKY4ZoTTkUifL88-fIcY" />
+
+    <!-- 🔍 2. 精準中英文雙語 SEO Meta 標籤 -->
+    <title>爆上陀螺 Jayblade | T0 賽場神機 & 左右雙旋物理模擬器 Dual-Spin Physics Simulator</title>
+    <meta name="description" content="純本地 WebGL/Canvas 2D 剛體力學戰鬥陀螺對戰模擬器。融合拉格朗日章動方程、Stribeck 動態摩擦力、同旋對撞與異旋吸轉（Spin Steal）機制，支援 WebRTC 20Hz 遠端 P2P 對戰與 PWA 離線暢玩。Pure Local Dual-Spin Beyblade Physics Simulator & WebRTC P2P Multiplayer.">
+    <meta name="keywords" content="爆上陀螺, Jayblade, 戰鬥陀螺X, Beyblade X, 物理模擬器, 剛體力學, 異旋吸轉, Spin Steal, WebRTC, P2P對戰, PWA, 羅子淇, Jacky Law, Physics Simulator, Dual-Spin">
+    
+    <!-- 👤 3. Code-Level Author & Credit Annotations (Google/SEO Crawlers Only) -->
+    <meta name="author" content="羅子淇 Jacky Law (https://jackylawck.github.io/jackylawck/)">
+    <meta name="creator" content="羅子淇 Jacky Law">
+    <meta name="publisher" content="羅子淇 Jacky Law">
+    <meta name="copyright" content="© 2026 羅子淇 Jacky Law. All rights reserved.">
+    <link rel="author" href="https://jackylawck.github.io/jackylawck/" />
+    <link rel="me" href="https://jackylawck.github.io/jackylawck/" />
+    
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jackylawck.github.io/Jayblade/">
+
+    <!-- 🌐 4. Open Graph Protocol (Facebook, LinkedIn, WhatsApp Preview Cards) -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://jackylawck.github.io/Jayblade/">
+    <meta property="og:title" content="爆上陀螺 Jayblade | T0 賽場神機 & 左右雙旋物理模擬器">
+    <meta property="og:description" content="🌀 剛體力學戰鬥陀螺對戰模擬器！支援異旋吸轉、爆裂抗性計算與 WebRTC P2P 遠端連線對決。">
+    <meta property="og:image" content="https://jackylawck.github.io/Jayblade/JaybladeICON-512.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:site_name" content="爆上陀螺 Jayblade">
+    <meta property="og:locale" content="zh_HK">
+    <meta property="og:locale:alternate" content="en_US">
+
+    <!-- 🐦 5. Twitter / X Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:url" content="https://jackylawck.github.io/Jayblade/">
+    <meta name="twitter:title" content="Jayblade | Dual-Spin Beyblade Physics Simulator">
+    <meta name="twitter:description" content="Pure Local Dual-Spin Beyblade Physics Simulator & WebRTC P2P Multiplayer. PWA Ready.">
+    <meta name="twitter:image" content="https://jackylawck.github.io/Jayblade/JaybladeICON-512.png">
+
+    <!-- 💡 6. JSON-LD Structured Data for Google Rich Snippets & Person Attribution -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "爆上陀螺 Jayblade",
+      "alternateName": ["Jayblade", "爆上陀螺", "Beyblade Jayblade Simulator"],
+      "url": "https://jackylawck.github.io/Jayblade/",
+      "description": "純本地 HTML5 Canvas 剛體力學戰鬥陀螺模擬器，支援拉格朗日章動解耦、異旋動能吸收、WebRTC P2P 遠端連線與 PWA 離線體驗。",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "All",
+      "browserRequirements": "Requires JavaScript. Requires HTML5 Canvas.",
+      "author": {
+        "@type": "Person",
+        "name": "羅子淇 Jacky Law",
+        "alternateName": "Jacky Law",
+        "url": "https://jackylawck.github.io/jackylawck/"
+      },
+      "creator": {
+        "@type": "Person",
+        "name": "羅子淇 Jacky Law",
+        "url": "https://jackylawck.github.io/jackylawck/"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "HKD"
+      }
+    }
+    </script>
+
+    <!-- 🛡️ 7. Content Security Policy: 允許 PeerJS 信令伺服器與 P2P 連線 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://unpkg.com https://*.peerjs.com wss://*.peerjs.com; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.peerjs.com wss://*.peerjs.com; img-src 'self' data:; frame-ancestors 'none';">
+
+    <!-- 📱 8. PWA & Mobile Web Assets -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
+    
+    <meta name="theme-color" content="#121218">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="爆上陀螺">
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -98,7 +181,7 @@
         </div>
       </div>
 
-      <!-- P2 設定 -->
+      <!-- P2 設定 (僅雙人同機時顯示) -->
       <div class="player-box p2-box" id="p2-setup-group" style="display:none;">
         <h3 id="ui-p2-title">🔴 P2 陀螺自訂</h3>
         <div class="form-group"><label id="lbl-p2-name">名稱: </label><input type="text" id="p2-name" value="影武赤狼"></div>
@@ -183,6 +266,8 @@
     <button class="btn" id="btn-reset" onclick="resetGame()">🔄 重新設定 / 再次對戰</button>
   </div>
 
+  <!-- Code-level Credit Annotations for Search Engine Indexing: Designed & Developed by Jacky Law 羅子淇 (https://jackylawck.github.io/jackylawck/) -->
+
   <script src="js/parts.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/game.js"></script>
@@ -191,7 +276,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg error:', err));
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
       });
     }
   </script>
