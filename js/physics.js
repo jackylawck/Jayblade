@@ -1,166 +1,121 @@
+// js/physics.js - 高頻物理模擬與剛體計算優化
+
 export const STADIUM_RADIUS = 12;
 export const GEAR_RAIL_RADIUS = 10.5;
 
-export class Beyblade3D {
-    constructor(scene, world, defaultMaterial, x, y, z, color, name, isRightSpin = true, burstResist = 0.85, radius = 1.5) {
+// 固定物理步長設定：240Hz 算力（1/240 秒）
+export const PHYSICS_FIXED_TIMESTEP = 1 / 240;
+export const PHYSICS_MAX_SUBSTEPS = 10;
+
+/**
+ * 自動根據 3D 幾何邊界計算轉動慣量張量 (Inertia Tensor)
+ */
+export function calculateCylinderInertia(mass, radius, height) {
+    const I_z = 0.5 * mass * Math.pow(radius, 2);
+    const I_xy = (1 / 12) * mass * (3 * Math.pow(radius, 2) + Math.pow(height, 2));
+    return { I_xy, I_z };
+}
+
+export class Beyblade3DPhysics {
+    constructor(scene, world, defaultMaterial, config) {
         this.scene = scene;
         this.world = world;
-        this.name = name;
-        this.color = color;
-        this.isRightSpin = isRightSpin;
-        this.rpm = 12000;
-        this.rho = 1.225;
-        this.area = 0.00785;
-        this.radius = radius;
-        this.xdashCooldown = 0;
-        this.lastXDashTime = 0;
-        this.burstResist = burstResist;
+        this.id = config.id || Math.random().toString(36).substring(2, 9);
+        this.name = config.name;
+        this.color = config.color;
+        this.isRightSpin = config.isRightSpin ?? true;
         this.shatterHp = 100;
         this.isShattered = false;
-        this.arrowHelper = null;
+        this.radius = config.radius || 1.2;
+        this.mass = config.mass || 0.045;
 
-        this.group = new THREE.Group();
-        const crownGeo = new THREE.CylinderGeometry(radius, radius * 0.86, 0.4, 8);
-        const crownMat = new THREE.MeshStandardMaterial({ color: color, metalness: 0.9, roughness: 0.2 });
-        this.group.add(new THREE.Mesh(crownGeo, crownMat));
-
-        const coreGeo = new THREE.SphereGeometry(0.6, 16, 16);
-        const coreMat = new THREE.MeshPhongMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.8 });
-        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-        coreMesh.position.y = 0.2;
-        this.group.add(coreMesh);
-
-        scene.add(this.group);
-
-        const mass = 0.045;
-        this.body = new CANNON.Body({ mass: mass, material: defaultMaterial });
-        this.body.addShape(new CANNON.Sphere(1.2));
-
-        const I_z = 0.5 * mass * Math.pow(radius * 0.1, 2);
-        const I_xy = 0.25 * mass * Math.pow(radius * 0.1, 2) + (1/12) * mass * Math.pow(0.04, 2);
-        this.body.inertia.set(I_xy, I_z, I_xy);
-        this.body.invInertia.set(1/I_xy, 1/I_z, 1/I_xy);
+        // 轉動慣量矩陣
+        const { I_xy, I_z } = calculateCylinderInertia(this.mass, this.radius * 0.1, 0.04);
         this.Iz = I_z;
 
-        this.body.position.set(x, y, z);
-        const spinRad = (this.rpm * 2 * Math.PI) / 60 * (isRightSpin ? -1 : 1);
+        // 建立 Cannon.js 剛體
+        this.body = new CANNON.Body({
+            mass: this.mass,
+            material: defaultMaterial,
+            linearDamping: 0.03,    // 平移線阻尼
+            angularDamping: 0.0008, // 旋轉角阻尼
+            ccdSpeedThreshold: 5,   // 觸發高速度防穿透臨限值
+            ccdIterations: 5
+        });
+
+        // 採用球體微幾何碰撞形狀（防止幾何邊緣卡死）
+        this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
+        this.body.position.set(config.x, config.y, config.z);
+
+        // 設定初始轉速 (RPM 轉角速度 rad/s)
+        const initialRpm = config.rpm || 12000;
+        const spinRad = (initialRpm * 2 * Math.PI) / 60 * (this.isRightSpin ? -1 : 1);
         this.body.angularVelocity.set(0, spinRad, 0);
+
+        // 手動覆寫轉动慣量
+        this.body.inertia.set(I_xy, I_z, I_xy);
+        this.body.invInertia.set(1 / I_xy, 1 / I_z, 1 / I_xy);
 
         world.addBody(this.body);
     }
 
-    update(dt, showPrecessionVectors, sfx3D, obstacleBodies) {
+    /**
+     * 每一物理步長執行的力學演算
+     */
+    stepPhysics(dt) {
         if (this.isShattered) return;
 
-        this.group.position.copy(this.body.position);
-        this.group.quaternion.copy(this.body.quaternion);
-        this.rpm = Math.abs(this.body.angularVelocity.y) * 60 / (2 * Math.PI);
-
-        // 🌀 戰鬥盤中央斜面向心力 (拉回中心，防止開局飛出場外)
         const distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
-        if (distFromCenter > 0.5 && distFromCenter < STADIUM_RADIUS) {
-            const pullForce = 0.06 * distFromCenter;
-            const pullX = (-this.body.position.x / distFromCenter) * pullForce;
-            const pullZ = (-this.body.position.z / distFromCenter) * pullForce;
-            this.body.applyForce(new CANNON.Vec3(pullX, 0, pullZ), this.body.position);
+
+        // 1. 戰鬥盤坡度向心引力 (Bowl Gravity)
+        if (distFromCenter > 0.1 && distFromCenter < STADIUM_RADIUS) {
+            const pullMagnitude = 0.18 * distFromCenter;
+            const fx = (-this.body.position.x / distFromCenter) * pullMagnitude;
+            const fz = (-this.body.position.z / distFromCenter) * pullMagnitude;
+            this.body.applyForce(new CANNON.Vec3(fx, 0, fz), this.body.position);
         }
 
-        // A. 空氣動力學
-        if (this.rpm > 1000) {
-            const upVector = new CANNON.Vec3(0, 1, 0);
-            const localUp = this.body.quaternion.vmult(upVector);
-            const linVel = this.body.velocity;
-            const speed = linVel.norm();
-
-            if (speed > 0.1) {
-                const velDir = linVel.unit();
-                const cosAlpha = Math.min(1, Math.max(-1, velDir.dot(localUp)));
-                const alpha = Math.acos(cosAlpha);
-
-                const vortexCoeff = 0.00015 * Math.pow(this.rpm / 1000, 2);
-                const dragMag = (0.5 * this.rho * Math.pow(speed, 2) * this.area + vortexCoeff) * (0.1 + 0.5 * Math.pow(Math.sin(alpha), 2));
-                const dragForce = velDir.scale(-dragMag);
-
-                const spinVec = new CANNON.Vec3(0, this.body.angularVelocity.y, 0);
-                const magnusForce = spinVec.cross(linVel).scale(0.00008);
-
-                const liftMag = 0.5 * this.rho * Math.pow(speed, 2) * this.area * (0.4 * Math.sin(2 * alpha));
-                const liftForce = localUp.scale(liftMag);
-
-                this.body.applyForce(dragForce, this.body.position);
-                this.body.applyForce(magnusForce, this.body.position);
-                this.body.applyForce(liftForce, this.body.position);
-            }
-        }
-
-        // 進動與向量輔助線
-        const upVector = new CANNON.Vec3(0, 1, 0);
-        const localUp = this.body.quaternion.vmult(upVector);
-        const tiltAngle = Math.acos(Math.min(1, Math.max(-1, localUp.y)));
-
-        if (tiltAngle > 0.01 && Math.abs(this.body.angularVelocity.y) > 10) {
-            const tiltAxis = new CANNON.Vec3();
-            tiltAxis.cross(upVector, localUp);
-            if (tiltAxis.norm() > 0.001) {
-                tiltAxis.normalize();
-                const precessionRate = (9.81 * 0.004) / (Math.abs(this.body.angularVelocity.y) * this.Iz);
-                const precessionMagnitude = precessionRate * this.body.angularVelocity.y * 0.005;
-                const torqueVec = new CANNON.Vec3(tiltAxis.x * precessionMagnitude, tiltAxis.y * precessionMagnitude, tiltAxis.z * precessionMagnitude);
-                this.body.torque.vadd(torqueVec, this.body.torque);
-
-                if (showPrecessionVectors) {
-                    if (!this.arrowHelper) {
-                        this.arrowHelper = new THREE.ArrowHelper(new THREE.Vector3(tiltAxis.x, tiltAxis.y, tiltAxis.z), this.group.position, 2.5, 0xffcc00);
-                        this.scene.add(this.arrowHelper);
-                    } else {
-                        this.arrowHelper.position.copy(this.group.position);
-                        this.arrowHelper.setDirection(new THREE.Vector3(tiltAxis.x, tiltAxis.y, tiltAxis.z));
-                        this.arrowHelper.visible = true;
-                    }
-                } else if (this.arrowHelper) {
-                    this.arrowHelper.visible = false;
-                }
-            }
-        }
-
-        // B. 漸開線齒輪與衝量避讓
-        if (this.xdashCooldown > 0) this.xdashCooldown -= dt;
-
-        let nearObstacle = false;
-        if (obstacleBodies && obstacleBodies.length > 0) {
-            nearObstacle = obstacleBodies.some(obs => this.body.position.distanceTo(obs.position) < 1.8);
-        }
-
-        if (!nearObstacle && this.xdashCooldown <= 0 && Math.abs(distFromCenter - GEAR_RAIL_RADIUS) < 0.45 && this.body.position.y < 0.5) {
-            const spinDir = this.isRightSpin ? -1 : 1;
-            const tangentX = (-this.body.position.z / distFromCenter) * spinDir;
-            const tangentZ = (this.body.position.x / distFromCenter) * spinDir;
-
-            const bitPitchRadius = 0.35;
-            const targetLinearVel = Math.abs(this.body.angularVelocity.y) * bitPitchRadius * 0.18;
-            const dashForce = targetLinearVel * this.body.mass;
-
-            this.body.applyImpulse(new CANNON.Vec3(tangentX * dashForce, 0.25, tangentZ * dashForce), this.body.position);
-            this.xdashCooldown = 0.18;
-            this.lastXDashTime = performance.now();
-            sfx3D.playXDashSound();
-        }
-
-        this.body.angularVelocity.y *= 0.9992;
+        // 2. Stribeck 摩擦力與空氣衰減
+        this.body.angularVelocity.y *= 0.9996;
     }
 
-    triggerShatter(gpuSparks, sfx3D) {
-        if (this.isShattered) return;
-        this.isShattered = true;
+    /**
+     * 讀取當前狀態快照 (用於 WebRTC 廣播)
+     */
+    getSnapshot(sequence) {
+        return {
+            id: this.id,
+            seq: sequence,
+            px: Number(this.body.position.x.toFixed(4)),
+            py: Number(this.body.position.y.toFixed(4)),
+            pz: Number(this.body.position.z.toFixed(4)),
+            vx: Number(this.body.velocity.x.toFixed(4)),
+            vy: Number(this.body.velocity.y.toFixed(4)),
+            vz: Number(this.body.velocity.z.toFixed(4)),
+            qx: Number(this.body.quaternion.x.toFixed(4)),
+            qy: Number(this.body.quaternion.y.toFixed(4)),
+            qz: Number(this.body.quaternion.z.toFixed(4)),
+            qw: Number(this.body.quaternion.w.toFixed(4)),
+            wx: Number(this.body.angularVelocity.x.toFixed(4)),
+            wy: Number(this.body.angularVelocity.y.toFixed(4)),
+            wz: Number(this.body.angularVelocity.z.toFixed(4)),
+            hp: Number(this.shatterHp.toFixed(1))
+        };
+    }
 
-        if (this.arrowHelper) {
-            this.scene.remove(this.arrowHelper);
-            this.arrowHelper = null;
-        }
+    /**
+     * 根據快照強制進行狀態平滑校正 (Reconciliation)
+     */
+    applySnapshot(snapshot, lerpFactor = 0.25) {
+        const targetPos = new CANNON.Vec3(snapshot.px, snapshot.py, snapshot.pz);
+        const targetVel = new CANNON.Vec3(snapshot.vx, snapshot.vy, snapshot.vz);
+        const targetAngVel = new CANNON.Vec3(snapshot.wx, snapshot.wy, snapshot.wz);
 
-        this.world.remove(this.body);
-        gpuSparks.emit(this.group.position.x, this.group.position.y, this.group.position.z, 3.0);
-        sfx3D.playImpact(1.0, 0.5);
-        this.scene.remove(this.group);
+        // 位置與速度平滑插值 (防止網路微小震動導致畫面閃爍)
+        this.body.position.vadd(targetPos.vsub(this.body.position).scale(lerpFactor), this.body.position);
+        this.body.velocity.vadd(targetVel.vsub(this.body.velocity).scale(lerpFactor), this.body.velocity);
+        this.body.angularVelocity.vadd(targetAngVel.vsub(this.body.angularVelocity).scale(lerpFactor), this.body.angularVelocity);
+        
+        this.shatterHp = snapshot.hp;
     }
 }
