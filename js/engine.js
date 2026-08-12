@@ -241,12 +241,14 @@ class PhysicalTop {
     this.trail.push({ x: this.x, y: this.y, angle: this.angle });
     if (this.trail.length > 6) this.trail.shift();
 
+    // 🌟 強化版碗狀坡度向心力 (Force Gravity towards Center Bowl Zone)
     const distToCenter = Math.hypot(this.x - arenaCenter.x, this.y - arenaCenter.y);
-    if (distToCenter > 1) {
+    if (distToCenter > 2) {
       const dirX = (arenaCenter.x - this.x) / distToCenter;
       const dirY = (arenaCenter.y - this.y) / distToCenter;
-      const slopeRatio = Math.pow(distToCenter / arenaCenter.radius, 1.5);
-      const bowlGravityPower = CURRENT_PHYSICS_MODE === 'ARCADE' ? 320 : 200;
+      // 指數型陡峭坡度，離外圍越近，下滑向心加速度越強大！
+      const slopeRatio = Math.pow(distToCenter / arenaCenter.radius, 1.8);
+      const bowlGravityPower = CURRENT_PHYSICS_MODE === 'ARCADE' ? 520 : 380;
       this.vx += dirX * slopeRatio * bowlGravityPower * dt;
       this.vy += dirY * slopeRatio * bowlGravityPower * dt;
     }
@@ -271,7 +273,6 @@ class PhysicalTop {
         this.vy += Math.sin(this.precessionAngle) * wobbleOffset * dt;
       }
     } else {
-      // 🔬 真實拉格朗日章動方程 (Nutation Equations)
       const currentOmega = Math.abs(this.angularVelocity);
       const airResistance = 0.00003, bearingFriction = 0.05;
       const alpha = -(bearingFriction * currentOmega) - (airResistance * Math.pow(currentOmega, 2));
@@ -287,7 +288,6 @@ class PhysicalTop {
       if (currentOmega > criticalOmega * 1.5) {
         this.tilt *= (1 - 0.05 * dt);
       } else {
-        // 解耦章動與進動，形成自然的花瓣搖晃軌跡
         const nutationFreq = currentOmega * 0.4;
         const nutationAmp = (criticalOmega * 1.5 - currentOmega) * 0.002;
         this.tilt += 0.00015 * dt * (criticalOmega * 1.5 - currentOmega);
@@ -335,16 +335,16 @@ class PhysicalTop {
       this.vx += Math.cos(moveAngle) * (this.tip.moveForce * 1.2) * dt;
       this.vy += Math.sin(moveAngle) * (this.tip.moveForce * 1.2) * dt;
     } else if (this.tip.shape === 'PINPOINT') {
-      this.vx *= 0.97; this.vy *= 0.97;
+      this.vx *= 0.96; this.vy *= 0.96;
     } else if (this.tip.shape === 'BALL') {
-      this.vx *= 0.985; this.vy *= 0.985;
+      this.vx *= 0.975; this.vy *= 0.975;
     } else if (this.tip.shape === 'SEMIFLAT' || this.tip.shape === 'TAPER' || this.tip.shape === 'ORB') {
       if (this.rpm > 1200) {
         const moveAngle = this.angle + (Math.PI / 2) * this.spinDir;
         this.vx += Math.cos(moveAngle) * (this.tip.moveForce * 0.9) * dt;
         this.vy += Math.sin(moveAngle) * (this.tip.moveForce * 0.9) * dt;
       } else {
-        this.vx *= 0.98; this.vy *= 0.98;
+        this.vx *= 0.97; this.vy *= 0.97;
       }
     }
 
@@ -453,7 +453,6 @@ class PhysicalTop {
   }
 }
 
-// 🌟 爆裂抗性 (Burst Resistance) 與攻擊力 (Attack Power) 碰撞計算
 function resolveAdvancedCollision(p1, p2) {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
@@ -517,7 +516,6 @@ function resolveAdvancedCollision(p1, p2) {
         p2.rpm -= impulse * rpmDamage;
       }
 
-      // 💥 計算包含攻擊力與抗爆性的崩解數值 (Burst Damage Calculation)
       const baseHpDamage = CURRENT_PHYSICS_MODE === 'ARCADE' ? 0.003 : 0.02;
       const p1ShatterDamage = impulse * baseHpDamage * (p2.attackPower / p1.burstResist);
       const p2ShatterDamage = impulse * baseHpDamage * (p1.attackPower / p2.burstResist);
