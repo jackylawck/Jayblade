@@ -6,11 +6,16 @@ let p1, p2;
 let matchEnded = false;
 let isDebugVisible = false;
 
+// WebRTC 房號與雙向 Ready 機制
 let peer = null;
 let peerConn = null;
 let isOnlineHost = false;
 let ping = 0;
 let lastSyncTime = 0;
+
+let localReady = false;
+let remoteReady = false;
+let remoteP2Data = null;
 
 let touchStartY = 0;
 let touchStartTime = 0;
@@ -165,7 +170,6 @@ function toggleLanguage() {
   document.getElementById('ui-p1-title').innerText = dict.p1Title;
   document.getElementById('ui-p2-title').innerText = dict.p2Title;
   
-  // 名稱欄預設值切換
   const p1NameEl = document.getElementById('p1-name');
   if (p1NameEl && (p1NameEl.value === '火鷹飛龍' || p1NameEl.value === 'Fire Bird Dragon')) {
     p1NameEl.value = dict.p1DefaultName;
@@ -191,7 +195,6 @@ function toggleLanguage() {
   document.getElementById('lbl-p2-angle').innerText = dict.lblAngle;
   document.getElementById('lbl-p2-power').innerText = dict.lblPower;
 
-  // 下拉選單 Option 文字切換
   document.getElementById('opt-p1-spin-r').innerText = dict.spinRight;
   document.getElementById('opt-p1-spin-l').innerText = dict.spinLeft;
   document.getElementById('opt-p2-spin-r').innerText = dict.spinRight;
@@ -322,6 +325,7 @@ function importShareCode(prefix) {
   } else { alert(CURRENT_LANG === 'EN' ? '❌ Invalid Code' : '❌ 分享碼無效'); }
 }
 
+// 🌐 WebRTC PeerJS 大廳與雙向 Ready 確認機制
 function initPeerJS() {
   if (peer || typeof Peer === 'undefined') return;
 
@@ -336,9 +340,7 @@ function initPeerJS() {
 
   peer.on('error', (err) => {
     if (err.type === 'unavailable-id') {
-      peer.destroy();
-      peer = null;
-      initPeerJS();
+      peer.destroy(); peer = null; initPeerJS();
     }
   });
 
@@ -346,7 +348,7 @@ function initPeerJS() {
     peerConn = conn;
     isOnlineHost = true;
     setupPeerListeners();
-    document.getElementById('network-status').innerText = CURRENT_LANG === 'EN' ? '✅ Player Connected!' : '✅ 玩家已加入連線！';
+    updateLobbyStatus(CURRENT_LANG === 'EN' ? '✅ Opponent Joined! Select beyblade and click Shoot.' : '✅ 玩家已加入！請選擇陀螺並點擊發射。');
   });
 }
 
@@ -357,19 +359,41 @@ function connectToPeer() {
   peerConn = peer.connect(targetId);
   isOnlineHost = false;
   setupPeerListeners();
-  document.getElementById('network-status').innerText = CURRENT_LANG === 'EN' ? 'Connecting...' : '連線中...';
+  updateLobbyStatus(CURRENT_LANG === 'EN' ? 'Connecting to host...' : '連線中...');
+}
+
+function updateLobbyStatus(msg) {
+  const el = document.getElementById('lobby-ready-status');
+  if (el) el.innerText = msg;
 }
 
 function setupPeerListeners() {
   peerConn.on('open', () => {
-    document.getElementById('network-status').innerText = CURRENT_LANG === 'EN' ? '✅ Connected! (Client Mode)' : '✅ 連線成功！ (Client 模式)';
+    updateLobbyStatus(CURRENT_LANG === 'EN' ? '✅ Connected! Choose your Beyblade & click Shoot.' : '✅ 連線成功！選好陀螺後請點擊 Go Shoot 準備。');
     if (!isOnlineHost) setInterval(() => { if (peerConn.open) peerConn.send({ type: 'PING', time: Date.now() }); }, 1000);
   });
+
   peerConn.on('data', (data) => {
     if (data.type === 'PING') { peerConn.send({ type: 'PONG', time: data.time }); }
     else if (data.type === 'PONG') {
       ping = Date.now() - data.time;
       document.getElementById('ping-display').innerText = `Ping: ${ping} ms`;
+    }
+    // 🌟 收到對手的 Ready 指令與陀螺資料
+    else if (data.type === 'PLAYER_READY') {
+      remoteReady = true;
+      remoteP2Data = data.config;
+      updateLobbyStatus(CURRENT_LANG === 'EN' ? `🎮 ${remoteP2Data.name} is READY!` : `🎮 對手 【${remoteP2Data.name}】 已準備！`);
+
+      // 若兩邊都點擊 Shoot，由 Host 端觸發開始對戰
+      if (localReady && isOnlineHost) {
+        peerConn.send({ type: 'START_MATCH' });
+        executeGameStart();
+      }
+    }
+    // 🌟 Client 收到開始指令
+    else if (data.type === 'START_MATCH') {
+      executeGameStart();
     }
     else if (data.type === 'SYNC_STATE' && !isOnlineHost && p1 && p2) {
       p1.targetX = data.p1.x; p1.targetY = data.p1.y; p1.rpm = data.p1.rpm; p1.shatterHp = data.p1.hp; p1.isXDashing = data.p1.xd;
@@ -413,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (speed < 300) calculatedPower = 'LIGHT';
 
         if (document.getElementById('p1-power')) document.getElementById('p1-power').value = calculatedPower;
-        startGame();
+        onShootBtnClick();
       }
     });
   }
@@ -466,6 +490,7 @@ window.addEventListener('touchstart', () => sfx.init(), { once: true });
 
 function setGameMode(mode) {
   gameMode = mode;
+  localReady = false; remoteReady = false; remoteP2Data = null;
   const cpuGroup = document.getElementById('cpu-difficulty-group'), p2Group = document.getElementById('p2-setup-group'), onlineGroup = document.getElementById('online-panel');
   if (cpuGroup) cpuGroup.style.display = mode === 'SINGLE' ? 'block' : 'none';
   if (p2Group) p2Group.style.display = mode === 'VERSUS' ? 'block' : 'none';
@@ -498,7 +523,42 @@ function playLaunchSequence(onComplete) {
   }, 600);
 }
 
-function startGame() {
+// 按下 Shoot 按鈕處理
+function onShootBtnClick() {
+  if (gameMode === 'ONLINE') {
+    if (!peerConn || !peerConn.open) {
+      return alert(CURRENT_LANG === 'EN' ? 'Please connect to an opponent first!' : '請先建立 WebRTC 連線！');
+    }
+    localReady = true;
+    
+    // 收集本機自訂資料傳給對方
+    const p1Data = {
+      name: document.getElementById('p1-name')?.value || '火鷹飛龍', 
+      color: document.getElementById('p1-color')?.value || '#1e90ff',
+      crown: document.getElementById('p1-crown')?.value || 'wizard_arc', 
+      tip: document.getElementById('p1-tip')?.value || 'dash_flat', 
+      spin: document.getElementById('p1-spin')?.value || 'RIGHT',
+      angle: document.getElementById('p1-angle')?.value || '15', 
+      power: document.getElementById('p1-power')?.value || 'MEDIUM',
+      grid: selectedGrid
+    };
+
+    peerConn.send({ type: 'PLAYER_READY', config: p1Data });
+    updateLobbyStatus(CURRENT_LANG === 'EN' ? '⌛ Waiting for opponent to click Shoot...' : '⌛ 已準備，等待對手點擊發射...');
+
+    // 若自己是 Client 且對手已經 Ready，告知 Host 觸發開始
+    if (!isOnlineHost && remoteReady) {
+      peerConn.send({ type: 'PLAYER_READY', config: p1Data });
+    } else if (isOnlineHost && remoteReady) {
+      peerConn.send({ type: 'START_MATCH' });
+      executeGameStart();
+    }
+  } else {
+    executeGameStart();
+  }
+}
+
+function executeGameStart() {
   sfx.init();
   const p1Data = {
     name: document.getElementById('p1-name')?.value || (CURRENT_LANG === 'EN' ? 'Fire Bird Dragon' : '火鷹飛龍'), 
@@ -524,6 +584,7 @@ function startGame() {
   CURRENT_PHYSICS_MODE = engineMode;
 
   saveUserPreferences(p1Data, p2Data, selectedGrid, diffKey, engineMode);
+
   document.getElementById('setup-panel').style.display = 'none';
   document.getElementById('game-panel').style.display = 'block';
 
@@ -538,6 +599,13 @@ function startGame() {
       const cpuCol = (cpuSetup.grid - 1) % 6, cpuRow = Math.floor((cpuSetup.grid - 1) / 6);
       const cpuDiffName = CPU_DIFFICULTIES[diffKey] ? (CURRENT_LANG === 'EN' ? CPU_DIFFICULTIES[diffKey].name_en : CPU_DIFFICULTIES[diffKey].name_zh) : '普通';
       p2 = new PhysicalTop(100 + cpuCol * 60, 100 + cpuRow * 80, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, '0', cpuSetup.spin, `CPU (${cpuDiffName})`, '#ff3838', true, cpuSetup.aiRate);
+    } else if (gameMode === 'ONLINE' && remoteP2Data) {
+      // 🌟 連線模式使用對方真正設定的名稱與配色
+      const rGrid = remoteP2Data.grid || 11;
+      const rCol = (rGrid - 1) % 6, rRow = Math.floor((rGrid - 1) / 6);
+      const p2X = 100 + rCol * 60, p2Y = 100 + rRow * 80;
+
+      p2 = new PhysicalTop(p2X, p2Y, remoteP2Data.crown, remoteP2Data.tip, remoteP2Data.power, remoteP2Data.angle, remoteP2Data.spin, remoteP2Data.name, remoteP2Data.color, false);
     } else {
       p2 = new PhysicalTop(350, 250, p2Data.crown, p2Data.tip, p2Data.power, p2Data.angle, p2Data.spin, p2Data.name, p2Data.color, false);
     }
@@ -660,6 +728,10 @@ function mainGameLoop(now) {
 function resetGame() {
   if (animationId) cancelAnimationFrame(animationId);
   sfx.stopBGM();
+  localReady = false; remoteReady = false;
   document.getElementById('setup-panel').style.display = 'block';
   document.getElementById('game-panel').style.display = 'none';
+  if (gameMode === 'ONLINE') {
+    updateLobbyStatus(CURRENT_LANG === 'EN' ? '✅ Connected! Select beyblade & click Shoot.' : '✅ 連線成功！選好陀螺後請點擊 Go Shoot 準備。');
+  }
 }
