@@ -4,63 +4,217 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- 🖼️ 1. Favicon & App Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
-    <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
+    <!-- Google Search Console -->
+    <meta name="google-site-verification" content="JZ5UohX-CcP_fQV0_DI9VadkKY4ZoTTkUifL88-fIcY" />
+
+    <title>爆上陀螺 Jayblade | 左右雙旋物理模擬器 Dual-Spin Physics Simulator</title>
+    <meta name="description" content="純本地 WebGL/Canvas 2D 剛體力學戰鬥陀螺對戰模擬器。支援 WebRTC 20Hz 遠端 P2P 對戰與 PWA 離線暢玩。">
+    <meta name="keywords" content="爆上陀螺, Jayblade, 戰鬥陀螺X, Beyblade X, 物理模擬器, 剛體力學, 異旋吸轉, Spin Steal, WebRTC">
+    
+    <meta name="author" content="羅子淇 Jacky Law">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://jackylawck.github.io/Jayblade/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://jackylawck.github.io/Jayblade/">
+    <meta property="og:title" content="爆上陀螺 Jayblade | 左右雙旋物理模擬器">
+    <meta property="og:description" content="🌀 剛體力學戰鬥陀螺對戰模擬器！支援異旋吸轉、爆裂抗性計算與 WebRTC P2P 遠端連線對決。">
+    <meta property="og:image" content="https://jackylawck.github.io/Jayblade/JaybladeICON-512.png">
+
+    <!-- PWA Icons -->
     <link rel="manifest" href="./manifest.json">
-
-    <!-- 🛡️ 2. Content Security Policy (CSP) -->
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net https://*.peerjs.com wss://*.peerjs.com data: blob:;
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net;
-        style-src 'self' 'unsafe-inline';
-        connect-src 'self' https://*.peerjs.com wss://*.peerjs.com;
-        img-src 'self' data: blob:;
-    ">
-
-    <title>爆上陀螺 Jayblade</title>
-    <link rel="stylesheet" href="css/3d.css">
-
-    <!-- Third-Party Core Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
+    
+    <meta name="theme-color" content="#121218">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
 <body>
 
-    <div class="ui-overlay">
-        <div class="ui-card">
-            <div class="header-row">
-                <h1 id="ui-title">🌀 爆上陀螺 Jayblade</h1>
-                <button class="lang-btn" id="btn-lang">English</button>
-            </div>
-            <p id="ui-subtitle">剛體力學與家庭對戰模擬器</p>
-            <div class="status-banner" id="match-status">準備發射...</div>
-            <button class="btn" id="btn-2p">🎮 2人正規賽</button>
-            <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
-            <button class="btn btn-secondary" id="btn-helper">🎯 切換進動向量輔助線</button>
+  <div style="text-align: right; max-width: 500px; margin: 0 auto 5px;">
+    <button class="btn btn-sm btn-secondary" onclick="toggleLanguage()">🌐 中文 / English</button>
+  </div>
 
-            <!-- Real-time Kinetic Energy Graph Canvas -->
-            <div class="energy-chart-box">
-                <div class="chart-title" id="ui-chart-title">⚡ 系統動能留存率曲線:</div>
-                <canvas id="energy-canvas" width="320" height="40"></canvas>
-            </div>
+  <h1 id="ui-title">🌀 爆上陀螺 Jayblade 🌀</h1>
+  <p class="subtitle" id="ui-subtitle">T0 賽場神機 & 左右雙旋物理模擬器</p>
 
-            <!-- WebRTC Online Control Panel -->
-            <div class="webrtc-box">
-                <input type="text" id="room-id-input" class="webrtc-input" placeholder="6 位房號">
-                <button class="btn btn-secondary" id="btn-connect" style="margin-top:0; width:40%;">連線房號</button>
-            </div>
-
-            <div class="telemetry" id="telemetry-box">⚙️ 請選擇對戰模式</div>
-        </div>
+  <!-- 選單面板 -->
+  <div id="setup-panel" class="card">
+    
+    <!-- 🚀 3D 模式切換按鈕 -->
+    <div style="margin-bottom: 12px; background: rgba(0, 210, 211, 0.2); padding: 12px; border-radius: 8px; border: 1.5px solid #00d2d3; text-align: center;">
+      <a href="./3d.html" style="color: #00d2d3; font-weight: bold; text-decoration: none; font-size: 1.05rem; display: block;">
+        🚀 切換至 3D 科研級對戰模擬器 (3D Engine) →
+      </a>
     </div>
 
-    <div class="touch-zone" id="touch-launch-zone">👆 滑動發射</div>
-    <div id="canvas-container"></div>
+    <div class="mode-buttons">
+      <button class="btn" id="btn-single" onclick="setGameMode('SINGLE')">🎮 2D 單人對戰 (VS AI)</button>
+      <button class="btn btn-secondary" id="btn-versus" onclick="setGameMode('VERSUS')">⚔️ 2D 雙人同機 (1P VS 2P)</button>
+      <button class="btn btn-online" id="btn-online" onclick="setGameMode('ONLINE')">🌐 遠端連線 (WebRTC)</button>
+    </div>
 
-    <!-- ES Module App Entry Point -->
-    <script type="module" src="js/app.js"></script>
+    <hr>
+
+    <!-- 連線等候大廳 -->
+    <div id="online-panel" class="form-group physics-mode-box" style="display:none;">
+      <h4 id="ui-online-title">🌐 WebRTC P2P 連線等候大廳</h4>
+      <p style="font-size:12px; color:#aaa; margin-bottom:6px;"><span id="ui-my-id">你的 ID</span>: <b id="my-peer-id" style="color:#00d2d3;">生成中...</b></p>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="join-peer-id" placeholder="貼上對手的 Host ID">
+        <button class="btn btn-sm btn-secondary" id="btn-join" onclick="connectToPeer()">加入房間</button>
+      </div>
+      <div id="network-status" style="font-size:12px; color:#ffcc00; margin-top:6px;">狀態: 未連線</div>
+      <div id="lobby-ready-status" style="font-size:13px; color:#00d2d3; font-weight:bold; margin-top:4px;"></div>
+    </div>
+
+    <div id="config-section">
+      <div class="form-group physics-mode-box">
+        <label id="ui-phys-mode-label">⚙️ 模擬器物理模式: </label>
+        <select id="physics-engine-mode" onchange="switchPhysicsEngineMode(this.value)">
+          <option value="ARCADE" selected id="opt-arcade">🔥 熱血動畫版 (強烈對撞/閃光爆發)</option>
+          <option value="REALISTIC" id="opt-realistic">🔬 真實擬真版 (能量守恆/異旋吸轉)</option>
+        </select>
+      </div>
+
+      <!-- P1 設定 -->
+      <div class="player-box p1-box">
+        <h3 id="ui-p1-title">🔵 P1 陀螺自訂</h3>
+        <div class="form-group"><label id="lbl-p1-name">名稱: </label><input type="text" id="p1-name" value="火鷹飛龍"></div>
+        <div class="form-group"><label id="lbl-p1-color">顏色: </label><input type="color" id="p1-color" value="#1e90ff"></div>
+        <div class="form-group"><label id="lbl-p1-crown">撞擊環 (Crown): </label><select id="p1-crown"></select></div>
+        <div class="form-group"><label id="lbl-p1-tip">動力底軸 (Tip): </label><select id="p1-tip"></select></div>
+        
+        <div class="form-group">
+          <label id="lbl-p1-spin">🔄 旋轉方向: </label>
+          <select id="p1-spin">
+            <option value="RIGHT" selected id="opt-p1-spin-r">右迴旋 (順時針)</option>
+            <option value="LEFT" id="opt-p1-spin-l">左迴旋 (逆時針/異旋吸轉)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p1-angle">📐 降落角度: </label>
+          <select id="p1-angle">
+            <option value="0" id="opt-p1-angle-0">垂直直射 (0° 平穩居中)</option>
+            <option value="15" selected id="opt-p1-angle-15">斜角傾射 (15° 不規則衝刺)</option>
+            <option value="30" id="opt-p1-angle-30">極限斜射 (30° 極速側攻)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p1-power">發射力度: </label>
+          <select id="p1-power">
+            <option value="MEDIUM" selected id="opt-p1-power-m">中度 (穩定平衡)</option>
+            <option value="HEAVY" id="opt-p1-power-h">重度 (極速衝撞)</option>
+            <option value="LIGHT" id="opt-p1-power-l">輕度 (高精準)</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <button class="btn btn-sm" id="btn-export-p1" onclick="exportShareCode('p1')">📤 複製塗裝碼</button>
+          <button class="btn btn-sm btn-secondary" id="btn-import-p1" onclick="importShareCode('p1')">📥 匯入塗裝碼</button>
+        </div>
+      </div>
+
+      <!-- P2 設定 -->
+      <div class="player-box p2-box" id="p2-setup-group" style="display:none;">
+        <h3 id="ui-p2-title">🔴 P2 陀螺自訂</h3>
+        <div class="form-group"><label id="lbl-p2-name">名稱: </label><input type="text" id="p2-name" value="影武赤狼"></div>
+        <div class="form-group"><label id="lbl-p2-color">顏色: </label><input type="color" id="p2-color" value="#ff3838"></div>
+        <div class="form-group"><label id="lbl-p2-crown">撞擊環 (Crown): </label><select id="p2-crown"></select></div>
+        <div class="form-group"><label id="lbl-p2-tip">動力底軸 (Tip): </label><select id="p2-tip"></select></div>
+        
+        <div class="form-group">
+          <label id="lbl-p2-spin">🔄 旋轉方向: </label>
+          <select id="p2-spin">
+            <option value="RIGHT" selected id="opt-p2-spin-r">右迴旋 (順時針)</option>
+            <option value="LEFT" id="opt-p2-spin-l">左迴旋 (逆時針)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p2-angle">📐 降落角度: </label>
+          <select id="p2-angle">
+            <option value="0" selected id="opt-p2-angle-0">垂直直射 (0°)</option>
+            <option value="15" id="opt-p2-angle-15">斜角傾射 (15°)</option>
+            <option value="30" id="opt-p2-angle-30">極限斜射 (30°)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p2-power">發射力度: </label>
+          <select id="p2-power">
+            <option value="MEDIUM" selected id="opt-p2-power-m">中度 (穩定平衡)</option>
+            <option value="HEAVY" id="opt-p2-power-h">重度 (極速衝撞)</option>
+            <option value="LIGHT" id="opt-p2-power-l">輕度 (高精準)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- CPU 難度 -->
+      <div class="form-group" id="cpu-difficulty-group">
+        <label id="lbl-cpu-diff">CPU 對手難度: </label>
+        <select id="cpu-difficulty">
+          <option value="EASY" id="opt-easy">簡單 (輕鬆入門)</option>
+          <option value="MEDIUM" selected id="opt-medium">普通 (戰術相剋)</option>
+          <option value="HARD" id="opt-hard">困難 (行為樹 AI)</option>
+        </select>
+      </div>
+
+      <h4 id="lbl-grid-select">選擇 P1 降落位置 (網格 1-18):</h4>
+      <div id="grid-selector" class="grid-container"></div>
+    </div>
+
+    <!-- 手機滑動發射區域 -->
+    <div id="swipe-launch-zone" class="swipe-area">
+      <span id="swipe-label">👆 手機手勢：在此區域向上快速滑動進行拉線發射！</span>
+    </div>
+
+    <button class="btn launch-btn" id="btn-launch" onclick="onShootBtnClick()">3, 2, 1... Go Shoot!</button>
+  </div>
+
+  <!-- 戰鬥畫布 -->
+  <div id="game-panel" class="card" style="display:none;">
+    <div id="status-bar">準備發射...</div>
+    <div id="stats-display">🏆 戰績載入中...</div>
+    <div id="achieve-display">🎖️ 成就數量: 0/3</div>
+    
+    <div class="canvas-controls">
+      <button class="btn btn-sm" id="btn-debug" onclick="toggleDebugPanel()">📊 物理數據面板</button>
+      <button class="btn btn-sm btn-secondary" id="btn-bgm" onclick="toggleBGM()">🎵 BGM 音效</button>
+      <span id="ping-display" style="font-size:12px; color:#00d2d3; margin-left:10px;">Ping: -- ms</span>
+    </div>
+
+    <div id="canvas-container">
+      <canvas id="arena"></canvas>
+    </div>
+
+    <div id="debug-panel" class="debug-box" style="display:none;">
+      <h4 id="ui-debug-title">⚙️ 第一性原理數據 (FPS: <span id="fps-counter">60</span>)</h4>
+      <div class="debug-grid">
+        <div id="p1-debug">P1: 載入中...</div>
+        <div id="p2-debug">P2: 載入中...</div>
+      </div>
+    </div>
+
+    <br>
+    <button class="btn" id="btn-reset" onclick="resetGame()">🔄 重新設定 / 再次對戰</button>
+  </div>
+
+  <script src="js/security.js"></script>
+  <script src="js/parts.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/game.js"></script>
+
+  <!-- 註冊 Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
+      });
+    }
+  </script>
 </body>
 </html>
