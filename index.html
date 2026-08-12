@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>爆上陀螺 Jayblade</title>
+  
+  <!-- PWA 設定 -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="JaybladeICON-192.png">
+  <meta name="theme-color" content="#121218">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
@@ -90,7 +98,7 @@
         </div>
       </div>
 
-      <!-- P2 設定 (僅雙人同機時顯示) -->
+      <!-- P2 設定 -->
       <div class="player-box p2-box" id="p2-setup-group" style="display:none;">
         <h3 id="ui-p2-title">🔴 P2 陀螺自訂</h3>
         <div class="form-group"><label id="lbl-p2-name">名稱: </label><input type="text" id="p2-name" value="影武赤狼"></div>
@@ -178,5 +186,14 @@
   <script src="js/parts.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/game.js"></script>
+
+  <!-- 註冊 Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW reg error:', err));
+      });
+    }
+  </script>
 </body>
 </html>
