@@ -15,7 +15,7 @@ This repository is a non-commercial project created for my son. All friends are 
 
 ---
 
-## 🇭🇰 繁體中文說明
+## 繁體中文說明
 
 《爆上陀螺 Jayblade》是一款純本地運行的 WebGL 2D/3D 剛體力學戰鬥陀螺對戰模擬器。專為追求真實物理力學與競技深度的玩家設計。
 
@@ -38,7 +38,7 @@ This repository is a non-commercial project created for my son. All friends are 
 
 ---
 
-## 🇬🇧 English Description
+## English Description
 
 *Jayblade* is a pure local WebGL 2D/3D rigid-body physics simulator for Beyblade battles. Designed for physics enthusiasts and players seeking high-level competitive depth.
 
