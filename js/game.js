@@ -1,3 +1,4 @@
+let CURRENT_LANG = 'ZH';
 let gameMode = 'SINGLE';
 let selectedGrid = 8;
 let animationId = null;
@@ -5,12 +6,15 @@ let p1, p2;
 let matchEnded = false;
 let isDebugVisible = false;
 
-// 🌐 頂尖網路架構：Host-Client 20Hz 狀態同步
 let peer = null;
 let peerConn = null;
 let isOnlineHost = false;
 let ping = 0;
 let lastSyncTime = 0;
+
+// 滑動手勢發射數據 (Swipe Launch Gesture)
+let touchStartY = 0;
+let touchStartTime = 0;
 
 const canvas = document.getElementById('arena');
 const ctx = canvas.getContext('2d');
@@ -18,6 +22,98 @@ const offscreenCanvas = document.createElement('canvas');
 const offCtx = offscreenCanvas.getContext('2d');
 const CANVAS_SIZE = 500;
 const arenaCenter = { x: 250, y: 250, radius: 230 };
+
+const LANG_DICT = {
+  ZH: {
+    title: '🌀 爆上陀螺 Jayblade 🌀',
+    subtitle: 'T0 賽場神機 & 左右雙旋物理模擬器',
+    btnSingle: '🎮 單人對戰 (VS AI)',
+    btnVersus: '⚔️ 雙人同機 (1P VS 2P)',
+    btnOnline: '🌐 遠端連線 (WebRTC)',
+    physLabel: '⚙️ 模擬器物理模式: ',
+    arcade: '🔥 熱血動畫版 (強烈對撞/閃光爆發)',
+    realistic: '🔬 真實擬真版 (能量守恆/異旋吸轉)',
+    p1Title: '🔵 P1 陀螺自訂',
+    p2Title: '🔴 P2 陀螺自訂',
+    lblName: '名稱: ',
+    lblColor: '顏色: ',
+    lblCrown: '撞擊環 (Crown): ',
+    lblTip: '動力底軸 (Tip): ',
+    lblSpin: '🔄 旋轉方向 (Spin Direction): ',
+    lblAngle: '📐 降落角度 (Launch Angle): ',
+    lblPower: '發射力度: ',
+    cpuDiff: 'CPU 對手難度: ',
+    gridSelect: '選擇 P1 降落位置 (網格 1-18):',
+    launch: '3, 2, 1... Go Shoot!',
+    debugBtn: '📊 物理數據面板',
+    bgmBtn: '🎵 BGM 音效',
+    resetBtn: '🔄 重新設定 / 再次對戰'
+  },
+  EN: {
+    title: '🌀 Beyblade Jayblade 🌀',
+    subtitle: 'T0 Meta & Dual-Spin Physics Simulator',
+    btnSingle: '🎮 Single Player (VS AI)',
+    btnVersus: '⚔️ Local 2P (1P VS 2P)',
+    btnOnline: '🌐 Online WebRTC',
+    physLabel: '⚙️ Physics Engine Mode: ',
+    arcade: '🔥 Arcade Mode (High Impact / Sparks)',
+    realistic: '🔬 Realistic Mode (Spin-Steal / Energy Conserved)',
+    p1Title: '🔵 P1 Custom Beyblade',
+    p2Title: '🔴 P2 Custom Beyblade',
+    lblName: 'Name: ',
+    lblColor: 'Color: ',
+    lblCrown: 'Blade/Crown: ',
+    lblTip: 'Bit/Tip: ',
+    lblSpin: '🔄 Spin Direction: ',
+    lblAngle: '📐 Launch Angle: ',
+    lblPower: 'Launch Power: ',
+    cpuDiff: 'CPU Difficulty: ',
+    gridSelect: 'Select P1 Drop Position (Grid 1-18):',
+    launch: '3, 2, 1... Go Shoot!',
+    debugBtn: '📊 Debug Panel',
+    bgmBtn: '🎵 Toggle BGM',
+    resetBtn: '🔄 Reset / Play Again'
+  }
+};
+
+function toggleLanguage() {
+  CURRENT_LANG = CURRENT_LANG === 'ZH' ? 'EN' : 'ZH';
+  const dict = LANG_DICT[CURRENT_LANG];
+
+  document.getElementById('ui-title').innerText = dict.title;
+  document.getElementById('ui-subtitle').innerText = dict.subtitle;
+  document.getElementById('btn-single').innerText = dict.btnSingle;
+  document.getElementById('btn-versus').innerText = dict.btnVersus;
+  document.getElementById('btn-online').innerText = dict.btnOnline;
+  document.getElementById('ui-phys-mode-label').innerText = dict.physLabel;
+  document.getElementById('opt-arcade').innerText = dict.arcade;
+  document.getElementById('opt-realistic').innerText = dict.realistic;
+  document.getElementById('ui-p1-title').innerText = dict.p1Title;
+  document.getElementById('ui-p2-title').innerText = dict.p2Title;
+  
+  document.getElementById('lbl-p1-name').innerText = dict.lblName;
+  document.getElementById('lbl-p1-color').innerText = dict.lblColor;
+  document.getElementById('lbl-p1-crown').innerText = dict.lblCrown;
+  document.getElementById('lbl-p1-tip').innerText = dict.lblTip;
+  if (document.getElementById('lbl-p1-spin')) document.getElementById('lbl-p1-spin').innerText = dict.lblSpin;
+  document.getElementById('lbl-p1-angle').innerText = dict.lblAngle;
+  document.getElementById('lbl-p1-power').innerText = dict.lblPower;
+
+  document.getElementById('lbl-p2-name').innerText = dict.lblName;
+  document.getElementById('lbl-p2-color').innerText = dict.lblColor;
+  document.getElementById('lbl-p2-crown').innerText = dict.lblCrown;
+  document.getElementById('lbl-p2-tip').innerText = dict.lblTip;
+  if (document.getElementById('lbl-p2-spin')) document.getElementById('lbl-p2-spin').innerText = dict.lblSpin;
+  document.getElementById('lbl-p2-angle').innerText = dict.lblAngle;
+  document.getElementById('lbl-p2-power').innerText = dict.lblPower;
+
+  document.getElementById('lbl-cpu-diff').innerText = dict.cpuDiff;
+  document.getElementById('lbl-grid-select').innerText = dict.gridSelect;
+  document.getElementById('btn-launch').innerText = dict.launch;
+  document.getElementById('btn-debug').innerText = dict.debugBtn;
+  document.getElementById('btn-bgm').innerText = dict.bgmBtn;
+  document.getElementById('btn-reset').innerText = dict.resetBtn;
+}
 
 function initOffscreenBackground() {
   if (!offscreenCanvas) return;
@@ -40,7 +136,6 @@ function setupRetinaCanvas() {
   ctx.scale(dpr, dpr);
 }
 
-// 戰績與成就
 function getStats() { try { const s = localStorage.getItem('jayblade_stats'); return s ? JSON.parse(s) : { matches: 0, wins: 0, streak: 0 }; } catch (e) { return { matches: 0, wins: 0, streak: 0 }; } }
 function getAchievements() { try { const ach = localStorage.getItem('jayblade_achievements'); return ach ? JSON.parse(ach) : ACHIEVEMENTS_DB; } catch (e) { return ACHIEVEMENTS_DB; } }
 function unlockAchievement(achId) {
@@ -71,13 +166,14 @@ function displayStatsUI() {
   if (document.getElementById('achieve-display')) document.getElementById('achieve-display').innerText = `🎖️ 成就：解鎖 ${unl} / ${Object.keys(ach).length}`;
 }
 
-// 分享碼
 function exportShareCode(prefix) {
   const code = generateShareCode({
-    name: document.getElementById(`${prefix}-name`)?.value || '陀螺',
-    color: document.getElementById(`${prefix}-color`)?.value || '#ff3838',
-    crown: document.getElementById(`${prefix}-crown`)?.value || 'dragon_blade',
+    name: document.getElementById(`${prefix}-name`)?.value || '火鷹飛龍',
+    color: document.getElementById(`${prefix}-color`)?.value || '#1e90ff',
+    crown: document.getElementById(`${prefix}-crown`)?.value || 'wizard_arc',
     tip: document.getElementById(`${prefix}-tip`)?.value || 'dash_flat',
+    spin: document.getElementById(`${prefix}-spin`)?.value || 'RIGHT',
+    angle: document.getElementById(`${prefix}-angle`)?.value || '15',
     power: document.getElementById(`${prefix}-power`)?.value || 'MEDIUM'
   });
   navigator.clipboard.writeText(code).then(() => alert(`🎉 塗裝分享碼已複製！`));
@@ -91,12 +187,13 @@ function importShareCode(prefix) {
     if (document.getElementById(`${prefix}-color`)) document.getElementById(`${prefix}-color`).value = cfg.color;
     if (document.getElementById(`${prefix}-crown`)) document.getElementById(`${prefix}-crown`).value = cfg.crown;
     if (document.getElementById(`${prefix}-tip`)) document.getElementById(`${prefix}-tip`).value = cfg.tip;
+    if (document.getElementById(`${prefix}-spin`)) document.getElementById(`${prefix}-spin`).value = cfg.spin || 'RIGHT';
+    if (document.getElementById(`${prefix}-angle`)) document.getElementById(`${prefix}-angle`).value = cfg.angle || '15';
     if (document.getElementById(`${prefix}-power`)) document.getElementById(`${prefix}-power`).value = cfg.power;
     alert(`✅ 匯入：【${cfg.name}】！`);
   } else { alert('❌ 分享碼無效'); }
 }
 
-// 🌐 WebRTC PeerJS 初始化與對連
 function initPeerJS() {
   if (peer || typeof Peer === 'undefined') return;
   peer = new Peer();
@@ -117,7 +214,6 @@ function connectToPeer() {
 function setupPeerListeners() {
   peerConn.on('open', () => {
     document.getElementById('network-status').innerText = '✅ 連線成功！ (Client 模式)';
-    // 客戶端定時發送 Ping
     if (!isOnlineHost) setInterval(() => { if (peerConn.open) peerConn.send({ type: 'PING', time: Date.now() }); }, 1000);
   });
   peerConn.on('data', (data) => {
@@ -127,7 +223,6 @@ function setupPeerListeners() {
       document.getElementById('ping-display').innerText = `Ping: ${ping} ms`;
     }
     else if (data.type === 'SYNC_STATE' && !isOnlineHost && p1 && p2) {
-      // 接收伺服端最新狀態供 Lerp (線性插值)
       p1.targetX = data.p1.x; p1.targetY = data.p1.y; p1.rpm = data.p1.rpm; p1.shatterHp = data.p1.hp; p1.isXDashing = data.p1.xd;
       p2.targetX = data.p2.x; p2.targetY = data.p2.y; p2.rpm = data.p2.rpm; p2.shatterHp = data.p2.hp; p2.isXDashing = data.p2.xd;
     }
@@ -145,8 +240,37 @@ function toggleDebugPanel() {
 }
 function toggleBGM() { const active = sfx.toggleBGM(); alert(active ? '🎵 BGM 已開啟' : '🔇 BGM 已關閉'); }
 
+// 🌟 手機觸控滑動拉線發射 (Swipe Launch Gesture)
 document.addEventListener('DOMContentLoaded', () => {
   initOffscreenBackground(); setupRetinaCanvas();
+
+  const swipeZone = document.getElementById('swipe-launch-zone');
+  if (swipeZone) {
+    swipeZone.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+      swipeZone.classList.add('active');
+    });
+
+    swipeZone.addEventListener('touchend', (e) => {
+      swipeZone.classList.remove('active');
+      const touchEndY = e.changedTouches[0].clientY;
+      const distY = touchStartY - touchEndY; // 向上滑動為正
+      const duration = (Date.now() - touchStartTime) / 1000;
+      
+      if (distY > 50 && duration < 0.8) {
+        // 動態計算滑動速度 -> 轉化為發射力度
+        const speed = distY / duration;
+        let calculatedPower = 'MEDIUM';
+        if (speed > 800) calculatedPower = 'HEAVY';
+        else if (speed < 300) calculatedPower = 'LIGHT';
+
+        if (document.getElementById('p1-power')) document.getElementById('p1-power').value = calculatedPower;
+        startGame();
+      }
+    });
+  }
+
   ['p1', 'p2'].forEach(prefix => {
     const crownSel = document.getElementById(`${prefix}-crown`);
     const tipSel = document.getElementById(`${prefix}-tip`);
@@ -157,22 +281,27 @@ document.addEventListener('DOMContentLoaded', () => {
       tipSel.innerHTML = ''; Object.keys(PARTS_DATABASE.tips).forEach(k => { tipSel.innerHTML += `<option value="${k}">${PARTS_DATABASE.tips[k].name}</option>`; });
     }
   });
+
   try {
     const pref = loadUserPreferences();
     if (pref) {
       if (pref.p1Data) {
-        if (document.getElementById('p1-name')) document.getElementById('p1-name').value = pref.p1Data.name;
-        if (document.getElementById('p1-color')) document.getElementById('p1-color').value = pref.p1Data.color;
-        if (document.getElementById('p1-crown')) document.getElementById('p1-crown').value = pref.p1Data.crown;
-        if (document.getElementById('p1-tip')) document.getElementById('p1-tip').value = pref.p1Data.tip;
-        if (document.getElementById('p1-power')) document.getElementById('p1-power').value = pref.p1Data.power;
+        if (document.getElementById('p1-name')) document.getElementById('p1-name').value = pref.p1Data.name || '火鷹飛龍 (Fire Bird Dragon)';
+        if (document.getElementById('p1-color')) document.getElementById('p1-color').value = pref.p1Data.color || '#1e90ff';
+        if (document.getElementById('p1-crown')) document.getElementById('p1-crown').value = pref.p1Data.crown || 'wizard_arc';
+        if (document.getElementById('p1-tip')) document.getElementById('p1-tip').value = pref.p1Data.tip || 'dash_flat';
+        if (document.getElementById('p1-spin')) document.getElementById('p1-spin').value = pref.p1Data.spin || 'RIGHT';
+        if (document.getElementById('p1-angle')) document.getElementById('p1-angle').value = pref.p1Data.angle || '15';
+        if (document.getElementById('p1-power')) document.getElementById('p1-power').value = pref.p1Data.power || 'MEDIUM';
       }
       if (pref.p2Data) {
-        if (document.getElementById('p2-name')) document.getElementById('p2-name').value = pref.p2Data.name;
-        if (document.getElementById('p2-color')) document.getElementById('p2-color').value = pref.p2Data.color;
-        if (document.getElementById('p2-crown')) document.getElementById('p2-crown').value = pref.p2Data.crown;
-        if (document.getElementById('p2-tip')) document.getElementById('p2-tip').value = pref.p2Data.tip;
-        if (document.getElementById('p2-power')) document.getElementById('p2-power').value = pref.p2Data.power;
+        if (document.getElementById('p2-name')) document.getElementById('p2-name').value = pref.p2Data.name || '影武赤狼 (Shadow Red Wolf)';
+        if (document.getElementById('p2-color')) document.getElementById('p2-color').value = pref.p2Data.color || '#ff3838';
+        if (document.getElementById('p2-crown')) document.getElementById('p2-crown').value = pref.p2Data.crown || 'phoenix_wing';
+        if (document.getElementById('p2-tip')) document.getElementById('p2-tip').value = pref.p2Data.tip || 'needle_point';
+        if (document.getElementById('p2-spin')) document.getElementById('p2-spin').value = pref.p2Data.spin || 'RIGHT';
+        if (document.getElementById('p2-angle')) document.getElementById('p2-angle').value = pref.p2Data.angle || '0';
+        if (document.getElementById('p2-power')) document.getElementById('p2-power').value = pref.p2Data.power || 'MEDIUM';
       }
       if (document.getElementById('cpu-difficulty')) document.getElementById('cpu-difficulty').value = pref.diff || 'MEDIUM';
       if (document.getElementById('physics-engine-mode')) {
@@ -209,10 +338,10 @@ function setGameMode(mode) {
 
 function generateCpuTactics(p1Config, difficultyKey) {
   const diff = (typeof CPU_DIFFICULTIES !== 'undefined' && CPU_DIFFICULTIES[difficultyKey]) ? CPU_DIFFICULTIES[difficultyKey] : { launchPower: 'MEDIUM', counterStrategy: true, aiReactionRate: 0.4 };
-  let cpuCrown = 'iron_fang', cpuTip = 'dash_flat', cpuPower = diff.launchPower, cpuGrid = 11;
-  if (diff.counterStrategy && p1Config.tip === 'needle_point') { cpuCrown = 'iron_fang'; cpuTip = 'dash_flat'; cpuGrid = 18; } 
-  else { cpuCrown = 'aero_shield'; cpuTip = 'needle_point'; cpuGrid = 10; }
-  return { crown: cpuCrown, tip: cpuTip, power: cpuPower, grid: cpuGrid, aiRate: diff.aiReactionRate };
+  let cpuCrown = 'phoenix_wing', cpuTip = 'dash_flat', cpuPower = diff.launchPower, cpuGrid = 11, cpuSpin = 'RIGHT';
+  if (diff.counterStrategy && p1Config.tip === 'needle_point') { cpuCrown = 'phoenix_wing'; cpuTip = 'dash_flat'; cpuGrid = 18; cpuSpin = 'RIGHT'; } 
+  else { cpuCrown = 'wizard_arc'; cpuTip = 'needle_point'; cpuGrid = 10; cpuSpin = 'LEFT'; }
+  return { crown: cpuCrown, tip: cpuTip, power: cpuPower, grid: cpuGrid, spin: cpuSpin, aiRate: diff.aiReactionRate };
 }
 
 function playLaunchSequence(onComplete) {
@@ -230,12 +359,22 @@ function playLaunchSequence(onComplete) {
 function startGame() {
   sfx.init();
   const p1Data = {
-    name: document.getElementById('p1-name')?.value || '破空飛龍', color: document.getElementById('p1-color')?.value || '#ff3838',
-    crown: document.getElementById('p1-crown')?.value || 'dragon_blade', tip: document.getElementById('p1-tip')?.value || 'dash_flat', power: document.getElementById('p1-power')?.value || 'MEDIUM'
+    name: document.getElementById('p1-name')?.value || '火鷹飛龍 (Fire Bird Dragon)', 
+    color: document.getElementById('p1-color')?.value || '#1e90ff',
+    crown: document.getElementById('p1-crown')?.value || 'wizard_arc', 
+    tip: document.getElementById('p1-tip')?.value || 'dash_flat', 
+    spin: document.getElementById('p1-spin')?.value || 'RIGHT',
+    angle: document.getElementById('p1-angle')?.value || '15', 
+    power: document.getElementById('p1-power')?.value || 'MEDIUM'
   };
   const p2Data = {
-    name: document.getElementById('p2-name')?.value || '影武赤狼', color: document.getElementById('p2-color')?.value || '#1e90ff',
-    crown: document.getElementById('p2-crown')?.value || 'iron_fang', tip: document.getElementById('p2-tip')?.value || 'needle_point', power: document.getElementById('p2-power')?.value || 'MEDIUM'
+    name: document.getElementById('p2-name')?.value || '影武赤狼 (Shadow Red Wolf)', 
+    color: document.getElementById('p2-color')?.value || '#ff3838',
+    crown: document.getElementById('p2-crown')?.value || 'phoenix_wing', 
+    tip: document.getElementById('p2-tip')?.value || 'needle_point', 
+    spin: document.getElementById('p2-spin')?.value || 'RIGHT',
+    angle: document.getElementById('p2-angle')?.value || '0', 
+    power: document.getElementById('p2-power')?.value || 'MEDIUM'
   };
 
   const diffKey = document.getElementById('cpu-difficulty')?.value || 'MEDIUM';
@@ -250,14 +389,14 @@ function startGame() {
     const col = (selectedGrid - 1) % 6, row = Math.floor((selectedGrid - 1) / 6);
     const p1X = 100 + col * 60, p1Y = 100 + row * 80;
 
-    p1 = new PhysicalTop(p1X, p1Y, p1Data.crown, p1Data.tip, p1Data.power, p1Data.name, p1Data.color, false);
+    p1 = new PhysicalTop(p1X, p1Y, p1Data.crown, p1Data.tip, p1Data.power, p1Data.angle, p1Data.spin, p1Data.name, p1Data.color, false);
 
     if (gameMode === 'SINGLE') {
       const cpuSetup = generateCpuTactics(p1Data, diffKey);
       const cpuCol = (cpuSetup.grid - 1) % 6, cpuRow = Math.floor((cpuSetup.grid - 1) / 6);
-      p2 = new PhysicalTop(100 + cpuCol * 60, 100 + cpuRow * 80, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, `CPU (${CPU_DIFFICULTIES[diffKey]?.name || '普通'})`, null, true, cpuSetup.aiRate);
+      p2 = new PhysicalTop(100 + cpuCol * 60, 100 + cpuRow * 80, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, '0', cpuSetup.spin, `CPU (${CPU_DIFFICULTIES[diffKey]?.name || '普通'})`, '#ff3838', true, cpuSetup.aiRate);
     } else {
-      p2 = new PhysicalTop(350, 250, p2Data.crown, p2Data.tip, p2Data.power, p2Data.name, p2Data.color, false);
+      p2 = new PhysicalTop(350, 250, p2Data.crown, p2Data.tip, p2Data.power, p2Data.angle, p2Data.spin, p2Data.name, p2Data.color, false);
     }
 
     matchEnded = false; displayStatsUI();
@@ -278,18 +417,14 @@ function mainGameLoop(now) {
     frameCount = 0; lastFpsUpdate = now;
   }
 
-  // 💡 客戶端與 Host 的運算分離 (Authority Sync)
   if (gameMode === 'ONLINE' && !isOnlineHost) {
-    // Client：僅作平滑插值 (Lerp) 繪圖，不進行本機物理引擎運算
     p1.x += (p1.targetX - p1.x) * 0.3; p1.y += (p1.targetY - p1.y) * 0.3;
     p2.x += (p2.targetX - p2.x) * 0.3; p2.y += (p2.targetY - p2.y) * 0.3;
     p1.angle += p1.angularVelocity * dt; p2.angle += p2.angularVelocity * dt;
   } else {
-    // Local 或是 Host 進行高擬真運算
     p1.update(dt, arenaCenter, p2); p2.update(dt, arenaCenter, p1);
     resolveAdvancedCollision(p1, p2);
 
-    // Host 20Hz 發送壓縮狀態
     if (gameMode === 'ONLINE' && isOnlineHost && peerConn && peerConn.open) {
       if (now - lastSyncTime > 50) {
         peerConn.send({
@@ -302,10 +437,8 @@ function mainGameLoop(now) {
     }
   }
 
-  // 對象池統一更新
   pPool.updateAndDraw(dt, ctx);
 
-  // 畫面與特效繪製
   ctx.save();
   if (screenShakeTime > 0) {
     screenShakeTime -= dt;
@@ -316,7 +449,6 @@ function mainGameLoop(now) {
 
   ctx.drawImage(offscreenCanvas, 0, 0);
 
-  // 速度線 (Speed Lines)
   if (p1?.isXDashing || p2?.isXDashing) {
     ctx.save(); ctx.strokeStyle = 'rgba(0, 210, 211, 0.25)'; ctx.lineWidth = 2;
     for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
@@ -325,7 +457,7 @@ function mainGameLoop(now) {
     ctx.restore();
   }
 
-  pPool.updateAndDraw(0, ctx); // 僅補繪製不重複 dt
+  pPool.updateAndDraw(0, ctx);
   p1.draw(ctx); p2.draw(ctx);
 
   if (screenFlashAlpha > 0) {
