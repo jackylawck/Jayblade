@@ -1,0 +1,37 @@
+{
+  "name": "爆上陀螺 Jayblade",
+  "short_name": "Jayblade",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#121218",
+  "theme_color": "#121218",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "JaybladeICON-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "JaybladeICON-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Jayblade Setup Screen"
+    },
+    {
+      "src": "screenshot2.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Jayblade Battle Screen"
+    }
+  ]
+}
