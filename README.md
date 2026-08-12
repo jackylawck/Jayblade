@@ -1,7 +1,7 @@
 # 🌀 爆上陀螺 Jayblade
 
-**賽場神機 & 左右雙旋物理模擬器**  
-**Meta & Dual-Spin Beyblade Physics Simulator (2D / 3D WebGL)**
+**左右雙旋物理模擬器**  
+**Dual-Spin Beyblade Physics Simulator (2D / 3D WebGL)**
 
 [繁體中文](#-繁體中文說明) | [English](#-english-description)
 
