@@ -72,6 +72,7 @@ function init() {
     animate(performance.now());
 }
 
+// 🛠️ 關鍵修復：Cannon.js Cylinder 剛體姿態旋轉 -90 度 (橫臥改為豎立平放)
 function createStadium() {
     const geo = new THREE.CylinderGeometry(STADIUM_RADIUS, 2, 3, 48, 1, true);
     const mat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.2, metalness: 0.8, side: THREE.DoubleSide });
@@ -80,7 +81,13 @@ function createStadium() {
     scene.add(stadiumMesh);
 
     const groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
-    groundBody.addShape(new CANNON.Cylinder(STADIUM_RADIUS, 2, 3, 32), new CANNON.Vec3(0, -1.5, 0));
+    const cylinderShape = new CANNON.Cylinder(STADIUM_RADIUS, 2, 3, 32);
+    
+    // 旋轉剛體形狀 90 度，使圓柱體沿 Y 軸放置
+    const q = new CANNON.Quaternion();
+    q.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    groundBody.addShape(cylinderShape, new CANNON.Vec3(0, -1.5, 0), q);
+    
     world.addBody(groundBody);
 }
 
@@ -96,7 +103,9 @@ function spawnArenaObstacles() {
         obstacleMeshes.push(mesh);
 
         const body = new CANNON.Body({ mass: 0, material: stadiumMaterial });
-        body.addShape(new CANNON.Cylinder(0.8, 0.8, 0.6, 16), new CANNON.Vec3(p.x, 0.1, p.z));
+        const q = new CANNON.Quaternion();
+        q.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        body.addShape(new CANNON.Cylinder(0.8, 0.8, 0.6, 16), new CANNON.Vec3(p.x, 0.1, p.z), q);
         world.addBody(body);
         obstacleBodies.push(body);
     });
@@ -137,7 +146,6 @@ function handleMultiTopImpacts() {
                     gpuSparks.emit(midX, midY, midZ, FnMag / 15);
                     sfx3D.playImpact(Math.min(1.0, FnMag / 30), 1.0);
 
-                    // 扣除爆裂 HP (血量)
                     p1.shatterHp -= (FnMag * 0.08) * (1.1 - p1.burstResist);
                     p2.shatterHp -= (FnMag * 0.08) * (1.1 - p2.burstResist);
                 }
@@ -146,21 +154,18 @@ function handleMultiTopImpacts() {
     }
 }
 
-// 🛡️ 關鍵修復：加入開局 2.0 秒保護期，防止初速太快直接秒出場
+// 🛡️ 離場判定保護期 (開局 2 秒不判 Over Finish)
 function checkMatchRules() {
     if (!isSimulating || matchEnded) return;
     const statusEl = document.getElementById('match-status');
     const now = performance.now();
-
-    // 發射前 2.0 秒內不判定離場
     const inGracePeriod = (now - matchStartTime) < 2000;
 
     activeTops.forEach(top => {
         if (top.isShattered) return;
         const dist = Math.hypot(top.body.position.x, top.body.position.z);
 
-        // 只有離場半徑超過 14m (盤外) 且過了保護期才判 Over
-        if (!inGracePeriod && dist > STADIUM_RADIUS + 2.0) {
+        if (!inGracePeriod && dist > STADIUM_RADIUS + 1.5) {
             top.triggerShatter(gpuSparks, sfx3D);
             statusEl.innerText = (now - top.lastXDashTime) < 1500 ? 
                 `💥⚡ EXTREME FINISH! 【${top.name}】` : 
@@ -196,7 +201,6 @@ function launch3DBattle(playerCount = 2) {
     if (playerCount === 4) spawnArenaObstacles();
     else clearObstacles();
 
-    // 調適初速 (vx, vz) 讓陀螺喺盤內拉出弧線對撞，唔會直衝出界
     const configs = [
         { x: -4, z: 0, color: 0x1e90ff, name: '🔵 火鷹飛龍', spin: true, res: 0.85, vx: 3.5, vz: 2 },
         { x: 4, z: 0, color: 0xff3838, name: '🔴 影武赤狼', spin: false, res: 0.70, vx: -3.5, vz: -2 },
