@@ -56,10 +56,10 @@ export class Beyblade3D {
         this.group.quaternion.copy(this.body.quaternion);
         this.rpm = Math.abs(this.body.angularVelocity.y) * 60 / (2 * Math.PI);
 
-        // 🌀 中央碗狀引力 (Bowl Gravity): 模擬真實戰鬥盤斜面將陀螺拉向中心，延長對戰時間
+        // 🌀 戰鬥盤中央斜面向心力 (拉回中心，防止開局飛出場外)
         const distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
         if (distFromCenter > 0.5 && distFromCenter < STADIUM_RADIUS) {
-            const pullForce = 0.08 * distFromCenter;
+            const pullForce = 0.06 * distFromCenter;
             const pullX = (-this.body.position.x / distFromCenter) * pullForce;
             const pullZ = (-this.body.position.z / distFromCenter) * pullForce;
             this.body.applyForce(new CANNON.Vec3(pullX, 0, pullZ), this.body.position);
@@ -123,7 +123,7 @@ export class Beyblade3D {
             }
         }
 
-        // B. 漸開線齒輪與障礙物衝量避讓
+        // B. 漸開線齒輪與衝量避讓
         if (this.xdashCooldown > 0) this.xdashCooldown -= dt;
 
         let nearObstacle = false;
@@ -146,7 +146,6 @@ export class Beyblade3D {
             sfx3D.playXDashSound();
         }
 
-        // 自然衰減轉速 (讓對戰可持續 30~60 秒)
         this.body.angularVelocity.y *= 0.9992;
     }
 
