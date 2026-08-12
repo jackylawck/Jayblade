@@ -9,9 +9,9 @@
 
 ### 📖 About This Project / 關於本專案
 
-This repository is a non-commercial project created for my son, Jarvis. All friends are welcome to play and enjoy the physics battles together!
+This repository is a non-commercial project created for my son. All friends are welcome to play and enjoy the physics battles together!
 
-本專案是為我的兒子上桓（Jarvis）而開發的非商業個人專案。誠摯邀請所有朋友一起來玩，共同體驗剛體力學與陀螺對戰的樂趣！
+本專案是為我的兒子而開發的非商業個人專案。誠摯邀請所有朋友一起來玩，共同體驗剛體力學與陀螺對戰的樂趣！
 
 ---
 
