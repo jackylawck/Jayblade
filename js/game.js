@@ -258,8 +258,26 @@ function setupRetinaCanvas() {
   ctx.scale(dpr, dpr);
 }
 
-function getStats() { try { const s = localStorage.getItem('jayblade_stats'); return s ? JSON.parse(s) : { matches: 0, wins: 0, streak: 0 }; } catch (e) { return { matches: 0, wins: 0, streak: 0 }; } }
-function getAchievements() { try { const ach = localStorage.getItem('jayblade_achievements'); return ach ? JSON.parse(ach) : ACHIEVEMENTS_DB; } catch (e) { return ACHIEVEMENTS_DB; } }
+function getStats() {
+  try {
+    const s = window.Security ? Security.secureGetItem('jayblade_stats') : null;
+    if (s) return s;
+    const raw = localStorage.getItem('jayblade_stats');
+    return raw ? JSON.parse(raw) : { matches: 0, wins: 0, streak: 0 };
+  } catch (e) {
+    return { matches: 0, wins: 0, streak: 0 };
+  }
+}
+
+function getAchievements() {
+  try {
+    const ach = localStorage.getItem('jayblade_achievements');
+    return ach ? JSON.parse(ach) : ACHIEVEMENTS_DB;
+  } catch (e) {
+    return ACHIEVEMENTS_DB;
+  }
+}
+
 function unlockAchievement(achId) {
   const ach = getAchievements();
   if (ach[achId] && !ach[achId].unlocked) {
@@ -269,6 +287,7 @@ function unlockAchievement(achId) {
     alert(`🎉 ${CURRENT_LANG === 'EN' ? 'Achievement Unlocked' : '解鎖成就'}: 【${name}】`);
   }
 }
+
 function updateWinStats(isP1Win, isXDashKO = false) {
   const stats = getStats();
   stats.matches += 1;
@@ -278,9 +297,15 @@ function updateWinStats(isP1Win, isXDashKO = false) {
     if (stats.streak >= 3) unlockAchievement('STREAK_3');
     if (isXDashKO) unlockAchievement('XDASH_KO');
   } else { stats.streak = 0; }
-  localStorage.setItem('jayblade_stats', JSON.stringify(stats));
+
+  if (window.Security) {
+    Security.secureSetItem('jayblade_stats', stats);
+  } else {
+    localStorage.setItem('jayblade_stats', JSON.stringify(stats));
+  }
   displayStatsUI();
 }
+
 function displayStatsUI() {
   const stats = getStats(), ach = getAchievements();
   const winRate = stats.matches > 0 ? Math.round((stats.wins / stats.matches) * 100) : 0;
@@ -298,7 +323,7 @@ function displayStatsUI() {
 }
 
 function exportShareCode(prefix) {
-  const code = generateShareCode({
+  const rawConfig = {
     name: document.getElementById(`${prefix}-name`)?.value || '火鷹飛龍',
     color: document.getElementById(`${prefix}-color`)?.value || '#1e90ff',
     crown: document.getElementById(`${prefix}-crown`)?.value || 'wizard_arc',
@@ -306,13 +331,17 @@ function exportShareCode(prefix) {
     spin: document.getElementById(`${prefix}-spin`)?.value || 'RIGHT',
     angle: document.getElementById(`${prefix}-angle`)?.value || '15',
     power: document.getElementById(`${prefix}-power`)?.value || 'MEDIUM'
-  });
+  };
+
+  const code = window.Security ? Security.generateSecureShareCode(rawConfig) : generateShareCode(rawConfig);
   navigator.clipboard.writeText(code).then(() => alert(CURRENT_LANG === 'EN' ? '🎉 Share code copied!' : '🎉 塗裝分享碼已複製！'));
 }
+
 function importShareCode(prefix) {
   const code = prompt(CURRENT_LANG === 'EN' ? 'Paste Share Code:' : '貼上塗裝分享碼:');
   if (!code) return;
-  const cfg = parseShareCode(code);
+
+  const cfg = window.Security ? Security.verifySecureShareCode(code) : parseShareCode(code);
   if (cfg) {
     if (document.getElementById(`${prefix}-name`)) document.getElementById(`${prefix}-name`).value = cfg.name;
     if (document.getElementById(`${prefix}-color`)) document.getElementById(`${prefix}-color`).value = cfg.color;
@@ -322,7 +351,9 @@ function importShareCode(prefix) {
     if (document.getElementById(`${prefix}-angle`)) document.getElementById(`${prefix}-angle`).value = cfg.angle || '15';
     if (document.getElementById(`${prefix}-power`)) document.getElementById(`${prefix}-power`).value = cfg.power;
     alert(`${CURRENT_LANG === 'EN' ? '✅ Successfully Imported' : '✅ 匯入'}: 【${cfg.name}】！`);
-  } else { alert(CURRENT_LANG === 'EN' ? '❌ Invalid Code' : '❌ 分享碼無效'); }
+  } else {
+    alert(CURRENT_LANG === 'EN' ? '❌ Invalid or Tampered Share Code' : '❌ 分享碼無效或已被竄改');
+  }
 }
 
 // 🌐 WebRTC PeerJS 大廳與雙向 Ready 確認機制
@@ -374,33 +405,54 @@ function setupPeerListeners() {
   });
 
   peerConn.on('data', (data) => {
+    // 🔒 白名單過濾封包
+    if (!data || typeof data !== 'object') return;
+    const ALLOWED_TYPES = ['PING', 'PONG', 'INIT_CONFIG', 'PLAYER_READY', 'START_MATCH', 'SYNC_STATE', 'TRIGGER_FLASH'];
+    if (!ALLOWED_TYPES.includes(data.type)) return;
+
     if (data.type === 'PING') { peerConn.send({ type: 'PONG', time: data.time }); }
     else if (data.type === 'PONG') {
-      ping = Date.now() - data.time;
-      document.getElementById('ping-display').innerText = `Ping: ${ping} ms`;
-    }
-    // 🌟 收到對手的 Ready 指令與陀螺資料
-    else if (data.type === 'PLAYER_READY') {
-      remoteReady = true;
-      remoteP2Data = data.config;
-      updateLobbyStatus(CURRENT_LANG === 'EN' ? `🎮 ${remoteP2Data.name} is READY!` : `🎮 對手 【${remoteP2Data.name}】 已準備！`);
-
-      // 若兩邊都點擊 Shoot，由 Host 端觸發開始對戰
-      if (localReady && isOnlineHost) {
-        peerConn.send({ type: 'START_MATCH' });
-        executeGameStart();
+      if (typeof data.time === 'number') {
+        ping = Date.now() - data.time;
+        document.getElementById('ping-display').innerText = `Ping: ${ping} ms`;
       }
     }
-    // 🌟 Client 收到開始指令
+    else if (data.type === 'INIT_CONFIG' || data.type === 'PLAYER_READY') {
+      if (data.config && typeof data.config === 'object') {
+        remoteP2Data = {
+          name: window.Security ? Security.sanitizeInput(data.config.name || 'P2') : (data.config.name || 'P2'),
+          color: data.config.color || '#ff3838',
+          crown: data.config.crown || 'phoenix_wing',
+          tip: data.config.tip || 'needle_point',
+          spin: data.config.spin || 'RIGHT',
+          angle: data.config.angle || '0',
+          power: data.config.power || 'MEDIUM',
+          grid: typeof data.config.grid === 'number' ? data.config.grid : 11
+        };
+
+        if (data.type === 'PLAYER_READY') {
+          remoteReady = true;
+          updateLobbyStatus(CURRENT_LANG === 'EN' ? `🎮 ${remoteP2Data.name} is READY!` : `🎮 對手 【${remoteP2Data.name}】 已準備！`);
+          if (localReady && isOnlineHost) {
+            peerConn.send({ type: 'START_MATCH' });
+            executeGameStart();
+          }
+        }
+      }
+    }
     else if (data.type === 'START_MATCH') {
       executeGameStart();
     }
     else if (data.type === 'SYNC_STATE' && !isOnlineHost && p1 && p2) {
-      p1.targetX = data.p1.x; p1.targetY = data.p1.y; p1.rpm = data.p1.rpm; p1.shatterHp = data.p1.hp; p1.isXDashing = data.p1.xd;
-      p2.targetX = data.p2.x; p2.targetY = data.p2.y; p2.rpm = data.p2.rpm; p2.shatterHp = data.p2.hp; p2.isXDashing = data.p2.xd;
+      if (data.p1 && typeof data.p1.x === 'number' && typeof data.p1.y === 'number') {
+        p1.targetX = data.p1.x; p1.targetY = data.p1.y; p1.rpm = data.p1.rpm; p1.shatterHp = data.p1.hp; p1.isXDashing = data.p1.xd;
+        p2.targetX = data.p2.x; p2.targetY = data.p2.y; p2.rpm = data.p2.rpm; p2.shatterHp = data.p2.hp; p2.isXDashing = data.p2.xd;
+      }
     }
     else if (data.type === 'TRIGGER_FLASH' && !isOnlineHost) {
-      triggerScreenFlash(); triggerScreenShake(data.shake, 0.22); sfx.playExtremeImpactSound(250);
+      triggerScreenFlash();
+      triggerScreenShake(typeof data.shake === 'number' ? data.shake : 10, 0.22);
+      sfx.playExtremeImpactSound(250);
     }
   });
 }
@@ -523,7 +575,6 @@ function playLaunchSequence(onComplete) {
   }, 600);
 }
 
-// 按下 Shoot 按鈕處理
 function onShootBtnClick() {
   if (gameMode === 'ONLINE') {
     if (!peerConn || !peerConn.open) {
@@ -531,7 +582,6 @@ function onShootBtnClick() {
     }
     localReady = true;
     
-    // 收集本機自訂資料傳給對方
     const p1Data = {
       name: document.getElementById('p1-name')?.value || '火鷹飛龍', 
       color: document.getElementById('p1-color')?.value || '#1e90ff',
@@ -546,7 +596,6 @@ function onShootBtnClick() {
     peerConn.send({ type: 'PLAYER_READY', config: p1Data });
     updateLobbyStatus(CURRENT_LANG === 'EN' ? '⌛ Waiting for opponent to click Shoot...' : '⌛ 已準備，等待對手點擊發射...');
 
-    // 若自己是 Client 且對手已經 Ready，告知 Host 觸發開始
     if (!isOnlineHost && remoteReady) {
       peerConn.send({ type: 'PLAYER_READY', config: p1Data });
     } else if (isOnlineHost && remoteReady) {
@@ -600,7 +649,6 @@ function executeGameStart() {
       const cpuDiffName = CPU_DIFFICULTIES[diffKey] ? (CURRENT_LANG === 'EN' ? CPU_DIFFICULTIES[diffKey].name_en : CPU_DIFFICULTIES[diffKey].name_zh) : '普通';
       p2 = new PhysicalTop(100 + cpuCol * 60, 100 + cpuRow * 80, cpuSetup.crown, cpuSetup.tip, cpuSetup.power, '0', cpuSetup.spin, `CPU (${cpuDiffName})`, '#ff3838', true, cpuSetup.aiRate);
     } else if (gameMode === 'ONLINE' && remoteP2Data) {
-      // 🌟 連線模式使用對方真正設定的名稱與配色
       const rGrid = remoteP2Data.grid || 11;
       const rCol = (rGrid - 1) % 6, rRow = Math.floor((rGrid - 1) / 6);
       const p2X = 100 + rCol * 60, p2Y = 100 + rRow * 80;
