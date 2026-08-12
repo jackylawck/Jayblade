@@ -84,8 +84,27 @@
         <h3 id="ui-p1-title">🔵 P1 陀螺自訂</h3>
         <div class="form-group"><label id="lbl-p1-name">名稱: </label><input type="text" id="p1-name" value="火鷹飛龍"></div>
         <div class="form-group"><label id="lbl-p1-color">顏色: </label><input type="color" id="p1-color" value="#1e90ff"></div>
-        <div class="form-group"><label id="lbl-p1-crown">撞擊環 (Crown): </label><select id="p1-crown"></select></div>
-        <div class="form-group"><label id="lbl-p1-tip">動力底軸 (Tip): </label><select id="p1-tip"></select></div>
+        
+        <!-- 🛠️ 硬編碼預設選項：徹底解決「沒有選項」問題 -->
+        <div class="form-group">
+          <label id="lbl-p1-crown">撞擊環 (Crown): </label>
+          <select id="p1-crown">
+            <option value="FEATHER" selected>羽翼飛刃 (Feather Blade)</option>
+            <option value="DRAKE">龍紋重環 (Drake Crown)</option>
+            <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
+            <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p1-tip">動力底軸 (Tip): </label>
+          <select id="p1-tip">
+            <option value="FLAT" selected>極速平頭 - 軌道衝刺 (Flat Speed)</option>
+            <option value="BALL">持久球軸 - 中心防禦 (Ball Bearing)</option>
+            <option value="NEEDLE">防禦針軸 - 反擊幾何 (Needle Guard)</option>
+            <option value="ACCEL">軌道衝刺 - 動能爆發 (Accel Dash)</option>
+          </select>
+        </div>
         
         <div class="form-group">
           <label id="lbl-p1-spin">🔄 旋轉方向: </label>
@@ -123,14 +142,32 @@
         <h3 id="ui-p2-title">🔴 P2 陀螺自訂</h3>
         <div class="form-group"><label id="lbl-p2-name">名稱: </label><input type="text" id="p2-name" value="影武赤狼"></div>
         <div class="form-group"><label id="lbl-p2-color">顏色: </label><input type="color" id="p2-color" value="#ff3838"></div>
-        <div class="form-group"><label id="lbl-p2-crown">撞擊環 (Crown): </label><select id="p2-crown"></select></div>
-        <div class="form-group"><label id="lbl-p2-tip">動力底軸 (Tip): </label><select id="p2-tip"></select></div>
+        
+        <div class="form-group">
+          <label id="lbl-p2-crown">撞擊環 (Crown): </label>
+          <select id="p2-crown">
+            <option value="FEATHER">羽翼飛刃 (Feather Blade)</option>
+            <option value="DRAKE" selected>龍紋重環 (Drake Crown)</option>
+            <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
+            <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p2-tip">動力底軸 (Tip): </label>
+          <select id="p2-tip">
+            <option value="FLAT">極速平頭 (Flat Speed)</option>
+            <option value="BALL" selected>持久球軸 (Ball Bearing)</option>
+            <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
+            <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
+          </select>
+        </div>
         
         <div class="form-group">
           <label id="lbl-p2-spin">🔄 旋轉方向: </label>
           <select id="p2-spin">
-            <option value="RIGHT" selected id="opt-p2-spin-r">右迴旋 (順時針)</option>
-            <option value="LEFT" id="opt-p2-spin-l">左迴旋 (逆時針)</option>
+            <option value="RIGHT">右迴旋 (順時針)</option>
+            <option value="LEFT" selected id="opt-p2-spin-l">左迴旋 (逆時針)</option>
           </select>
         </div>
 
@@ -177,7 +214,7 @@
 
   <!-- 戰鬥畫布 -->
   <div id="game-panel" class="card" style="display:none;">
-    <div id="status-bar">準備發射...</div>
+    <div id="status-bar" style="font-size: 1.1rem; font-weight: bold; margin-bottom: 8px;">準備發射...</div>
     <div id="stats-display">🏆 戰績載入中...</div>
     <div id="achieve-display">🎖️ 成就數量: 0/3</div>
     
@@ -207,7 +244,6 @@
   <script type="module">
     import { start2DBattle } from './js/game.js';
 
-    // 初始化網格 (1-18)
     function buildGridSelector() {
       const container = document.getElementById('grid-selector');
       if (!container) return;
@@ -226,7 +262,6 @@
       }
     }
 
-    // 觸發發射邏輯
     function triggerLaunch() {
       const setupPanel = document.getElementById('setup-panel');
       const gamePanel = document.getElementById('game-panel');
@@ -240,7 +275,6 @@
     window.addEventListener('DOMContentLoaded', () => {
       buildGridSelector();
 
-      // 1. 發射按鈕點擊綁定
       const launchBtn = document.getElementById('btn-launch');
       if (launchBtn) {
         launchBtn.onclick = (e) => {
@@ -249,7 +283,6 @@
         };
       }
 
-      // 2. 模式選擇按鈕綁定
       const btnSingle = document.getElementById('btn-single');
       const btnVersus = document.getElementById('btn-versus');
       const btnOnline = document.getElementById('btn-online');
@@ -275,7 +308,6 @@
         };
       }
 
-      // 3. 重置按鈕綁定
       const btnReset = document.getElementById('btn-reset');
       if (btnReset) {
         btnReset.onclick = () => {
