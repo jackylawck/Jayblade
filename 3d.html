@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
     <link rel="manifest" href="./manifest.json">
 
-    <!-- 🛡️ 1. 企業級 CSP 資安內容安全策略 (緊縮白名單，僅保留 Three.js 著色器必需之 unsafe-eval) -->
+    <!-- 🛡️ 1. 企業級 CSP 資安內容安全策略 -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net 'unsafe-eval';
@@ -56,7 +56,8 @@
         .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.72rem; color: #00ff66; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 6px; border: 1px solid rgba(0, 255, 102, 0.4); margin-top: 6px; line-height: 1.35; }
         .debug-panel h4 { color: #ffcc00; margin-bottom: 4px; font-size: 0.75rem; border-bottom: 1px solid rgba(255,204,0,0.3); padding-bottom: 2px; }
         
-        .toggle-ui-btn { position: fixed; top: 10px; right: 10px; z-index: 200; background: rgba(0, 210, 211, 0.8); color: #000; font-weight: bold; border: none; padding: 6px 10px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        /* 微調隱藏按鈕位置，避免擋住右上角按鈕 */
+        .toggle-ui-btn { position: fixed; bottom: 15px; left: 15px; z-index: 200; background: rgba(0, 210, 211, 0.85); color: #000; font-weight: bold; border: none; padding: 8px 12px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
     </style>
 
     <!-- 🔒 2. 第三方 CDN 腳本 (包含 SRI 完整性校驗與 crossorigin 屬性) -->
@@ -143,7 +144,70 @@
         import { ReconciliationNetworkManager } from './network.js';
         import { UGCModelEngine } from './js/ugc_loader.js';
 
-        // 🛡️ 3. XSS HTML 轉義函數 (過濾動態 DOM 賦值)
+        // 配件資料庫
+        const PARTS_DB = {
+            CROWNS: {
+                FEATHER: { name_zh: "羽翼飛刃", name_en: "Feather Blade", mass: 0.042, burstResist: 0.85 },
+                DRAKE: { name_zh: "龍紋重環", name_en: "Drake Crown", mass: 0.048, burstResist: 0.92 },
+                HEAVY: { name_zh: "裝甲重錘", name_en: "Heavy Armor", mass: 0.052, burstResist: 0.95 },
+                WIZARD: { name_zh: "魔導圓盾", name_en: "Wizard Ring", mass: 0.040, burstResist: 0.80 }
+            },
+            TIPS: {
+                FLAT: { name_zh: "極速平頭", name_en: "Flat Speed", friction: 0.4 },
+                BALL: { name_zh: "持久球軸", name_en: "Ball Bearing", friction: 0.15 },
+                NEEDLE: { name_zh: "防禦針軸", name_en: "Needle Guard", friction: 0.2 },
+                ACCEL: { name_zh: "軌道衝刺", name_en: "Accel Dash", friction: 0.5 }
+            }
+        };
+
+        const i18n = {
+            zh: {
+                title: "🌀 爆上陀螺 Jayblade 3D",
+                subtitle: "剛體力學與 UGC 3D 模型模擬器",
+                back2d: "⬅️ 切換回 2D 經典版",
+                p1PanelTitle: "🔵 P1 陀螺自訂配件",
+                lblName: "名稱:",
+                lblCrown: "撞擊環:",
+                lblTip: "動力底軸:",
+                lblSpin: "旋轉方向:",
+                lblPower: "發射力度:",
+                optSpinR: "右迴旋 (順時針)",
+                optSpinL: "左迴旋 (逆時針)",
+                optPowerH: "重度 (高轉速/衝撞)",
+                optPowerM: "中度 (穩定平衡)",
+                optPowerL: "輕度 (高精準)",
+                btn2p: "🎮 自訂對戰發射",
+                btn4p: "🔥 4人障礙大亂鬥",
+                debugTitle: "⚙️ 實時物理數據 (240Hz 算力)",
+                langBtn: "English",
+                battleInProg: "人對戰中..."
+            },
+            en: {
+                title: "🌀 Jayblade 3D",
+                subtitle: "Rigid-body Physics & UGC 3D Simulator",
+                back2d: "⬅️ Switch to 2D Version",
+                p1PanelTitle: "🔵 P1 Custom Parts",
+                lblName: "Name:",
+                lblCrown: "Crown Ring:",
+                lblTip: "Tip Base:",
+                lblSpin: "Spin Direction:",
+                lblPower: "Launch Power:",
+                optSpinR: "Right Spin (CW)",
+                optSpinL: "Left Spin (CCW)",
+                optPowerH: "Heavy (High RPM)",
+                optPowerM: "Medium (Balanced)",
+                optPowerL: "Light (Precision)",
+                btn2p: "🎮 Launch Battle",
+                btn4p: "🔥 4-Player Battle Royal",
+                debugTitle: "⚙️ Live Physics Telemetry (240Hz)",
+                langBtn: "繁體中文",
+                battleInProg: " Players Battle..."
+            }
+        };
+
+        let currentLang = 'zh';
+
+        // 🛡️ XSS HTML 轉義函數
         window.escapeHtml = function(unsafe) {
             return String(unsafe)
                 .replace(/&/g, "&amp;")
@@ -151,6 +215,63 @@
                 .replace(/>/g, "&gt;")
                 .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#039;");
+        };
+
+        // 填充配件下拉選單 (核心修復)
+        window.initPartsSelectors = function() {
+            const crownSelect = document.getElementById('p1-crown');
+            const tipSelect = document.getElementById('p1-tip');
+            if (!crownSelect || !tipSelect) return;
+
+            const selectedCrown = crownSelect.value;
+            const selectedTip = tipSelect.value;
+
+            crownSelect.innerHTML = '';
+            tipSelect.innerHTML = '';
+
+            Object.keys(PARTS_DB.CROWNS).forEach(k => {
+                const item = PARTS_DB.CROWNS[k];
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.innerText = currentLang === 'zh' ? item.name_zh : item.name_en;
+                if (k === selectedCrown) opt.selected = true;
+                crownSelect.appendChild(opt);
+            });
+
+            Object.keys(PARTS_DB.TIPS).forEach(k => {
+                const item = PARTS_DB.TIPS[k];
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.innerText = currentLang === 'zh' ? item.name_zh : item.name_en;
+                if (k === selectedTip) opt.selected = true;
+                tipSelect.appendChild(opt);
+            });
+        };
+
+        window.toggleLanguage = function() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            const t = i18n[currentLang];
+
+            document.getElementById('ui-title').innerText = t.title;
+            document.getElementById('ui-subtitle').innerText = t.subtitle;
+            document.getElementById('btn-back-2d').innerText = t.back2d;
+            document.getElementById('ui-p1-panel-title').innerText = t.p1PanelTitle;
+            document.getElementById('lbl-name').innerText = t.lblName;
+            document.getElementById('lbl-crown').innerText = t.lblCrown;
+            document.getElementById('lbl-tip').innerText = t.lblTip;
+            document.getElementById('lbl-spin').innerText = t.lblSpin;
+            document.getElementById('lbl-power').innerText = t.lblPower;
+            document.getElementById('opt-spin-r').innerText = t.optSpinR;
+            document.getElementById('opt-spin-l').innerText = t.optSpinL;
+            document.getElementById('opt-power-h').innerText = t.optPowerH;
+            document.getElementById('opt-power-m').innerText = t.optPowerM;
+            document.getElementById('opt-power-l').innerText = t.optPowerL;
+            document.getElementById('btn-2p').innerText = t.btn2p;
+            document.getElementById('btn-4p').innerText = t.btn4p;
+            document.getElementById('ui-debug-title').innerText = t.debugTitle;
+            document.getElementById('btn-lang').innerText = t.langBtn;
+
+            initPartsSelectors();
         };
 
         window.activeTopsMap = new Map();
@@ -194,10 +315,13 @@
             create3DStadium();
             ugcEngine = new UGCModelEngine(scene);
 
+            // 🛠️ 填寫配件下拉選單
+            initPartsSelectors();
+
             window.addEventListener('resize', onWindowResize);
             animate(performance.now());
             
-            launchBattle(2);
+            launchCustom3DBattle(2);
         }
 
         function create3DStadium() {
@@ -213,7 +337,7 @@
             world.addBody(groundBody);
         }
 
-        function launchBattle(count = 2) {
+        window.launchCustom3DBattle = function(count = 2) {
             activeTops.forEach(t => world.remove(t.body));
             activeTops = [];
             window.activeTopsMap.clear();
@@ -235,8 +359,25 @@
             activeTops.push(p2);
             window.activeTopsMap.set(p2.id, p2);
 
+            if (count === 4) {
+                const p3 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
+                    id: 'p3', name: '🟢 翡翠巨錘', x: 0, y: 0.5, z: -3.5, rpm: 10000, isRightSpin: true
+                });
+                p3.body.velocity.set(1.0, 0, 2.5);
+                activeTops.push(p3);
+                window.activeTopsMap.set(p3.id, p3);
+
+                const p4 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
+                    id: 'p4', name: '🟣 帝王紫刃', x: 0, y: 0.5, z: 3.5, rpm: 13000, isRightSpin: false
+                });
+                p4.body.velocity.set(-1.0, 0, -2.5);
+                activeTops.push(p4);
+                window.activeTopsMap.set(p4.id, p4);
+            }
+
             isSimulating = true;
-        }
+            document.getElementById('match-status').innerText = `⚔️ ${count} ${i18n[currentLang].battleInProg}`;
+        };
 
         function animate(now) {
             requestAnimationFrame(animate);
@@ -271,7 +412,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // 🛡️ 4. STL 檔案標頭檢測 (ASCII 與 Binary STL 雙重校驗)
+        // STL 檔案標頭檢測
         window.handleUGCFileUpload = function(event) {
             const file = event.target.files[0];
             if (!file) return;
