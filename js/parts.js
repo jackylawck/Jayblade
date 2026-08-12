@@ -44,12 +44,26 @@ function parseShareCode(code) {
 }
 
 function saveUserPreferences(p1Data, p2Data, grid, diff, engineMode) {
-  try { localStorage.setItem('jayblade_pref_pro', JSON.stringify({ p1Data, p2Data, grid, diff, engineMode })); } catch (e) {}
+  try {
+    const data = { p1Data, p2Data, grid, diff, engineMode };
+    if (window.Security) {
+      Security.secureSetItem('jayblade_pref_pro', data);
+    } else {
+      localStorage.setItem('jayblade_pref_pro', JSON.stringify(data));
+    }
+  } catch (e) {
+    console.warn('儲存偏好失敗:', e);
+  }
 }
 
 function loadUserPreferences() {
   try {
+    if (window.Security) {
+      return Security.secureGetItem('jayblade_pref_pro');
+    }
     const saved = localStorage.getItem('jayblade_pref_pro');
     return saved ? JSON.parse(saved) : null;
-  } catch (e) { return null; }
+  } catch (e) {
+    return null;
+  }
 }
