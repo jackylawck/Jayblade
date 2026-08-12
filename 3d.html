@@ -3,8 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>爆上陀螺 Jayblade 3D | 科研級 A-F 終極完成版</title>
-    <link rel="stylesheet" href="css/3d.css">
+    
+    <!-- 🛡️ 放寬 CSP，確保 CDN 庫與 WebGL 正常運作 -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src * 'unsafe-inline' 'unsafe-eval' data: blob: wss:;
+        script-src * 'unsafe-inline' 'unsafe-eval';
+        style-src * 'unsafe-inline';
+        connect-src * wss: https:;
+        img-src * data: blob:;
+        font-src * data:;
+    ">
+
+    <title>爆上陀螺 Jayblade</title>
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
+        .ui-overlay { position: absolute; top: 15px; left: 15px; z-index: 100; pointer-events: none; }
+        .ui-card { background: rgba(18, 18, 24, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 211, 0.4); border-radius: 14px; padding: 16px; width: 360px; pointer-events: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        h1 { font-size: 1.15rem; color: #00d2d3; margin: 0; }
+        .lang-btn { background: rgba(0, 210, 211, 0.2); border: 1px solid #00d2d3; color: #00d2d3; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; cursor: pointer; font-weight: bold; }
+        p { font-size: 0.78rem; color: #aaa; margin-bottom: 10px; line-height: 1.3; }
+        .btn { background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border: none; padding: 10px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.88rem; box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4); transition: transform 0.1s; margin-top: 6px; }
+        .btn:active { transform: scale(0.98); }
+        .btn-purple { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
+        .btn-secondary { background: #1e293b; border: 1px solid rgba(255,255,255,0.2); }
+        .status-banner { font-size: 0.88rem; font-weight: bold; color: #ffcc00; margin-bottom: 8px; min-height: 22px; text-shadow: 0 0 8px rgba(255,204,0,0.5); }
+        .energy-chart-box { margin-top: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
+        .chart-title { font-size: 0.72rem; color: #2ecc71; margin-bottom: 4px; }
+        #energy-canvas { width: 100%; height: 40px; display: block; }
+        .webrtc-box { margin-top: 8px; display: flex; gap: 6px; }
+        .webrtc-input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 10px; color: #fff; width: 60%; font-family: monospace; font-size: 0.8rem; }
+        .telemetry { font-family: 'Courier New', Courier, monospace; font-size: 0.74rem; color: #2ecc71; margin-top: 8px; line-height: 1.45; background: rgba(0,0,0,0.45); padding: 10px; border-radius: 6px; border: 1px solid rgba(46, 204, 113, 0.2); max-height: 140px; overflow-y: auto; }
+        .touch-zone { position: absolute; bottom: 20px; right: 20px; width: 120px; height: 120px; border: 2px dashed rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; text-align: center; font-size: 0.75rem; color: #aaa; background: rgba(255,255,255,0.05); pointer-events: auto; z-index: 100; }
+        .touch-zone.active { border-color: #00d2d3; color: #00d2d3; background: rgba(0,210,211,0.15); }
+    </style>
 
     <!-- 核心第三方依賴庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -16,23 +51,26 @@
 
     <div class="ui-overlay">
         <div class="ui-card">
-            <h1>🔬 Jayblade 3D (A-F 旗艦進化)</h1>
-            <p>空氣動力/漸開線嚙合/黏彈性/能量守恆/GPU粒子/WebRTC</p>
+            <div class="header-row">
+                <h1 id="ui-title">🌀 爆上陀螺 Jayblade</h1>
+                <button class="lang-btn" id="btn-lang" onclick="toggleLanguage()">English</button>
+            </div>
+            <p id="ui-subtitle">剛體力學與家庭對戰模擬器</p>
             <div class="status-banner" id="match-status">準備發射...</div>
-            <button class="btn" id="btn-2p">🎮 2人正規賽</button>
-            <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
-            <button class="btn btn-secondary" id="btn-helper">🎯 切換進動向量輔助線</button>
+            <button class="btn" id="btn-2p" onclick="launch3DBattle(2)">🎮 2人正規賽</button>
+            <button class="btn btn-purple" id="btn-4p" onclick="launch3DBattle(4)">🔥 4人障礙大亂鬥</button>
+            <button class="btn btn-secondary" id="btn-helper" onclick="toggleHelper()">🎯 切換進動向量輔助線</button>
 
             <!-- 實時能量曲線 Canvas -->
             <div class="energy-chart-box">
-                <div class="chart-title">⚡ 系統動能留存率曲線 (漂移 &lt; 0.1%):</div>
+                <div class="chart-title" id="ui-chart-title">⚡ 系統動能留存率曲線:</div>
                 <canvas id="energy-canvas" width="320" height="40"></canvas>
             </div>
 
             <!-- WebRTC 控制區 -->
             <div class="webrtc-box">
                 <input type="text" id="room-id-input" class="webrtc-input" placeholder="6 位房號">
-                <button class="btn btn-secondary" id="btn-connect" style="margin-top:0; width:40%;">連線房號</button>
+                <button class="btn btn-secondary" id="btn-connect" style="margin-top:0; width:40%;" onclick="connectWebRTC()">連線房號</button>
             </div>
 
             <div class="telemetry" id="telemetry-box">⚙️ 請選擇對戰模式</div>
@@ -42,6 +80,257 @@
     <div class="touch-zone" id="touch-launch-zone">👆 滑動發射</div>
     <div id="canvas-container"></div>
 
-    <script type="module" src="js/app.js"></script>
+    <script>
+        // ==========================================
+        // 1. 全域變數與 3D/物理世界初始化
+        // ==========================================
+        let scene, camera, renderer, controls;
+        let world, defaultMaterial, stadiumMaterial;
+        let activeTops = [];
+        let obstacleBodies = [], obstacleMeshes = [];
+        let isSimulating = false, showPrecessionVectors = false;
+        let initialEnergy = 0, lastTime = performance.now(), lastBroadcastTime = 0;
+        let currentLang = 'zh';
+        let peer = null, peerConn = null;
+
+        const STADIUM_RADIUS = 12;
+        const GEAR_RAIL_RADIUS = 10.5;
+
+        const i18n = {
+            zh: { title: "🌀 爆上陀螺 Jayblade", subtitle: "剛體力學與家庭對戰模擬器", btn2p: "🎮 2人正規賽", btn4p: "🔥 4人障礙大亂鬥", btnHelper: "🎯 切換進動向量輔助線", chartTitle: "⚡ 系統動能留存率曲線:", btnConnect: "連線房號", touchLaunch: "👆 滑動發射", langBtn: "English", ready: "準備發射...", battleInProg: "人對戰中...", outOfBounds: "❌ 離場" },
+            en: { title: "🌀 Jayblade", subtitle: "Rigid-body Physics & Battle Simulator", btn2p: "🎮 2-Player Match", btn4p: "🔥 4-Player Battle Royal", btnHelper: "🎯 Toggle Precession Vectors", chartTitle: "⚡ Kinetic Energy Retention:", btnConnect: "Connect Room", touchLaunch: "👆 Swipe to Launch", langBtn: "繁體中文", ready: "Ready to launch...", battleInProg: " Players Battle...", outOfBounds: "❌ Out" }
+        };
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            const t = i18n[currentLang];
+            document.getElementById('ui-title').innerText = t.title;
+            document.getElementById('ui-subtitle').innerText = t.subtitle;
+            document.getElementById('btn-2p').innerText = t.btn2p;
+            document.getElementById('btn-4p').innerText = t.btn4p;
+            document.getElementById('btn-helper').innerText = t.btnHelper;
+            document.getElementById('ui-chart-title').innerText = t.chartTitle;
+            document.getElementById('btn-connect').innerText = t.btnConnect;
+            document.getElementById('touch-launch-zone').innerText = t.touchLaunch;
+            document.getElementById('btn-lang').innerText = t.langBtn;
+        }
+
+        function init3DEngine() {
+            const container = document.getElementById('canvas-container');
+            
+            // 3D Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0f);
+            scene.fog = new THREE.FogExp2(0x0a0a0f, 0.015);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 20, 24);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const dirLight = new THREE.DirectionalLight(0xffddaa, 1.2);
+            dirLight.position.set(15, 30, 10);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            // Cannon.js 物理世界
+            world = new CANNON.World();
+            world.gravity.set(0, -9.82, 0);
+            world.broadphase = new CANNON.NaiveBroadphase();
+
+            defaultMaterial = new CANNON.Material('default');
+            stadiumMaterial = new CANNON.Material('stadium');
+
+            create3DStadium();
+            createGearRail();
+            initWebRTC();
+
+            window.addEventListener('resize', onWindowResize);
+            animate(performance.now());
+            
+            // 自動開啟一局 2 人對決展示
+            launch3DBattle(2);
+        }
+
+        function create3DStadium() {
+            const geo = new THREE.CylinderGeometry(STADIUM_RADIUS, 2, 3, 48, 1, true);
+            const mat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.2, metalness: 0.8, side: THREE.DoubleSide });
+            const stadiumMesh = new THREE.Mesh(geo, mat);
+            stadiumMesh.position.y = -1.5;
+            scene.add(stadiumMesh);
+
+            const groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
+            groundBody.addShape(new CANNON.Cylinder(STADIUM_RADIUS, 2, 3, 32), new CANNON.Vec3(0, -1.5, 0));
+            world.addBody(groundBody);
+        }
+
+        function createGearRail() {
+            const railGeo = new THREE.TorusGeometry(GEAR_RAIL_RADIUS, 0.3, 16, 64);
+            const railMat = new THREE.MeshStandardMaterial({ color: 0xff3366, emissive: 0x330011, roughness: 0.2, metalness: 0.9 });
+            const gearRailMesh = new THREE.Mesh(railGeo, railMat);
+            gearRailMesh.rotation.x = Math.PI / 2;
+            gearRailMesh.position.y = 0.2;
+            scene.add(gearRailMesh);
+        }
+
+        class Beyblade3D {
+            constructor(x, y, z, color, name, isRightSpin = true) {
+                this.name = name;
+                this.color = color;
+                this.isRightSpin = isRightSpin;
+                this.rpm = 12000;
+                this.radius = 1.5;
+                this.shatterHp = 100;
+                this.isShattered = false;
+                this.xdashCooldown = 0;
+
+                this.group = new THREE.Group();
+                const crownGeo = new THREE.CylinderGeometry(this.radius, this.radius * 0.86, 0.4, 8);
+                const crownMat = new THREE.MeshStandardMaterial({ color: color, metalness: 0.9, roughness: 0.2 });
+                this.group.add(new THREE.Mesh(crownGeo, crownMat));
+
+                const coreGeo = new THREE.SphereGeometry(0.6, 16, 16);
+                const coreMat = new THREE.MeshPhongMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.8 });
+                const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+                coreMesh.position.y = 0.2;
+                this.group.add(coreMesh);
+
+                scene.add(this.group);
+
+                const mass = 0.045;
+                this.body = new CANNON.Body({ mass: mass, material: defaultMaterial });
+                this.body.addShape(new CANNON.Sphere(1.2));
+                this.body.position.set(x, y, z);
+                
+                const spinRad = (this.rpm * 2 * Math.PI) / 60 * (isRightSpin ? -1 : 1);
+                this.body.angularVelocity.set(0, spinRad, 0);
+
+                world.addBody(this.body);
+            }
+
+            update(dt) {
+                if (this.isShattered) return;
+                this.group.position.copy(this.body.position);
+                this.group.quaternion.copy(this.body.quaternion);
+                this.rpm = Math.abs(this.body.angularVelocity.y) * 60 / (2 * Math.PI);
+
+                // X-DASH 齒輪咬合
+                if (this.xdashCooldown > 0) this.xdashCooldown -= dt;
+                const distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
+                if (this.xdashCooldown <= 0 && Math.abs(distFromCenter - GEAR_RAIL_RADIUS) < 0.5 && this.body.position.y < 0.5) {
+                    const spinDir = this.isRightSpin ? -1 : 1;
+                    const tangentX = (-this.body.position.z / distFromCenter) * spinDir;
+                    const tangentZ = (this.body.position.x / distFromCenter) * spinDir;
+                    this.body.applyImpulse(new CANNON.Vec3(tangentX * 0.9, 0.2, tangentZ * 0.9), this.body.position);
+                    this.xdashCooldown = 0.2;
+                }
+
+                this.body.angularVelocity.y *= 0.9985;
+            }
+
+            shatter() {
+                if (this.isShattered) return;
+                this.isShattered = true;
+                world.remove(this.body);
+                scene.remove(this.group);
+            }
+        }
+
+        function launch3DBattle(count = 2) {
+            activeTops.forEach(t => { if (!t.isShattered) world.remove(t.body); scene.remove(t.group); });
+            activeTops = [];
+
+            const configs = [
+                { x: -5, z: 0, color: 0x1e90ff, name: '🔵 火鷹飛龍', spin: true, vx: 6, vz: 3 },
+                { x: 5, z: 0, color: 0xff3838, name: '🔴 影武赤狼', spin: false, vx: -6, vz: -3 },
+                { x: 0, z: -5, color: 0x2ecc71, name: '🟢 翡翠巨錘', spin: true, vx: 2, vz: 6 },
+                { x: 0, z: 5, color: 0x9b59b6, name: '🟣 帝王紫刃', spin: false, vx: -2, vz: -6 }
+            ];
+
+            for (let i = 0; i < count; i++) {
+                const c = configs[i];
+                const top = new Beyblade3D(c.x, 3, c.z, c.color, c.name, c.spin);
+                top.body.velocity.set(c.vx, -2, c.vz);
+                activeTops.push(top);
+            }
+
+            isSimulating = true;
+            document.getElementById('match-status').innerText = `⚔️ ${count} ${i18n[currentLang].battleInProg}`;
+        }
+
+        function toggleHelper() {
+            showPrecessionVectors = !showPrecessionVectors;
+            alert(showPrecessionVectors ? "🎯 已開啟進動輔助線" : "🎯 已關閉進動輔助線");
+        }
+
+        function initWebRTC() {
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            peer = new Peer('jayblade-' + code);
+            peer.on('open', () => { document.getElementById('room-id-input').value = code; });
+        }
+
+        function connectWebRTC() {
+            const target = document.getElementById('room-id-input').value;
+            if (target) {
+                peerConn = peer.connect('jayblade-' + target);
+                peerConn.on('open', () => { document.getElementById('match-status').innerText = "🌐 WebRTC 已連線！"; });
+            }
+        }
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+            const dt = Math.min((now - lastTime) / 1000, 0.05);
+            lastTime = now;
+
+            if (isSimulating) {
+                world.step(1 / 60, dt, 2);
+                activeTops.forEach(t => t.update(dt));
+
+                // 碰撞處理
+                for (let i = 0; i < activeTops.length; i++) {
+                    for (let j = i + 1; j < activeTops.length; j++) {
+                        const p1 = activeTops[i], p2 = activeTops[j];
+                        if (p1.isShattered || p2.isShattered) continue;
+                        if (p1.body.position.distanceTo(p2.body.position) < 2.4) {
+                            p1.shatterHp -= 5;
+                            p2.shatterHp -= 5;
+                        }
+                    }
+                }
+
+                // 邊界檢查
+                activeTops.forEach(t => {
+                    if (!t.isShattered && Math.hypot(t.body.position.x, t.body.position.z) > STADIUM_RADIUS) {
+                        t.shatter();
+                    }
+                });
+
+                let telemetryHTML = '';
+                activeTops.forEach(t => {
+                    telemetryHTML += `${t.name}: ${t.isShattered ? i18n[currentLang].outOfBounds : Math.round(t.rpm) + ' RPM | HP:' + Math.max(0, Math.round(t.shatterHp))}<br>`;
+                });
+                document.getElementById('telemetry-box').innerHTML = telemetryHTML;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = init3DEngine;
+    </script>
 </body>
 </html>
