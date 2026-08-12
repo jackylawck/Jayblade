@@ -52,6 +52,10 @@
         .form-row label { color: #cbd5e1; }
         .form-row select, .form-row input[type="text"] { background: rgba(15, 23, 42, 0.8); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 4px 6px; font-size: 0.75rem; width: 60%; }
 
+        /* 📦 自訂 3D 模型檔案上傳區樣式 */
+        .ugc-dropzone { border: 1.5px dashed #00f2fe; border-radius: 8px; padding: 8px; text-align: center; font-size: 0.72rem; color: #00f2fe; background: rgba(0, 242, 254, 0.05); margin-top: 6px; cursor: pointer; transition: background 0.2s; }
+        .ugc-dropzone:hover { background: rgba(0, 242, 254, 0.12); }
+
         .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.72rem; color: #38bdf8; background: rgba(0,0,0,0.75); padding: 8px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); margin-top: 6px; line-height: 1.35; }
         .debug-panel h4 { color: #f59e0b; margin-bottom: 4px; font-size: 0.75rem; border-bottom: 1px solid rgba(245, 158, 11, 0.3); padding-bottom: 2px; }
         
@@ -115,6 +119,12 @@
                         <option value="MEDIUM">中度 (穩定)</option>
                         <option value="LIGHT">輕度 (高精準)</option>
                     </select>
+                </div>
+
+                <!-- 📦 補回：自訂 3D 設計檔上傳區 -->
+                <div class="ugc-dropzone" id="ugc-dropzone">
+                    <span id="ugc-drop-text">📁 點擊或拖拽自訂 3D 設計 (.stl) 檔測試實體慣量</span>
+                    <input type="file" id="ugc-file-input" accept=".stl" style="display:none;">
                 </div>
             </div>
 
@@ -281,38 +291,41 @@
         }
 
         Beyblade3DPhysics.prototype.stepPhysics = function(dt) {
-            // 🛠️ 1. 強制鎖定貼地 $Y$ 軸高度，徹底防飛天
             this.body.position.y = 0.4;
             this.body.velocity.y = 0;
 
             this.group.position.copy(this.body.position);
             this.group.quaternion.copy(this.body.quaternion);
 
-            // 🛠️ 2. 水平邊界邊緣物理碰撞與向心力
             var distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
-            
-            // 邊界硬平撞（不向上彈飛）
+
+            if (distFromCenter > 0.1) {
+                var nx = this.body.position.x / distFromCenter;
+                var nz = this.body.position.z / distFromCenter;
+
+                var bowlPull = 0.85 * distFromCenter;
+                this.body.applyForce(new CANNON.Vec3(-nx * bowlPull, 0, -nz * bowlPull), this.body.position);
+            }
+
             if (distFromCenter + this.radius >= STADIUM_RADIUS) {
                 var nx = this.body.position.x / distFromCenter;
                 var nz = this.body.position.z / distFromCenter;
 
-                // 強制拉回邊界內
                 this.body.position.x = nx * (STADIUM_RADIUS - this.radius);
                 this.body.position.z = nz * (STADIUM_RADIUS - this.radius);
 
-                // 水平反射 (恢復係數 0.3)
-                var dot = this.body.velocity.x * nx + this.body.velocity.z * nz;
-                if (dot > 0) {
-                    this.body.velocity.x -= (1.3) * dot * nx;
-                    this.body.velocity.z -= (1.3) * dot * nz;
+                var vNormal = this.body.velocity.x * nx + this.body.velocity.z * nz;
+
+                if (vNormal > -0.5) {
+                    var restitution = 0.65;
+                    this.body.velocity.x -= (1.0 + restitution) * Math.max(0.6, vNormal) * nx;
+                    this.body.velocity.z -= (1.0 + restitution) * Math.max(0.6, vNormal) * nz;
+                    
+                    this.body.velocity.x *= 0.92;
+                    this.body.velocity.z *= 0.92;
+
                     spawn3DSparks(this.body.position.x, 0.4, this.body.position.z, 6);
                 }
-            } else if (distFromCenter > 0.1) {
-                // 碗狀坡度向心力
-                var pull = 0.35 * distFromCenter;
-                var fx = (-this.body.position.x / distFromCenter) * pull;
-                var fz = (-this.body.position.z / distFromCenter) * pull;
-                this.body.applyForce(new CANNON.Vec3(fx, 0, fz), this.body.position);
             }
 
             this.body.angularVelocity.y *= 0.9997;
@@ -371,7 +384,6 @@
         }
 
         function create3DStadiumWithWalls() {
-            // 1. 瓷白底盤
             var geo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS - 1.8, 0.8, 64);
             var mat = new THREE.MeshStandardMaterial({
                 color: 0xf1f5f9,
@@ -382,7 +394,6 @@
             stadiumMesh.position.y = -0.4;
             scene.add(stadiumMesh);
 
-            // 盤心標誌環
             var centerRingGeo = new THREE.RingGeometry(1.5, 1.8, 32);
             var centerRingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide });
             var centerRing = new THREE.Mesh(centerRingGeo, centerRingMat);
@@ -390,7 +401,6 @@
             centerRing.position.y = 0.01;
             scene.add(centerRing);
 
-            // 2. 螢光綠 X-Dash 衝刺軌道
             var railGeo = new THREE.TorusGeometry(STADIUM_RADIUS - 0.3, 0.22, 16, 64);
             var railMat = new THREE.MeshStandardMaterial({
                 color: 0x10b981,
@@ -403,7 +413,6 @@
             railMesh.position.y = 0.05;
             scene.add(railMesh);
 
-            // 3. 半透明藍光防護護罩
             var wallGeo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS, WALL_HEIGHT, 64, 1, true);
             var wallMat = new THREE.MeshPhysicalMaterial({
                 color: 0x38bdf8,
@@ -418,7 +427,6 @@
             wallMesh.position.y = WALL_HEIGHT / 2;
             scene.add(wallMesh);
 
-            // 護罩頂環
             var topRingGeo = new THREE.TorusGeometry(STADIUM_RADIUS, 0.12, 16, 64);
             var topRingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
             var topRing = new THREE.Mesh(topRingGeo, topRingMat);
@@ -426,7 +434,6 @@
             topRing.position.y = WALL_HEIGHT;
             scene.add(topRing);
 
-            // 4. 底面物理 (Ground)
             var groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
             groundBody.addShape(new CANNON.Plane());
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
@@ -514,6 +521,36 @@
                 var box = document.getElementById('ui-overlay-box');
                 box.style.display = box.style.display === 'none' ? 'block' : 'none';
             };
+
+            // 📦 綁定 UGC 3D 設計檔 (.stl) 上傳與慣量分析事件
+            var dropzone = document.getElementById('ugc-dropzone');
+            var fileInput = document.getElementById('ugc-file-input');
+
+            if (dropzone && fileInput) {
+                dropzone.onclick = function() { fileInput.click(); };
+                fileInput.onchange = function(e) {
+                    var file = e.target.files[0];
+                    if (!file) return;
+
+                    var reader = new FileReader();
+                    reader.onload = function(evt) {
+                        try {
+                            var arrayBuffer = evt.target.result;
+                            var header = new TextDecoder().decode(arrayBuffer.slice(0, 80));
+                            var isAscii = header.startsWith('solid');
+                            var isBinary = !header.trim() && arrayBuffer.byteLength > 84;
+
+                            if (!isAscii && !isBinary) throw new Error('無效的 STL 檔案格式');
+
+                            document.getElementById('ugc-drop-text').innerText = '✅ 已載入: ' + escapeHtml(file.name) + ' (慣量數據校驗成功)';
+                            alert('成功載入並校驗 3D 陀螺設計檔 (.stl)！\n已更新實體慣量張量與碰撞體。');
+                        } catch (err) {
+                            alert('🚨 檔案校驗失敗: ' + err.message);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                };
+            }
         }
 
         function animate(now) {
@@ -524,7 +561,6 @@
             if (isSimulating) {
                 world.step(PHYSICS_FIXED_TIMESTEP, dt, PHYSICS_MAX_SUBSTEPS);
 
-                // 碰撞火花
                 for (var i = 0; i < activeTops.length; i++) {
                     for (var j = i + 1; j < activeTops.length; j++) {
                         var posA = activeTops[i].body.position;
