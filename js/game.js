@@ -194,23 +194,45 @@ function importShareCode(prefix) {
   } else { alert('❌ 分享碼無效'); }
 }
 
+// 🌐 WebRTC PeerJS 初始化與對連 (優化為 4 位數簡短房號)
 function initPeerJS() {
   if (peer || typeof Peer === 'undefined') return;
-  peer = new Peer();
-  peer.on('open', (id) => { if (document.getElementById('my-peer-id')) document.getElementById('my-peer-id').innerText = id; });
+
+  const shortId = Math.floor(1000 + Math.random() * 9000).toString();
+  peer = new Peer(shortId);
+
+  peer.on('open', (id) => {
+    if (document.getElementById('my-peer-id')) {
+      document.getElementById('my-peer-id').innerText = id;
+    }
+  });
+
+  peer.on('error', (err) => {
+    if (err.type === 'unavailable-id') {
+      peer.destroy();
+      peer = null;
+      initPeerJS();
+    }
+  });
+
   peer.on('connection', (conn) => {
-    peerConn = conn; isOnlineHost = true; setupPeerListeners();
+    peerConn = conn;
+    isOnlineHost = true;
+    setupPeerListeners();
     document.getElementById('network-status').innerText = '✅ 玩家已加入連線！';
   });
 }
+
 function connectToPeer() {
   const targetId = document.getElementById('join-peer-id')?.value;
   if (!targetId) return alert('請輸入對手的 Host ID');
   initPeerJS();
   peerConn = peer.connect(targetId);
-  isOnlineHost = false; setupPeerListeners();
+  isOnlineHost = false;
+  setupPeerListeners();
   document.getElementById('network-status').innerText = '連線中...';
 }
+
 function setupPeerListeners() {
   peerConn.on('open', () => {
     document.getElementById('network-status').innerText = '✅ 連線成功！ (Client 模式)';
@@ -240,7 +262,7 @@ function toggleDebugPanel() {
 }
 function toggleBGM() { const active = sfx.toggleBGM(); alert(active ? '🎵 BGM 已開啟' : '🔇 BGM 已關閉'); }
 
-// 🌟 手機觸控滑動拉線發射 (Swipe Launch Gesture)
+// 手機觸控滑動拉線發射 (Swipe Launch Gesture)
 document.addEventListener('DOMContentLoaded', () => {
   initOffscreenBackground(); setupRetinaCanvas();
 
@@ -255,11 +277,10 @@ document.addEventListener('DOMContentLoaded', () => {
     swipeZone.addEventListener('touchend', (e) => {
       swipeZone.classList.remove('active');
       const touchEndY = e.changedTouches[0].clientY;
-      const distY = touchStartY - touchEndY; // 向上滑動為正
+      const distY = touchStartY - touchEndY;
       const duration = (Date.now() - touchStartTime) / 1000;
       
       if (distY > 50 && duration < 0.8) {
-        // 動態計算滑動速度 -> 轉化為發射力度
         const speed = distY / duration;
         let calculatedPower = 'MEDIUM';
         if (speed > 800) calculatedPower = 'HEAVY';
