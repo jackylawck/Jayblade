@@ -1,46 +1,268 @@
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: manipulation; }
-body { background: #121218; color: #fff; text-align: center; padding: 12px; }
-h1 { color: #ffcc00; text-shadow: 0 0 10px rgba(255,204,0,0.5); font-size: 24px; margin-bottom: 4px; }
-.subtitle { color: #aaa; margin-bottom: 15px; font-size: 13px; }
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+    touch-action: manipulation; 
+}
 
-.card { background: #1e1e28; border-radius: 12px; padding: 16px; max-width: 500px; margin: 0 auto 15px; border: 1px solid #333; }
-hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
+body { 
+    background: #121218; 
+    color: #fff; 
+    text-align: center; 
+    padding: 12px; 
+}
 
-.physics-mode-box { background: #2f3542; padding: 10px; border-radius: 8px; border: 1px solid #ffcc00; margin-bottom: 15px; text-align: left; }
+h1 { 
+    color: #ffcc00; 
+    text-shadow: 0 0 10px rgba(255,204,0,0.5); 
+    font-size: 24px; 
+    margin-bottom: 4px; 
+}
 
-.player-box { background: #252533; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #1e90ff; }
-.p2-box { border-left-color: #ff3838; }
-.player-box h3 { font-size: 15px; text-align: left; margin-bottom: 8px; color: #ffcc00; }
+.subtitle { 
+    color: #aaa; 
+    margin-bottom: 15px; 
+    font-size: 13px; 
+}
 
-.btn { background: #ff4757; color: white; border: none; padding: 12px 18px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 4px; }
-.btn:hover { background: #ff6b81; }
-.btn-secondary { background: #2ed573; }
-.btn-secondary:hover { background: #7bed9f; }
-.btn-online { background: #00d2d3; color: #000; }
-.btn-online:hover { background: #48dbfb; }
-.btn-sm { font-size: 12px; padding: 6px 12px; border-radius: 6px; }
-.launch-btn { width: 100%; font-size: 18px; margin-top: 10px; padding: 14px; }
+.card { 
+    background: #1e1e28; 
+    border-radius: 12px; 
+    padding: 16px; 
+    max-width: 500px; 
+    margin: 0 auto 15px; 
+    border: 1px solid #333; 
+}
 
-.swipe-area { background: #161622; border: 2px dashed #ffcc00; border-radius: 8px; padding: 16px; margin: 12px 0; color: #ffcc00; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none; }
-.swipe-area.active { background: #3742fa; color: #fff; border-color: #2ed573; }
+hr { 
+    border: 0; 
+    border-top: 1px solid #333; 
+    margin: 15px 0; 
+}
 
-.form-group { margin: 10px 0; text-align: left; }
-label { font-size: 13px; color: #ddd; font-weight: bold; }
-select, input[type="text"] { font-size: 15px; padding: 6px 10px; border-radius: 6px; width: 100%; margin-top: 4px; background: #2f3542; color: #fff; border: 1px solid #555; }
-input[type="color"] { width: 100%; height: 36px; margin-top: 4px; border-radius: 6px; border: 1px solid #555; background: #2f3542; cursor: pointer; }
+/* 🚀 3D 入口推薦框懸停效果增強 */
+#setup-panel a[href="./3d.html"] {
+    transition: all 0.2s ease-in-out;
+}
+#setup-panel a[href="./3d.html"]:hover {
+    color: #48dbfb !important;
+    text-shadow: 0 0 8px rgba(0, 210, 211, 0.6);
+}
 
-.grid-container { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 12px 0; }
-.grid-item { background: #2f3542; padding: 10px 0; border-radius: 6px; font-weight: bold; font-size: 14px; user-select: none; cursor: pointer; }
-.grid-item.selected { border: 2px solid #ffcc00; background: #3742fa; }
+.physics-mode-box { 
+    background: #2f3542; 
+    padding: 10px; 
+    border-radius: 8px; 
+    border: 1px solid #ffcc00; 
+    margin-bottom: 15px; 
+    text-align: left; 
+}
 
-#canvas-container { position: relative; width: 100%; max-width: 450px; margin: 0 auto; aspect-ratio: 1 / 1; }
-canvas { width: 100% !important; height: 100% !important; border-radius: 50%; border: 4px solid #444; display: block; }
+.player-box { 
+    background: #252533; 
+    border-radius: 8px; 
+    padding: 12px; 
+    margin-bottom: 12px; 
+    border-left: 4px solid #1e90ff; 
+}
 
-.canvas-controls { margin-bottom: 8px; display: flex; align-items: center; justify-content: center; }
-#status-bar { font-size: 16px; font-weight: bold; margin-bottom: 6px; color: #70a1ff; min-height: 24px; }
-#stats-display { font-size: 13px; color: #ffcc00; margin-bottom: 4px; }
-#achieve-display { font-size: 12px; color: #2ed573; margin-bottom: 6px; font-weight: bold; }
+.p2-box { 
+    border-left-color: #ff3838; 
+}
 
-.debug-box { background: #0e0e14; border: 1px solid #444; border-radius: 8px; padding: 10px; margin-top: 10px; text-align: left; font-family: monospace; font-size: 11px; color: #00ff66; }
-.debug-box h4 { margin-bottom: 6px; color: #ffcc00; }
-.debug-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.player-box h3 { 
+    font-size: 15px; 
+    text-align: left; 
+    margin-bottom: 8px; 
+    color: #ffcc00; 
+}
+
+.btn { 
+    background: #ff4757; 
+    color: white; 
+    border: none; 
+    padding: 12px 18px; 
+    font-size: 16px; 
+    font-weight: bold; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    margin: 4px; 
+    transition: background 0.2s;
+}
+
+.btn:hover { 
+    background: #ff6b81; 
+}
+
+.btn-secondary { 
+    background: #2ed573; 
+}
+
+.btn-secondary:hover { 
+    background: #7bed9f; 
+}
+
+.btn-online { 
+    background: #00d2d3; 
+    color: #000; 
+}
+
+.btn-online:hover { 
+    background: #48dbfb; 
+}
+
+.btn-sm { 
+    font-size: 12px; 
+    padding: 6px 12px; 
+    border-radius: 6px; 
+}
+
+.launch-btn { 
+    width: 100%; 
+    font-size: 18px; 
+    margin-top: 10px; 
+    padding: 14px; 
+}
+
+.swipe-area { 
+    background: #161622; 
+    border: 2px dashed #ffcc00; 
+    border-radius: 8px; 
+    padding: 16px; 
+    margin: 12px 0; 
+    color: #ffcc00; 
+    font-size: 13px; 
+    font-weight: bold; 
+    cursor: pointer; 
+    user-select: none; 
+}
+
+.swipe-area.active { 
+    background: #3742fa; 
+    color: #fff; 
+    border-color: #2ed573; 
+}
+
+.form-group { 
+    margin: 10px 0; 
+    text-align: left; 
+}
+
+label { 
+    font-size: 13px; 
+    color: #ddd; 
+    font-weight: bold; 
+}
+
+select, input[type="text"] { 
+    font-size: 15px; 
+    padding: 6px 10px; 
+    border-radius: 6px; 
+    width: 100%; 
+    margin-top: 4px; 
+    background: #2f3542; 
+    color: #fff; 
+    border: 1px solid #555; 
+}
+
+input[type="color"] { 
+    width: 100%; 
+    height: 36px; 
+    margin-top: 4px; 
+    border-radius: 6px; 
+    border: 1px solid #555; 
+    background: #2f3542; 
+    cursor: pointer; 
+}
+
+.grid-container { 
+    display: grid; 
+    grid-template-columns: repeat(6, 1fr); 
+    gap: 6px; 
+    margin: 12px 0; 
+}
+
+.grid-item { 
+    background: #2f3542; 
+    padding: 10px 0; 
+    border-radius: 6px; 
+    font-weight: bold; 
+    font-size: 14px; 
+    user-select: none; 
+    cursor: pointer; 
+}
+
+.grid-item.selected { 
+    border: 2px solid #ffcc00; 
+    background: #3742fa; 
+}
+
+#canvas-container { 
+    position: relative; 
+    width: 100%; 
+    max-width: 450px; 
+    margin: 0 auto; 
+    aspect-ratio: 1 / 1; 
+}
+
+canvas { 
+    width: 100% !important; 
+    height: 100% !important; 
+    border-radius: 50%; 
+    border: 4px solid #444; 
+    display: block; 
+}
+
+.canvas-controls { 
+    margin-bottom: 8px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+#status-bar { 
+    font-size: 16px; 
+    font-weight: bold; 
+    margin-bottom: 6px; 
+    color: #70a1ff; 
+    min-height: 24px; 
+}
+
+#stats-display { 
+    font-size: 13px; 
+    color: #ffcc00; 
+    margin-bottom: 4px; 
+}
+
+#achieve-display { 
+    font-size: 12px; 
+    color: #2ed573; 
+    margin-bottom: 6px; 
+    font-weight: bold; 
+}
+
+.debug-box { 
+    background: #0e0e14; 
+    border: 1px solid #444; 
+    border-radius: 8px; 
+    padding: 10px; 
+    margin-top: 10px; 
+    text-align: left; 
+    font-family: monospace; 
+    font-size: 11px; 
+    color: #00ff66; 
+}
+
+.debug-box h4 { 
+    margin-bottom: 6px; 
+    color: #ffcc00; 
+}
+
+.debug-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 8px; 
+}
