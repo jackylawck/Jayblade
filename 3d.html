@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- 🖼️ 1. Favicon 圖示 -->
     <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
     <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
     <link rel="manifest" href="./manifest.json">
 
-    <!-- 🛡️ 2. CSP 資安策略 -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src * 'unsafe-inline' 'unsafe-eval' data: blob: wss:;
         script-src * 'unsafe-inline' 'unsafe-eval';
@@ -19,69 +17,109 @@
         font-src * data:;
     ">
 
-    <title>爆上陀螺 Jayblade</title>
+    <title>爆上陀螺 Jayblade 3D</title>
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
-        .ui-overlay { position: absolute; top: 15px; left: 15px; z-index: 100; pointer-events: none; }
-        .ui-card { background: rgba(18, 18, 24, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 211, 0.4); border-radius: 14px; padding: 16px; width: 360px; pointer-events: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+        .ui-overlay { position: absolute; top: 10px; left: 10px; z-index: 100; pointer-events: none; max-height: 98vh; overflow-y: auto; }
+        .ui-card { background: rgba(18, 18, 24, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 211, 0.4); border-radius: 14px; padding: 14px; width: 360px; pointer-events: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
         .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         h1 { font-size: 1.15rem; color: #00d2d3; margin: 0; }
         .lang-btn { background: rgba(0, 210, 211, 0.2); border: 1px solid #00d2d3; color: #00d2d3; padding: 3px 8px; border-radius: 6px; font-size: 0.72rem; cursor: pointer; font-weight: bold; }
-        p { font-size: 0.78rem; color: #aaa; margin-bottom: 10px; line-height: 1.3; }
-        .btn { background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border: none; padding: 10px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.88rem; box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4); transition: transform 0.1s; margin-top: 6px; text-decoration: none; display: block; text-align: center; }
+        p { font-size: 0.75rem; color: #aaa; margin-bottom: 8px; line-height: 1.3; }
+        .btn { background: linear-gradient(135deg, #ff9f43, #ff5252); color: #fff; border: none; padding: 8px 12px; font-size: 0.85rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(255, 82, 82, 0.4); transition: transform 0.1s; margin-top: 4px; text-decoration: none; display: block; text-align: center; }
         .btn:active { transform: scale(0.98); }
         .btn-purple { background: linear-gradient(135deg, #9b59b6, #8e44ad); }
         .btn-secondary { background: #1e293b; border: 1px solid rgba(255,255,255,0.2); }
-        .status-banner { font-size: 0.88rem; font-weight: bold; color: #ffcc00; margin-bottom: 8px; min-height: 22px; text-shadow: 0 0 8px rgba(255,204,0,0.5); }
-        .energy-chart-box { margin-top: 10px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
-        .chart-title { font-size: 0.72rem; color: #2ecc71; margin-bottom: 4px; }
-        #energy-canvas { width: 100%; height: 40px; display: block; }
-        .webrtc-box { margin-top: 8px; display: flex; gap: 6px; }
-        .webrtc-input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 6px 10px; color: #fff; width: 60%; font-family: monospace; font-size: 0.8rem; }
-        .telemetry { font-family: 'Courier New', Courier, monospace; font-size: 0.74rem; color: #2ecc71; margin-top: 8px; line-height: 1.45; background: rgba(0,0,0,0.45); padding: 10px; border-radius: 6px; border: 1px solid rgba(46, 204, 113, 0.2); max-height: 140px; overflow-y: auto; }
-        .touch-zone { position: absolute; bottom: 20px; right: 20px; width: 120px; height: 120px; border: 2px dashed rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; text-align: center; font-size: 0.75rem; color: #aaa; background: rgba(255,255,255,0.05); pointer-events: auto; z-index: 100; }
-        .touch-zone.active { border-color: #00d2d3; color: #00d2d3; background: rgba(0,210,211,0.15); }
+        .btn-sm { font-size: 0.75rem; padding: 4px 8px; }
+        .status-banner { font-size: 0.85rem; font-weight: bold; color: #ffcc00; margin-bottom: 6px; min-height: 20px; text-shadow: 0 0 8px rgba(255,204,0,0.5); }
+        
+        /* 配件選單區 */
+        .parts-panel { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px; margin: 6px 0; border: 1px solid rgba(255,255,255,0.1); }
+        .parts-panel h3 { font-size: 0.82rem; color: #ffcc00; margin-bottom: 6px; }
+        .form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75rem; }
+        .form-row label { color: #ccc; }
+        .form-row select, .form-row input[type="text"] { background: rgba(0,0,0,0.5); color: #00d2d3; border: 1px solid rgba(0,210,211,0.3); border-radius: 4px; padding: 2px 6px; font-size: 0.75rem; width: 60%; }
+
+        /* 詳細物理參數面板 */
+        .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.7rem; color: #00ff66; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 6px; border: 1px solid rgba(0, 255, 102, 0.3); margin-top: 6px; max-height: 160px; overflow-y: auto; line-height: 1.3; }
+        .debug-panel h4 { color: #ffcc00; margin-bottom: 4px; font-size: 0.75rem; }
+        
+        .energy-chart-box { margin-top: 6px; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
+        .chart-title { font-size: 0.7rem; color: #2ecc71; margin-bottom: 2px; }
+        #energy-canvas { width: 100%; height: 35px; display: block; }
+        .webrtc-box { margin-top: 6px; display: flex; gap: 4px; }
+        .webrtc-input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 4px 8px; color: #fff; width: 60%; font-family: monospace; font-size: 0.75rem; }
+        .touch-zone { position: absolute; bottom: 20px; right: 20px; width: 100px; height: 100px; border: 2px dashed rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; text-align: center; font-size: 0.7rem; color: #aaa; background: rgba(255,255,255,0.05); pointer-events: auto; z-index: 100; }
     </style>
 
-    <!-- 核心第三方依賴庫 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <!-- 載入配件庫 -->
+    <script src="js/parts.js"></script>
 </head>
 <body>
 
     <div class="ui-overlay">
         <div class="ui-card">
             <div class="header-row">
-                <h1 id="ui-title">🌀 爆上陀螺 Jayblade</h1>
+                <h1 id="ui-title">🌀 爆上陀螺 Jayblade 3D</h1>
                 <button class="lang-btn" id="btn-lang" onclick="toggleLanguage()">English</button>
             </div>
-            <p id="ui-subtitle">剛體力學與家庭對戰模擬器</p>
+            <p id="ui-subtitle">剛體力學與配件自訂模擬器</p>
             
-            <a href="./index.html" class="btn btn-secondary" style="margin-bottom:8px; padding:8px;">
+            <a href="./index.html" class="btn btn-secondary btn-sm" style="margin-bottom:6px;">
                 ⬅️ 切換回 2D 經典版
             </a>
 
+            <!-- ⚙️ P1 配件自訂區 -->
+            <div class="parts-panel">
+                <h3>🔵 P1 陀螺自訂配件</h3>
+                <div class="form-row"><label>名稱:</label><input type="text" id="p1-name" value="火鷹飛龍"></div>
+                <div class="form-row"><label>撞擊環 (Crown):</label><select id="p1-crown"></select></div>
+                <div class="form-row"><label>動力底軸 (Tip):</label><select id="p1-tip"></select></div>
+                <div class="form-row">
+                    <label>旋轉方向:</label>
+                    <select id="p1-spin">
+                        <option value="RIGHT" selected>右迴旋 (順時針)</option>
+                        <option value="LEFT">左迴旋 (逆時針)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>發射力度:</label>
+                    <select id="p1-power">
+                        <option value="HEAVY" selected>重度 (高轉速/衝撞)</option>
+                        <option value="MEDIUM">中度 (穩定平衡)</option>
+                        <option value="LIGHT">輕度 (高精準)</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="status-banner" id="match-status">準備發射...</div>
-            <button class="btn" id="btn-2p" onclick="launch3DBattle(2)">🎮 2人正規賽</button>
-            <button class="btn btn-purple" id="btn-4p" onclick="launch3DBattle(4)">🔥 4人障礙大亂鬥</button>
-            <button class="btn btn-secondary" id="btn-helper" onclick="toggleHelper()">🎯 切換進動向量輔助線</button>
+            <button class="btn" id="btn-2p" onclick="launchCustom3DBattle(2)">🎮 自訂對戰發射</button>
+            <button class="btn btn-purple" id="btn-4p" onclick="launchCustom3DBattle(4)">🔥 4人障礙大亂鬥</button>
+            <button class="btn btn-secondary btn-sm" id="btn-helper" onclick="toggleHelper()">🎯 切換進動向量輔助線</button>
+
+            <!-- 📊 詳細物理參數數據面板 (第一性原理) -->
+            <div class="debug-panel" id="physics-debug-box">
+                <h4>⚙️ 實時物理參數 (Physics Telemetry)</h4>
+                <div id="physics-telemetry-content">等待發射數據...</div>
+            </div>
 
             <div class="energy-chart-box">
                 <div class="chart-title" id="ui-chart-title">⚡ 系統動能留存率曲線:</div>
-                <canvas id="energy-canvas" width="320" height="40"></canvas>
+                <canvas id="energy-canvas" width="320" height="35"></canvas>
             </div>
 
             <div class="webrtc-box">
                 <input type="text" id="room-id-input" class="webrtc-input" placeholder="6 位房號">
-                <button class="btn btn-secondary" id="btn-connect" style="margin-top:0; width:40%;" onclick="connectWebRTC()">連線房號</button>
+                <button class="btn btn-secondary btn-sm" id="btn-connect" style="width:40%;" onclick="connectWebRTC()">連線房號</button>
             </div>
-
-            <div class="telemetry" id="telemetry-box">⚙️ 請選擇對戰模式</div>
         </div>
     </div>
 
@@ -89,9 +127,6 @@
     <div id="canvas-container"></div>
 
     <script>
-        // ==========================================
-        // 全域變數與初始化
-        // ==========================================
         let scene, camera, renderer, controls;
         let world, defaultMaterial, stadiumMaterial;
         let activeTops = [];
@@ -103,23 +138,26 @@
         const STADIUM_RADIUS = 12;
         const GEAR_RAIL_RADIUS = 10.5;
 
-        const i18n = {
-            zh: { title: "🌀 爆上陀螺 Jayblade", subtitle: "剛體力學與家庭對戰模擬器", btn2p: "🎮 2人正規賽", btn4p: "🔥 4人障礙大亂鬥", btnHelper: "🎯 切換進動向量輔助線", chartTitle: "⚡ 系統動能留存率曲線:", btnConnect: "連線房號", touchLaunch: "👆 滑動發射", langBtn: "English", ready: "準備發射...", battleInProg: "人對戰中...", outOfBounds: "❌ 離場" },
-            en: { title: "🌀 Jayblade", subtitle: "Rigid-body Physics & Battle Simulator", btn2p: "🎮 2-Player Match", btn4p: "🔥 4-Player Battle Royal", btnHelper: "🎯 Toggle Precession Vectors", chartTitle: "⚡ Kinetic Energy Retention:", btnConnect: "Connect Room", touchLaunch: "👆 Swipe to Launch", langBtn: "繁體中文", ready: "Ready to launch...", battleInProg: " Players Battle...", outOfBounds: "❌ Out" }
-        };
+        // 初始化配件選單
+        function initPartsSelectors() {
+            const crownSelect = document.getElementById('p1-crown');
+            const tipSelect = document.getElementById('p1-tip');
 
-        function toggleLanguage() {
-            currentLang = currentLang === 'zh' ? 'en' : 'zh';
-            const t = i18n[currentLang];
-            document.getElementById('ui-title').innerText = t.title;
-            document.getElementById('ui-subtitle').innerText = t.subtitle;
-            document.getElementById('btn-2p').innerText = t.btn2p;
-            document.getElementById('btn-4p').innerText = t.btn4p;
-            document.getElementById('btn-helper').innerText = t.btnHelper;
-            document.getElementById('ui-chart-title').innerText = t.chartTitle;
-            document.getElementById('btn-connect').innerText = t.btnConnect;
-            document.getElementById('touch-launch-zone').innerText = t.touchLaunch;
-            document.getElementById('btn-lang').innerText = t.langBtn;
+            if (window.BEY_PARTS) {
+                Object.keys(BEY_PARTS.CROWNS).forEach(k => {
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.innerText = `${BEY_PARTS.CROWNS[k].name} (${BEY_PARTS.CROWNS[k].type})`;
+                    crownSelect.appendChild(opt);
+                });
+
+                Object.keys(BEY_PARTS.TIPS).forEach(k => {
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.innerText = `${BEY_PARTS.TIPS[k].name} (${BEY_PARTS.TIPS[k].friction} 摩擦)`;
+                    tipSelect.appendChild(opt);
+                });
+            }
         }
 
         function init3DEngine() {
@@ -147,7 +185,6 @@
             dirLight.castShadow = true;
             scene.add(dirLight);
 
-            // 初始化 Cannon.js 物理世界
             world = new CANNON.World();
             world.gravity.set(0, -9.82, 0);
             world.broadphase = new CANNON.NaiveBroadphase();
@@ -155,7 +192,6 @@
             defaultMaterial = new CANNON.Material('default');
             stadiumMaterial = new CANNON.Material('stadium');
 
-            // 🛠️ 接觸材質配置：增加接地摩擦力，防止亂滑與穿模
             const contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, {
                 friction: 0.3,
                 restitution: 0.2
@@ -164,24 +200,22 @@
 
             create3DStadium();
             createGearRail();
+            initPartsSelectors();
             initWebRTC();
 
             window.addEventListener('resize', onWindowResize);
             animate(performance.now());
             
-            launch3DBattle(2);
+            launchCustom3DBattle(2);
         }
 
-        // 🛠️ 實體物理戰鬥盤（視覺與物理完美契合）
         function create3DStadium() {
-            // 視覺碗狀盤面
             const geo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS - 1, 1.5, 48, 1, false);
             const mat = new THREE.MeshStandardMaterial({ color: 0x1e1e38, roughness: 0.4, metalness: 0.6 });
             const stadiumMesh = new THREE.Mesh(geo, mat);
             stadiumMesh.position.y = -0.75;
             scene.add(stadiumMesh);
 
-            // 青色發光圈線
             const ringGeo = new THREE.RingGeometry(STADIUM_RADIUS - 0.2, STADIUM_RADIUS + 0.1, 64);
             const ringMat = new THREE.MeshBasicMaterial({ color: 0x00d2d3, side: THREE.DoubleSide });
             const ringMesh = new THREE.Mesh(ringGeo, ringMat);
@@ -189,10 +223,8 @@
             ringMesh.position.y = 0.02;
             scene.add(ringMesh);
 
-            // 🛠️ 1. 物理底面（防止掉落下去）
             const groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
-            const planeShape = new CANNON.Plane();
-            groundBody.addShape(planeShape);
+            groundBody.addShape(new CANNON.Plane());
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
             world.addBody(groundBody);
         }
@@ -207,13 +239,19 @@
         }
 
         class Beyblade3D {
-            constructor(x, y, z, color, name, isRightSpin = true) {
+            constructor(x, y, z, color, name, isRightSpin = true, crownKey = 'FEATHER', tipKey = 'FLAT', powerKey = 'HEAVY') {
                 this.name = name;
                 this.color = color;
                 this.isRightSpin = isRightSpin;
-                this.rpm = 10000;
+                
+                // 讀取配件參數 (若 parts.js 載入失敗則用預設值)
+                const crown = (window.BEY_PARTS && BEY_PARTS.CROWNS[crownKey]) || { mass: 0.045, burstResist: 0.85 };
+                const tip = (window.BEY_PARTS && BEY_PARTS.TIPS[tipKey]) || { friction: 0.3 };
+                
+                this.rpm = powerKey === 'HEAVY' ? 13000 : (powerKey === 'MEDIUM' ? 10000 : 7000);
                 this.radius = 1.2;
                 this.shatterHp = 100;
+                this.burstResist = crown.burstResist || 0.85;
                 this.isShattered = false;
                 this.xdashCooldown = 0;
 
@@ -230,17 +268,19 @@
 
                 scene.add(this.group);
 
-                const mass = 0.05;
+                const mass = crown.mass || 0.045;
                 this.body = new CANNON.Body({ mass: mass, material: defaultMaterial });
                 this.body.addShape(new CANNON.Sphere(1.0));
                 this.body.position.set(x, y, z);
                 
-                // 阻尼設定：減緩無止境的亂飛
-                this.body.linearDamping = 0.05;
+                this.body.linearDamping = 0.04;
                 this.body.angularDamping = 0.001;
 
                 const spinRad = (this.rpm * 2 * Math.PI) / 60 * (isRightSpin ? -1 : 1);
                 this.body.angularVelocity.set(0, spinRad, 0);
+
+                // 計算轉動慣量 Iz
+                this.Iz = 0.5 * mass * Math.pow(this.radius * 0.1, 2);
 
                 world.addBody(this.body);
             }
@@ -251,7 +291,7 @@
                 this.group.quaternion.copy(this.body.quaternion);
                 this.rpm = Math.abs(this.body.angularVelocity.y) * 60 / (2 * Math.PI);
 
-                // 🌀 戰鬥盤坡度向心力（強效拉回中心對戰）
+                // 坡度向心力
                 const distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
                 if (distFromCenter > 0.2 && distFromCenter < STADIUM_RADIUS) {
                     const pullForce = 0.15 * distFromCenter;
@@ -260,7 +300,7 @@
                     this.body.applyForce(new CANNON.Vec3(pullX, 0, pullZ), this.body.position);
                 }
 
-                // X-DASH 齒輪軌道衝刺
+                // X-DASH
                 if (this.xdashCooldown > 0) this.xdashCooldown -= dt;
                 if (this.xdashCooldown <= 0 && Math.abs(distFromCenter - GEAR_RAIL_RADIUS) < 0.6) {
                     const spinDir = this.isRightSpin ? -1 : 1;
@@ -270,7 +310,7 @@
                     this.xdashCooldown = 0.3;
                 }
 
-                this.body.angularVelocity.y *= 0.9995;
+                this.body.angularVelocity.y *= 0.9994;
             }
 
             shatter() {
@@ -281,28 +321,41 @@
             }
         }
 
-        function launch3DBattle(count = 2) {
+        // 發射自訂陀螺
+        function launchCustom3DBattle(count = 2) {
             activeTops.forEach(t => { if (!t.isShattered) world.remove(t.body); scene.remove(t.group); });
             activeTops = [];
 
-            // 修正平穩初速，不會飛出場外
-            const configs = [
-                { x: -3.5, z: 0, color: 0x1e90ff, name: '🔵 火鷹飛龍', spin: true, vx: 2.5, vz: 1.5 },
-                { x: 3.5, z: 0, color: 0xff3838, name: '🔴 影武赤狼', spin: false, vx: -2.5, vz: -1.5 },
-                { x: 0, z: -3.5, color: 0x2ecc71, name: '🟢 翡翠巨錘', spin: true, vx: 1.0, vz: 2.5 },
-                { x: 0, z: 3.5, color: 0x9b59b6, name: '🟣 帝王紫刃', spin: false, vx: -1.0, vz: -2.5 }
-            ];
+            // 讀取 P1 選單設定
+            const p1Name = document.getElementById('p1-name').value || '火鷹飛龍';
+            const p1Crown = document.getElementById('p1-crown').value;
+            const p1Tip = document.getElementById('p1-tip').value;
+            const p1Spin = document.getElementById('p1-spin').value === 'RIGHT';
+            const p1Power = document.getElementById('p1-power').value;
 
-            for (let i = 0; i < count; i++) {
-                const c = configs[i];
-                const top = new Beyblade3D(c.x, 0.5, c.z, c.color, c.name, c.spin);
-                top.body.velocity.set(c.vx, 0, c.vz);
-                activeTops.push(top);
+            // P1
+            const top1 = new Beyblade3D(-3.5, 0.5, 0, 0x1e90ff, `🔵 ${p1Name}`, p1Spin, p1Crown, p1Tip, p1Power);
+            top1.body.velocity.set(2.5, 0, 1.5);
+            activeTops.push(top1);
+
+            // P2/CPU
+            const top2 = new Beyblade3D(3.5, 0.5, 0, 0xff3838, '🔴 影武赤狼', false, 'DRAKE', 'FLAT', 'HEAVY');
+            top2.body.velocity.set(-2.5, 0, -1.5);
+            activeTops.push(top2);
+
+            if (count === 4) {
+                const top3 = new Beyblade3D(0, 0.5, -3.5, 0x2ecc71, '🟢 翡翠巨錘', true, 'HEAVY', 'BALL', 'MEDIUM');
+                top3.body.velocity.set(1.0, 0, 2.5);
+                activeTops.push(top3);
+
+                const top4 = new Beyblade3D(0, 0.5, 3.5, 0x9b59b6, '🟣 帝王紫刃', false, 'WIZARD', 'NEEDLE', 'HEAVY');
+                top4.body.velocity.set(-1.0, 0, -2.5);
+                activeTops.push(top4);
             }
 
             matchStartTime = performance.now();
             isSimulating = true;
-            document.getElementById('match-status').innerText = `⚔️ ${count} ${i18n[currentLang].battleInProg}`;
+            document.getElementById('match-status').innerText = `⚔️ ${count} 人對戰中...`;
         }
 
         function toggleHelper() {
@@ -333,7 +386,7 @@
                 world.step(1 / 60, dt, 3);
                 activeTops.forEach(t => t.update(dt));
 
-                // 碰撞傷害計算
+                // 碰撞處理
                 for (let i = 0; i < activeTops.length; i++) {
                     for (let j = i + 1; j < activeTops.length; j++) {
                         const p1 = activeTops[i], p2 = activeTops[j];
@@ -358,11 +411,24 @@
                     }
                 });
 
-                let telemetryHTML = '';
+                // 📊 渲染實時第一性原理物理參數面板
+                let debugHTML = '';
                 activeTops.forEach(t => {
-                    telemetryHTML += `${t.name}: ${t.isShattered ? i18n[currentLang].outOfBounds : Math.round(t.rpm) + ' RPM | HP:' + Math.max(0, Math.round(t.shatterHp))}<br>`;
+                    if (!t.isShattered) {
+                        const linSpeed = t.body.velocity.norm().toFixed(2);
+                        const angVelOmega = (Math.abs(t.body.angularVelocity.y)).toFixed(1);
+                        const ke = (0.5 * t.body.mass * t.body.velocity.norm2() + 0.5 * t.Iz * Math.pow(t.body.angularVelocity.y, 2)).toFixed(3);
+                        
+                        debugHTML += `<b>${t.name}</b><br>` +
+                            `• 角速度 ω: ${angVelOmega} rad/s (${Math.round(t.rpm)} RPM)<br>` +
+                            `• 線速度 v: ${linSpeed} m/s<br>` +
+                            `• 系統總動能 KE: ${ke} J<br>` +
+                            `• 爆裂血量 HP: ${Math.max(0, Math.round(t.shatterHp))}/100<br><br>`;
+                    } else {
+                        debugHTML += `<b>${t.name}</b>: ❌ 離場 / 解體<br><br>`;
+                    }
                 });
-                document.getElementById('telemetry-box').innerHTML = telemetryHTML;
+                document.getElementById('physics-telemetry-content').innerHTML = debugHTML;
             }
 
             controls.update();
