@@ -8,8 +8,8 @@ hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
 
 .physics-mode-box { background: #2f3542; padding: 10px; border-radius: 8px; border: 1px solid #ffcc00; margin-bottom: 15px; text-align: left; }
 
-.player-box { background: #252533; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #ff4757; }
-.p2-box { border-left-color: #1e90ff; }
+.player-box { background: #252533; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #1e90ff; }
+.p2-box { border-left-color: #ff3838; }
 .player-box h3 { font-size: 15px; text-align: left; margin-bottom: 8px; color: #ffcc00; }
 
 .btn { background: #ff4757; color: white; border: none; padding: 12px 18px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 4px; }
@@ -19,7 +19,10 @@ hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
 .btn-online { background: #00d2d3; color: #000; }
 .btn-online:hover { background: #48dbfb; }
 .btn-sm { font-size: 12px; padding: 6px 12px; border-radius: 6px; }
-.launch-btn { width: 100%; font-size: 18px; margin-top: 15px; padding: 14px; }
+.launch-btn { width: 100%; font-size: 18px; margin-top: 10px; padding: 14px; }
+
+.swipe-area { background: #161622; border: 2px dashed #ffcc00; border-radius: 8px; padding: 16px; margin: 12px 0; color: #ffcc00; font-size: 13px; font-weight: bold; cursor: pointer; user-select: none; }
+.swipe-area.active { background: #3742fa; color: #fff; border-color: #2ed573; }
 
 .form-group { margin: 10px 0; text-align: left; }
 label { font-size: 13px; color: #ddd; font-weight: bold; }
