@@ -15,16 +15,6 @@ This repository is a non-commercial project created for my son. All friends are 
 
 ---
 
-## 📱 App 介面預覽 / App Preview
-
-<p align="center">
-  <img src="screenshot1.png" width="45%" alt="Jayblade Setup Screen">
-  &nbsp;&nbsp;
-  <img src="screenshot2.png" width="45%" alt="Jayblade Battle Screen">
-</p>
-
----
-
 ## 🇭🇰 繁體中文說明
 
 《爆上陀螺 Jayblade》是一款純本地運行的 WebGL/Canvas 2D 剛體力學戰鬥陀螺對戰模擬器。專為追求真實物理力學與競技深度的玩家設計。
