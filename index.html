@@ -34,7 +34,7 @@
 <body>
 
   <div style="text-align: right; max-width: 500px; margin: 0 auto 5px;">
-    <button class="btn btn-sm btn-secondary" onclick="toggleLanguage()">🌐 中文 / English</button>
+    <button class="btn btn-sm btn-secondary" id="btn-lang-toggle">🌐 中文 / English</button>
   </div>
 
   <h1 id="ui-title">🌀 爆上陀螺 Jayblade 🌀</h1>
@@ -51,9 +51,9 @@
     </div>
 
     <div class="mode-buttons">
-      <button class="btn" id="btn-single" onclick="setGameMode('SINGLE')">🎮 2D 單人對戰 (VS AI)</button>
-      <button class="btn btn-secondary" id="btn-versus" onclick="setGameMode('VERSUS')">⚔️ 2D 雙人同機 (1P VS 2P)</button>
-      <button class="btn btn-online" id="btn-online" onclick="setGameMode('ONLINE')">🌐 遠端連線 (WebRTC)</button>
+      <button class="btn" id="btn-single">🎮 2D 單人對戰 (VS AI)</button>
+      <button class="btn btn-secondary" id="btn-versus">⚔️ 2D 雙人同機 (1P VS 2P)</button>
+      <button class="btn btn-online" id="btn-online">🌐 遠端連線 (WebRTC)</button>
     </div>
 
     <hr>
@@ -64,7 +64,7 @@
       <p style="font-size:12px; color:#aaa; margin-bottom:6px;"><span id="ui-my-id">你的 ID</span>: <b id="my-peer-id" style="color:#00d2d3;">生成中...</b></p>
       <div style="display:flex; gap:6px;">
         <input type="text" id="join-peer-id" placeholder="貼上對手的 Host ID">
-        <button class="btn btn-sm btn-secondary" id="btn-join" onclick="connectToPeer()">加入房間</button>
+        <button class="btn btn-sm btn-secondary" id="btn-join">加入房間</button>
       </div>
       <div id="network-status" style="font-size:12px; color:#ffcc00; margin-top:6px;">狀態: 未連線</div>
       <div id="lobby-ready-status" style="font-size:13px; color:#00d2d3; font-weight:bold; margin-top:4px;"></div>
@@ -73,7 +73,7 @@
     <div id="config-section">
       <div class="form-group physics-mode-box">
         <label id="ui-phys-mode-label">⚙️ 模擬器物理模式: </label>
-        <select id="physics-engine-mode" onchange="switchPhysicsEngineMode(this.value)">
+        <select id="physics-engine-mode">
           <option value="ARCADE" selected id="opt-arcade">🔥 熱血動畫版 (強烈對撞/閃光爆發)</option>
           <option value="REALISTIC" id="opt-realistic">🔬 真實擬真版 (能量守恆/異旋吸轉)</option>
         </select>
@@ -107,14 +107,14 @@
         <div class="form-group">
           <label id="lbl-p1-power">發射力度: </label>
           <select id="p1-power">
-            <option value="MEDIUM" selected id="opt-p1-power-m">中度 (穩定平衡)</option>
-            <option value="HEAVY" id="opt-p1-power-h">重度 (極速衝撞)</option>
+            <option value="MEDIUM" id="opt-p1-power-m">中度 (穩定平衡)</option>
+            <option value="HEAVY" selected id="opt-p1-power-h">重度 (極速衝撞)</option>
             <option value="LIGHT" id="opt-p1-power-l">輕度 (高精準)</option>
           </select>
         </div>
         <div style="display:flex; gap:6px; margin-top:8px;">
-          <button class="btn btn-sm" id="btn-export-p1" onclick="exportShareCode('p1')">📤 複製塗裝碼</button>
-          <button class="btn btn-sm btn-secondary" id="btn-import-p1" onclick="importShareCode('p1')">📥 匯入塗裝碼</button>
+          <button class="btn btn-sm" id="btn-export-p1">📤 複製塗裝碼</button>
+          <button class="btn btn-sm btn-secondary" id="btn-import-p1">📥 匯入塗裝碼</button>
         </div>
       </div>
 
@@ -146,8 +146,8 @@
         <div class="form-group">
           <label id="lbl-p2-power">發射力度: </label>
           <select id="p2-power">
-            <option value="MEDIUM" selected id="opt-p2-power-m">中度 (穩定平衡)</option>
-            <option value="HEAVY" id="opt-p2-power-h">重度 (極速衝撞)</option>
+            <option value="MEDIUM" id="opt-p2-power-m">中度 (穩定平衡)</option>
+            <option value="HEAVY" selected id="opt-p2-power-h">重度 (極速衝撞)</option>
             <option value="LIGHT" id="opt-p2-power-l">輕度 (高精準)</option>
           </select>
         </div>
@@ -172,7 +172,7 @@
       <span id="swipe-label">👆 手機手勢：在此區域向上快速滑動進行拉線發射！</span>
     </div>
 
-    <button class="btn launch-btn" id="btn-launch" onclick="onShootBtnClick()">3, 2, 1... Go Shoot!</button>
+    <button class="btn launch-btn" id="btn-launch">3, 2, 1... Go Shoot!</button>
   </div>
 
   <!-- 戰鬥畫布 -->
@@ -182,13 +182,13 @@
     <div id="achieve-display">🎖️ 成就數量: 0/3</div>
     
     <div class="canvas-controls">
-      <button class="btn btn-sm" id="btn-debug" onclick="toggleDebugPanel()">📊 物理數據面板</button>
-      <button class="btn btn-sm btn-secondary" id="btn-bgm" onclick="toggleBGM()">🎵 BGM 音效</button>
+      <button class="btn btn-sm" id="btn-debug">📊 物理數據面板</button>
+      <button class="btn btn-sm btn-secondary" id="btn-bgm">🎵 BGM 音效</button>
       <span id="ping-display" style="font-size:12px; color:#00d2d3; margin-left:10px;">Ping: -- ms</span>
     </div>
 
-    <div id="canvas-container">
-      <canvas id="arena"></canvas>
+    <div id="canvas-container" style="width:100%; text-align:center; margin-top:10px;">
+      <canvas id="battleCanvas" style="background:#070714; border-radius:12px; max-width:100%; box-shadow:0 8px 30px rgba(0,210,211,0.2);"></canvas>
     </div>
 
     <div id="debug-panel" class="debug-box" style="display:none;">
@@ -200,13 +200,93 @@
     </div>
 
     <br>
-    <button class="btn" id="btn-reset" onclick="resetGame()">🔄 重新設定 / 再次對戰</button>
+    <button class="btn" id="btn-reset">🔄 重新設定 / 再次對戰</button>
   </div>
 
-  <script src="js/security.js"></script>
-  <script src="js/parts.js"></script>
-  <script src="js/engine.js"></script>
-  <script src="js/game.js"></script>
+  <!-- ES Module 腳本接管 -->
+  <script type="module">
+    import { start2DBattle } from './js/game.js';
+
+    // 初始化網格 (1-18)
+    function buildGridSelector() {
+      const container = document.getElementById('grid-selector');
+      if (!container) return;
+      container.innerHTML = '';
+      for (let i = 1; i <= 18; i++) {
+        const btn = document.createElement('div');
+        btn.className = 'grid-item' + (i === 8 ? ' selected' : '');
+        btn.style.cssText = 'padding:10px; background:rgba(255,255,255,0.05); border-radius:6px; text-align:center; cursor:pointer; font-weight:bold; font-size:12px; border:1px solid rgba(255,255,255,0.1);';
+        if (i === 8) btn.style.border = '2px solid #00f2fe';
+        btn.innerText = i;
+        btn.onclick = function() {
+          document.querySelectorAll('.grid-item').forEach(el => el.style.border = '1px solid rgba(255,255,255,0.1)');
+          this.style.border = '2px solid #00f2fe';
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    // 觸發發射邏輯
+    function triggerLaunch() {
+      const setupPanel = document.getElementById('setup-panel');
+      const gamePanel = document.getElementById('game-panel');
+      
+      if (setupPanel) setupPanel.style.display = 'none';
+      if (gamePanel) gamePanel.style.display = 'block';
+
+      start2DBattle();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      buildGridSelector();
+
+      // 1. 發射按鈕點擊綁定
+      const launchBtn = document.getElementById('btn-launch');
+      if (launchBtn) {
+        launchBtn.onclick = (e) => {
+          e.preventDefault();
+          triggerLaunch();
+        };
+      }
+
+      // 2. 模式選擇按鈕綁定
+      const btnSingle = document.getElementById('btn-single');
+      const btnVersus = document.getElementById('btn-versus');
+      const btnOnline = document.getElementById('btn-online');
+      const p2Box = document.getElementById('p2-setup-group');
+      const onlineBox = document.getElementById('online-panel');
+
+      if (btnSingle) {
+        btnSingle.onclick = () => {
+          if (p2Box) p2Box.style.display = 'none';
+          if (onlineBox) onlineBox.style.display = 'none';
+        };
+      }
+      if (btnVersus) {
+        btnVersus.onclick = () => {
+          if (p2Box) p2Box.style.display = 'block';
+          if (onlineBox) onlineBox.style.display = 'none';
+        };
+      }
+      if (btnOnline) {
+        btnOnline.onclick = () => {
+          if (p2Box) p2Box.style.display = 'block';
+          if (onlineBox) onlineBox.style.display = 'block';
+        };
+      }
+
+      // 3. 重置按鈕綁定
+      const btnReset = document.getElementById('btn-reset');
+      if (btnReset) {
+        btnReset.onclick = () => {
+          const setupPanel = document.getElementById('setup-panel');
+          const gamePanel = document.getElementById('game-panel');
+          if (setupPanel) setupPanel.style.display = 'block';
+          if (gamePanel) gamePanel.style.display = 'none';
+        };
+      }
+    });
+  </script>
 
   <!-- 註冊 Service Worker -->
   <script>
