@@ -2,10 +2,10 @@ import { PerformanceConfig } from './config.js';
 import { WebAudioEngine } from './audio.js';
 import { GPUSparkParticleSystem } from './particles.js';
 import { BinaryNetworkManager } from './network.js';
-import { EnergyTrackerUI } from './ui.js';
+import { EnergyTrackerUI, UIManager } from './ui.js';
 import { STADIUM_RADIUS, GEAR_RAIL_RADIUS, Beyblade3D } from './physics.js';
 
-let scene, camera, renderer, controls, gpuSparks, sfx3D, netManager, energyUI;
+let scene, camera, renderer, controls, gpuSparks, sfx3D, netManager, energyUI, uiManager;
 let world, defaultMaterial, stadiumMaterial;
 let activeTops = [];
 let obstacleBodies = [], obstacleMeshes = [];
@@ -43,10 +43,11 @@ function init() {
     sfx3D = new WebAudioEngine();
     gpuSparks = new GPUSparkParticleSystem(scene, config.particleCount);
     energyUI = new EnergyTrackerUI('energy-canvas');
-    
+    uiManager = new UIManager();
+
     netManager = new BinaryNetworkManager();
     netManager.init(
-        () => { document.getElementById('match-status').innerText = '🌐 WebRTC 已連線！'; },
+        () => { document.getElementById('match-status').innerText = uiManager.getText('webrtcConnected'); },
         (errMsg) => { document.getElementById('match-status').innerText = '⚠️ ' + errMsg; }
     );
 
@@ -106,6 +107,7 @@ function clearObstacles() {
     obstacleMeshes = []; obstacleBodies = [];
 }
 
+// 🛠️ 修復：修復括號不匹配與撞擊邏輯
 function handleMultiTopImpacts() {
     for (let i = 0; i < activeTops.length; i++) {
         for (let j = i + 1; j < activeTops.length; j++) {
@@ -143,6 +145,34 @@ function handleMultiTopImpacts() {
     }
 }
 
+// 🛠️ 補強：勝負檢查機制
+function checkMatchRules() {
+    if (!isSimulating || matchEnded) return;
+    const statusEl = document.getElementById('match-status');
+    const now = performance.now();
+
+    activeTops.forEach(top => {
+        if (top.isShattered) return;
+        const dist = Math.hypot(top.body.position.x, top.body.position.z);
+
+        if (dist > STADIUM_RADIUS) {
+            top.triggerShatter(gpuSparks, sfx3D);
+            statusEl.innerText = (now - top.lastXDashTime) < 1500 ? 
+                `💥⚡ EXTREME FINISH! 【${top.name}】` : 
+                `🚨 OVER FINISH! 【${top.name}】`;
+        } else if (top.shatterHp <= 0) {
+            top.triggerShatter(gpuSparks, sfx3D);
+            statusEl.innerText = `💥 BURST FINISH! 【${top.name}】`;
+        }
+    });
+
+    const survivors = activeTops.filter(t => !t.isShattered && t.rpm > 50);
+    if (survivors.length === 1 && activeTops.length > 1) {
+        statusEl.innerText = `🏆 WINNER! 【${survivors[0].name}】${uiManager.getText('winSuffix')}`;
+        matchEnded = true;
+    }
+}
+
 function calculateTotalKineticEnergy() {
     return activeTops.reduce((sum, t) => {
         if (t.isShattered) return sum;
@@ -174,7 +204,7 @@ function launch3DBattle(playerCount = 2) {
 
     initialEnergy = calculateTotalKineticEnergy();
     matchEnded = false; isSimulating = true;
-    document.getElementById('match-status').innerText = `⚔️ ${playerCount}人對戰中...`;
+    document.getElementById('match-status').innerText = `⚔️ ${playerCount} ${uiManager.getText('battleInProg')}`;
 }
 
 function setupTouchGestures() {
@@ -190,15 +220,23 @@ function setupTouchGestures() {
 function bindUIEvents() {
     document.getElementById('btn-2p').addEventListener('click', () => launch3DBattle(2));
     document.getElementById('btn-4p').addEventListener('click', () => launch3DBattle(4));
+    
+    // 🌐 語言切換綁定
+    const langBtn = document.getElementById('btn-lang');
+    if (langBtn) {
+        langBtn.addEventListener('click', () => uiManager.toggleLanguage());
+    }
+
     document.getElementById('btn-helper').addEventListener('click', () => {
         showPrecessionVectors = !showPrecessionVectors;
-        alert(showPrecessionVectors ? '🎯 已開啟進動輔助線' : '🎯 已關閉進動輔助線');
+        alert(showPrecessionVectors ? uiManager.getText('helperOn') : uiManager.getText('helperOff'));
     });
+
     document.getElementById('btn-connect').addEventListener('click', () => {
         const code = document.getElementById('room-id-input').value;
         netManager.connect(
             code,
-            () => { document.getElementById('match-status').innerText = '🌐 WebRTC 已連線！'; },
+            () => { document.getElementById('match-status').innerText = uiManager.getText('webrtcConnected'); },
             (errMsg) => { document.getElementById('match-status').innerText = '⚠️ ' + errMsg; }
         );
     });
@@ -215,6 +253,7 @@ function animate(now) {
         activeTops.forEach(top => top.update(dt, showPrecessionVectors, sfx3D, obstacleBodies));
         gpuSparks.update(dt);
         handleMultiTopImpacts();
+        checkMatchRules(); // 🛠️ 補強：執行勝負檢查
         netManager.broadcastState(now, isSimulating, activeTops);
 
         const currentKE = calculateTotalKineticEnergy();
@@ -222,7 +261,7 @@ function animate(now) {
 
         let telemetryHTML = '';
         activeTops.forEach(t => {
-            telemetryHTML += `${t.name}: ${t.isShattered ? '❌ 離場' : Math.round(t.rpm) + ' RPM | HP:' + Math.max(0, Math.round(t.shatterHp))}<br>`;
+            telemetryHTML += `${t.name}: ${t.isShattered ? uiManager.getText('outOfBounds') : Math.round(t.rpm) + ' RPM | HP:' + Math.max(0, Math.round(t.shatterHp))}<br>`;
         });
         document.getElementById('telemetry-box').innerHTML = telemetryHTML;
     }
