@@ -11,7 +11,7 @@
 
 This repository is a non-commercial project created for my son. All friends are welcome to play and enjoy the physics battles together!
 
-本專案是為我的兒子而開發的。這是一個非商業用途的個人專案，誠摯邀請所有朋友一起來玩！一起體驗陀螺的物理對戰樂趣！
+本專案是為我的兒子而開發的。這是一個非商業用途的個人專案。誠摯邀請所有朋友一起來玩，一起體驗陀螺的物理對戰樂趣！
 
 ---
 
