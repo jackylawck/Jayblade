@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- 🖼️ PWA & Favicon 圖示 -->
+    <!-- 🖼️ PWA & Favicon Icons -->
     <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
     <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
     <link rel="manifest" href="./manifest.json">
 
-    <!-- 🛡️ 企業級 CSP 資安內容安全策略 -->
+    <!-- 🛡️ Enterprise-Grade CSP Policy -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net 'unsafe-eval';
@@ -26,7 +26,6 @@
         body { background: #0a0a0f; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
         
-        /* 🛠️ 修復點擊攔截：移除 pointer-events: none */
         .ui-overlay { position: absolute; top: 10px; left: 10px; z-index: 100; max-height: 95vh; overflow-y: auto; }
         .ui-card { background: rgba(18, 18, 24, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 211, 0.4); border-radius: 14px; padding: 12px; width: 340px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
         
@@ -47,6 +46,7 @@
         
         .parts-panel { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px; margin: 6px 0; border: 1px solid rgba(255,255,255,0.1); }
         .parts-panel h3 { font-size: 0.82rem; color: #ffcc00; margin-bottom: 6px; }
+        .p2-title { color: #ff5252 !important; }
         .form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75rem; }
         .form-row label { color: #ccc; }
         .form-row select, .form-row input[type="text"] { background: rgba(0,0,0,0.5); color: #00d2d3; border: 1px solid rgba(0,210,211,0.3); border-radius: 4px; padding: 4px 6px; font-size: 0.75rem; width: 60%; }
@@ -59,7 +59,7 @@
         .toggle-ui-btn { position: fixed; bottom: 15px; left: 15px; z-index: 200; background: rgba(0, 210, 211, 0.85); color: #000; font-weight: bold; border: none; padding: 8px 12px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
     </style>
 
-    <!-- 第三方 CDN 腳本 -->
+    <!-- Third-Party CDN Scripts with SRI -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
             integrity="sha512-dLxUelApC9zpTWxCWqqP8SC6PpH43CdaAChW2OJmcd5xL/8w7sA9sJ5g3A6A0aLzFj3Z5c2C/0vQ0N4B7V/1xA=="
             crossorigin="anonymous"
@@ -89,65 +89,69 @@
                 <h1 id="ui-title">🌀 爆上陀螺 Jayblade 3D</h1>
                 <button class="lang-btn" id="btn-lang">English</button>
             </div>
-            <p id="ui-subtitle">剛體力學與 UGC 3D 模型模擬器</p>
+            <p id="ui-subtitle">剛體力學與 1P/2P 配件對戰模擬器</p>
             
             <a href="./index.html" class="btn btn-secondary btn-sm" id="btn-back-2d" style="margin-bottom:6px;">
                 ⬅️ 切換回 2D 經典版
             </a>
 
-            <!-- ⚙️ P1 配件自訂區 -->
+            <!-- ⚙️ P1 Custom Panel -->
             <div class="parts-panel">
-                <h3 id="ui-p1-panel-title">🔵 P1 陀螺自訂配件</h3>
-                <div class="form-row"><label id="lbl-name">名稱:</label><input type="text" id="p1-name" value="火鷹飛龍"></div>
-                
+                <h3 id="ui-p1-panel-title">🔵 P1 陀螺自訂</h3>
+                <div class="form-row"><label class="lbl-name">名稱:</label><input type="text" id="p1-name" value="火鷹飛龍"></div>
+                <div class="form-row"><label class="lbl-crown">撞擊環:</label><select id="p1-crown"></select></div>
+                <div class="form-row"><label class="lbl-tip">動力底軸:</label><select id="p1-tip"></select></div>
                 <div class="form-row">
-                    <label id="lbl-crown">撞擊環:</label>
-                    <select id="p1-crown">
-                        <option value="FEATHER" selected>羽翼飛刃 (Feather Blade)</option>
-                        <option value="DRAKE">龍紋重環 (Drake Crown)</option>
-                        <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
-                        <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
-                    </select>
-                </div>
-                
-                <div class="form-row">
-                    <label id="lbl-tip">動力底軸:</label>
-                    <select id="p1-tip">
-                        <option value="FLAT" selected>極速平頭 (Flat Speed)</option>
-                        <option value="BALL">持久球軸 (Ball Bearing)</option>
-                        <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
-                        <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
-                    </select>
-                </div>
-
-                <div class="form-row">
-                    <label id="lbl-spin">旋轉方向:</label>
+                    <label class="lbl-spin">旋轉方向:</label>
                     <select id="p1-spin">
-                        <option value="RIGHT" id="opt-spin-r" selected>右迴旋 (順時針)</option>
-                        <option value="LEFT" id="opt-spin-l">左迴旋 (逆時針)</option>
+                        <option value="RIGHT" selected>右迴旋 (順時針)</option>
+                        <option value="LEFT">左迴旋 (逆時針)</option>
                     </select>
                 </div>
                 <div class="form-row">
-                    <label id="lbl-power">發射力度:</label>
+                    <label class="lbl-power">發射力度:</label>
                     <select id="p1-power">
-                        <option value="HEAVY" id="opt-power-h" selected>重度 (高轉速/衝撞)</option>
-                        <option value="MEDIUM" id="opt-power-m">中度 (穩定平衡)</option>
-                        <option value="LIGHT" id="opt-power-l">輕度 (高精準)</option>
+                        <option value="HEAVY" selected>重度 (高轉速)</option>
+                        <option value="MEDIUM">中度 (穩定)</option>
+                        <option value="LIGHT">輕度 (高精準)</option>
                     </select>
                 </div>
 
-                <!-- 📦 UGC 3D 模型上傳區 -->
+                <!-- 📦 UGC 3D File Dropzone -->
                 <div class="ugc-dropzone" id="ugc-dropzone">
                     <span id="ugc-drop-text">📁 點擊或拖拽 3D 模型 (.stl) 測試實體慣量</span>
                     <input type="file" id="ugc-file-input" accept=".stl" style="display:none;">
                 </div>
             </div>
 
+            <!-- ⚙️ P2 Custom Panel -->
+            <div class="parts-panel">
+                <h3 id="ui-p2-panel-title" class="p2-title">🔴 P2 陀螺自訂</h3>
+                <div class="form-row"><label class="lbl-name">名稱:</label><input type="text" id="p2-name" value="影武赤狼"></div>
+                <div class="form-row"><label class="lbl-crown">撞擊環:</label><select id="p2-crown"></select></div>
+                <div class="form-row"><label class="lbl-tip">動力底軸:</label><select id="p2-tip"></select></div>
+                <div class="form-row">
+                    <label class="lbl-spin">旋轉方向:</label>
+                    <select id="p2-spin">
+                        <option value="RIGHT">右迴旋 (順時針)</option>
+                        <option value="LEFT" selected>左迴旋 (逆時針)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label class="lbl-power">發射力度:</label>
+                    <select id="p2-power">
+                        <option value="HEAVY" selected>重度 (高轉速)</option>
+                        <option value="MEDIUM">中度 (穩定)</option>
+                        <option value="LIGHT">輕度 (高精準)</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="status-banner" id="match-status">準備發射...</div>
-            <button class="btn" id="btn-2p">🎮 自訂對戰發射</button>
+            <button class="btn" id="btn-2p">🎮 1P vs 2P 自訂對戰</button>
             <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
 
-            <!-- 📊 詳細物理參數數據面板 -->
+            <!-- 📊 Detailed Physics Telemetry Panel -->
             <div class="debug-panel" id="physics-debug-box">
                 <h4 id="ui-debug-title">⚙️ 實時物理數據 (240Hz 算力)</h4>
                 <div id="physics-telemetry-content">等待發射數據...</div>
@@ -180,45 +184,27 @@
         const i18n = {
             zh: {
                 title: "🌀 爆上陀螺 Jayblade 3D",
-                subtitle: "剛體力學與 UGC 3D 模型模擬器",
+                subtitle: "剛體力學與 1P/2P 配件對戰模擬器",
                 back2d: "⬅️ 切換回 2D 經典版",
-                p1PanelTitle: "🔵 P1 陀螺自訂配件",
-                lblName: "名稱:",
-                lblCrown: "撞擊環:",
-                lblTip: "動力底軸:",
-                lblSpin: "旋轉方向:",
-                lblPower: "發射力度:",
-                optSpinR: "右迴旋 (順時針)",
-                optSpinL: "左迴旋 (逆時針)",
-                optPowerH: "重度 (高轉速/衝撞)",
-                optPowerM: "中度 (穩定平衡)",
-                optPowerL: "輕度 (高精準)",
-                btn2p: "🎮 自訂對戰發射",
+                p1PanelTitle: "🔵 P1 陀螺自訂",
+                p2PanelTitle: "🔴 P2 陀螺自訂",
+                btn2p: "🎮 1P vs 2P 自訂對戰",
                 btn4p: "🔥 4人障礙大亂鬥",
                 debugTitle: "⚙️ 實時物理數據 (240Hz 算力)",
                 langBtn: "English",
-                battleInProg: "人對戰中..."
+                battleInProg: "對戰中..."
             },
             en: {
                 title: "🌀 Jayblade 3D",
-                subtitle: "Rigid-body Physics & UGC 3D Simulator",
+                subtitle: "Rigid-body Physics 1P/2P Simulator",
                 back2d: "⬅️ Switch to 2D Version",
                 p1PanelTitle: "🔵 P1 Custom Parts",
-                lblName: "Name:",
-                lblCrown: "Crown Ring:",
-                lblTip: "Tip Base:",
-                lblSpin: "Spin Direction:",
-                lblPower: "Launch Power:",
-                optSpinR: "Right Spin (CW)",
-                optSpinL: "Left Spin (CCW)",
-                optPowerH: "Heavy (High RPM)",
-                optPowerM: "Medium (Balanced)",
-                optPowerL: "Light (Precision)",
-                btn2p: "🎮 Launch Battle",
+                p2PanelTitle: "🔴 P2 Custom Parts",
+                btn2p: "🎮 Launch 1P vs 2P Battle",
                 btn4p: "🔥 4-Player Battle Royal",
                 debugTitle: "⚙️ Live Physics Telemetry (240Hz)",
                 langBtn: "繁體中文",
-                battleInProg: " Players Battle..."
+                battleInProg: "Battle in progress..."
             }
         };
 
@@ -234,32 +220,34 @@
         }
 
         function initPartsSelectors() {
-            const crownSelect = document.getElementById('p1-crown');
-            const tipSelect = document.getElementById('p1-tip');
-            if (!crownSelect || !tipSelect) return;
+            ['p1', 'p2'].forEach(prefix => {
+                const crownSelect = document.getElementById(`${prefix}-crown`);
+                const tipSelect = document.getElementById(`${prefix}-tip`);
+                if (!crownSelect || !tipSelect) return;
 
-            const selectedCrown = crownSelect.value || 'FEATHER';
-            const selectedTip = tipSelect.value || 'FLAT';
+                const selectedCrown = crownSelect.value || (prefix === 'p1' ? 'FEATHER' : 'DRAKE');
+                const selectedTip = tipSelect.value || (prefix === 'p1' ? 'FLAT' : 'BALL');
 
-            crownSelect.innerHTML = '';
-            tipSelect.innerHTML = '';
+                crownSelect.innerHTML = '';
+                tipSelect.innerHTML = '';
 
-            Object.keys(PARTS_DB.CROWNS).forEach(k => {
-                const item = PARTS_DB.CROWNS[k];
-                const opt = document.createElement('option');
-                opt.value = k;
-                opt.innerText = currentLang === 'zh' ? `${item.name_zh} (${item.name_en})` : item.name_en;
-                if (k === selectedCrown) opt.selected = true;
-                crownSelect.appendChild(opt);
-            });
+                Object.keys(PARTS_DB.CROWNS).forEach(k => {
+                    const item = PARTS_DB.CROWNS[k];
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.innerText = currentLang === 'zh' ? `${item.name_zh} (${item.name_en})` : item.name_en;
+                    if (k === selectedCrown) opt.selected = true;
+                    crownSelect.appendChild(opt);
+                });
 
-            Object.keys(PARTS_DB.TIPS).forEach(k => {
-                const item = PARTS_DB.TIPS[k];
-                const opt = document.createElement('option');
-                opt.value = k;
-                opt.innerText = currentLang === 'zh' ? `${item.name_zh} (${item.name_en})` : item.name_en;
-                if (k === selectedTip) opt.selected = true;
-                tipSelect.appendChild(opt);
+                Object.keys(PARTS_DB.TIPS).forEach(k => {
+                    const item = PARTS_DB.TIPS[k];
+                    const opt = document.createElement('option');
+                    opt.value = k;
+                    opt.innerText = currentLang === 'zh' ? `${item.name_zh} (${item.name_en})` : item.name_en;
+                    if (k === selectedTip) opt.selected = true;
+                    tipSelect.appendChild(opt);
+                });
             });
         }
 
@@ -271,16 +259,7 @@
             document.getElementById('ui-subtitle').innerText = t.subtitle;
             document.getElementById('btn-back-2d').innerText = t.back2d;
             document.getElementById('ui-p1-panel-title').innerText = t.p1PanelTitle;
-            document.getElementById('lbl-name').innerText = t.lblName;
-            document.getElementById('lbl-crown').innerText = t.lblCrown;
-            document.getElementById('lbl-tip').innerText = t.lblTip;
-            document.getElementById('lbl-spin').innerText = t.lblSpin;
-            document.getElementById('lbl-power').innerText = t.lblPower;
-            document.getElementById('opt-spin-r').innerText = t.optSpinR;
-            document.getElementById('opt-spin-l').innerText = t.optSpinL;
-            document.getElementById('opt-power-h').innerText = t.optPowerH;
-            document.getElementById('opt-power-m').innerText = t.optPowerM;
-            document.getElementById('opt-power-l').innerText = t.optPowerL;
+            document.getElementById('ui-p2-panel-title').innerText = t.p2PanelTitle;
             document.getElementById('btn-2p').innerText = t.btn2p;
             document.getElementById('btn-4p').innerText = t.btn4p;
             document.getElementById('ui-debug-title').innerText = t.debugTitle;
@@ -295,6 +274,7 @@
         let isSimulating = false;
         let lastTime = performance.now();
         let ugcEngine = null;
+        let netManager = null;
 
         function initEngine() {
             const container = document.getElementById('canvas-container');
@@ -330,6 +310,16 @@
             create3DStadium();
             ugcEngine = new UGCModelEngine(scene);
 
+            // Optional WebRTC Network Module
+            try {
+                netManager = new ReconciliationNetworkManager();
+                netManager.init('jayblade-' + Math.floor(100000 + Math.random() * 900000), () => {
+                    console.log('🌐 WebRTC P2P Network Module ready');
+                });
+            } catch (err) {
+                console.warn('P2P module init skipped:', err);
+            }
+
             initPartsSelectors();
             bindEvents();
 
@@ -357,21 +347,27 @@
             activeTops = [];
             window.activeTopsMap.clear();
 
-            const rawNameP1 = document.getElementById('p1-name').value || '火鷹飛龍';
-            const safeNameP1 = escapeHtml(rawNameP1);
+            // P1
+            const p1Name = escapeHtml(document.getElementById('p1-name').value || '火鷹飛龍');
             const p1Spin = document.getElementById('p1-spin').value === 'RIGHT';
             const p1Power = document.getElementById('p1-power').value;
             const p1Rpm = p1Power === 'HEAVY' ? 13000 : (p1Power === 'MEDIUM' ? 10000 : 7000);
 
             const p1 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                id: 'p1', name: `🔵 ${safeNameP1}`, x: -3.5, y: 0.5, z: 0, rpm: p1Rpm, isRightSpin: p1Spin
+                id: 'p1', name: `🔵 ${p1Name}`, x: -3.5, y: 0.5, z: 0, rpm: p1Rpm, isRightSpin: p1Spin
             });
             p1.body.velocity.set(2.5, 0, 1.5);
             activeTops.push(p1);
             window.activeTopsMap.set(p1.id, p1);
 
+            // P2
+            const p2Name = escapeHtml(document.getElementById('p2-name').value || '影武赤狼');
+            const p2Spin = document.getElementById('p2-spin').value === 'RIGHT';
+            const p2Power = document.getElementById('p2-power').value;
+            const p2Rpm = p2Power === 'HEAVY' ? 13000 : (p2Power === 'MEDIUM' ? 10000 : 7000);
+
             const p2 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                id: 'p2', name: '🔴 影武赤狼', x: 3.5, y: 0.5, z: 0, rpm: 12000, isRightSpin: false
+                id: 'p2', name: `🔴 ${p2Name}`, x: 3.5, y: 0.5, z: 0, rpm: p2Rpm, isRightSpin: p2Spin
             });
             p2.body.velocity.set(-2.5, 0, -1.5);
             activeTops.push(p2);
@@ -397,7 +393,6 @@
             document.getElementById('match-status').innerText = `⚔️ ${count} ${i18n[currentLang].battleInProg}`;
         }
 
-        // 🛠️ 修復點擊：使用 addEventListener 綁定事件
         function bindEvents() {
             document.getElementById('btn-2p').addEventListener('click', () => launchCustom3DBattle(2));
             document.getElementById('btn-4p').addEventListener('click', () => launchCustom3DBattle(4));
@@ -444,7 +439,13 @@
             lastTime = now;
 
             if (isSimulating) {
+                // 240Hz High Frequency Sub-stepping Physics Update
                 world.step(PHYSICS_FIXED_TIMESTEP, dt, PHYSICS_MAX_SUBSTEPS);
+
+                // Broadcast network snapshot if P2P is active
+                if (netManager && netManager.broadcastSnapshot) {
+                    netManager.broadcastSnapshot(activeTops);
+                }
 
                 let debugHTML = '';
                 activeTops.forEach(t => {
