@@ -149,11 +149,8 @@ class SoundFX {
 
 const sfx = new SoundFX();
 
-// 2. 粒子系統：對象池優化 (Object Pool) 解決 GC 掉幀問題
 class Particle {
-  constructor() {
-    this.life = 0;
-  }
+  constructor() { this.life = 0; }
   spawn(x, y, vx, vy, color, isDebris, isFlash) {
     this.x = x; this.y = y; this.vx = vx; this.vy = vy;
     this.color = color; this.isDebris = isDebris; this.isFlash = isFlash;
@@ -162,66 +159,70 @@ class Particle {
   }
   update(dt) {
     if (this.life <= 0) return;
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
+    this.x += this.vx * dt; this.y += this.vy * dt;
     this.life -= dt * (this.isFlash ? 8.0 : (this.isDebris ? 1.5 : 3.0));
   }
   draw(ctx) {
     if (this.life <= 0) return;
     ctx.save();
     ctx.globalAlpha = Math.max(0, this.life);
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fillStyle = this.color;
-    ctx.fill();
-    ctx.restore();
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.fillStyle = this.color; ctx.fill(); ctx.restore();
   }
 }
 
 class ParticlePool {
-  constructor(size) {
-    this.pool = Array.from({length: size}, () => new Particle());
-  }
+  constructor(size) { this.pool = Array.from({length: size}, () => new Particle()); }
   spawn(x, y, vx, vy, color, isDebris = false, isFlash = false) {
     const p = this.pool.find(p => p.life <= 0);
     if (p) p.spawn(x, y, vx, vy, color, isDebris, isFlash);
   }
   updateAndDraw(dt, ctx) {
-    this.pool.forEach(p => {
-      p.update(dt);
-      p.draw(ctx);
-    });
+    this.pool.forEach(p => { p.update(dt); p.draw(ctx); });
   }
 }
-const pPool = new ParticlePool(250); // 預先分配記憶體
+const pPool = new ParticlePool(250);
 
 class PhysicalTop {
-  constructor(x, y, crownKey, tipKey, powerLevel, name, customColor = null, isCpu = false, aiRate = 0.4) {
-    const crown = PARTS_DATABASE.crowns[crownKey] || PARTS_DATABASE.crowns['dragon_blade'];
+  constructor(x, y, crownKey, tipKey, powerLevel, launchAngle, spinDir, name, customColor = null, isCpu = false, aiRate = 0.4) {
+    const crown = PARTS_DATABASE.crowns[crownKey] || PARTS_DATABASE.crowns['wizard_arc'];
     const tip = PARTS_DATABASE.tips[tipKey] || PARTS_DATABASE.tips['dash_flat'];
 
-    this.name = name || '陀螺';
+    this.name = name || '火鷹飛龍';
     this.isCpu = isCpu;
     this.aiRate = aiRate;
     this.x = x; this.y = y;
-    this.targetX = x; this.targetY = y; // 用於網路插值 (Lerp)
-    this.vx = (Math.random() - 0.5) * 60;
-    this.vy = (Math.random() - 0.5) * 60;
+    this.targetX = x; this.targetY = y;
 
     this.mass = crown.mass;
     this.radius = crown.radius;
     this.restitution = crown.restitution;
+    this.liftAngle = crown.liftAngle || 0;
+    this.burstResist = crown.burstResist || 0.8;
+    this.attackPower = crown.attackPower || 1.0;
+
     this.color = customColor || crown.color;
     this.tip = tip;
     this.weightDist = crown.weightDist;
 
-    this.rpm = powerLevel === 'HEAVY' ? 2500 : (powerLevel === 'LIGHT' ? 1200 : 1800);
-    this.angularVelocity = (this.rpm * Math.PI) / 30;
+    this.spinDir = spinDir === 'LEFT' ? -1 : 1;
+
+    const angleRad = (parseFloat(launchAngle) || 0) * (Math.PI / 180);
+    const initialPower = powerLevel === 'HEAVY' ? 2500 : (powerLevel === 'LIGHT' ? 1200 : 1800);
+    
+    const angleBoostVelocity = Math.sin(angleRad) * 450;
+    const randomAngleDir = Math.random() * Math.PI * 2;
+    
+    this.vx = Math.cos(randomAngleDir) * angleBoostVelocity;
+    this.vy = Math.sin(randomAngleDir) * angleBoostVelocity;
+
+    this.rpm = initialPower * Math.cos(angleRad * 0.5);
+    this.angularVelocity = (this.rpm * Math.PI / 30) * this.spinDir;
     this.inertia = 0.5 * this.mass * Math.pow(this.radius, 2) * (0.5 + 0.5 * this.weightDist);
 
     this.angle = 0;
-    this.tilt = 0;
-    this.precessionAngle = 0;
+    this.tilt = angleRad;
+    this.precessionAngle = Math.random() * Math.PI * 2;
     this.shatterHp = 100;
 
     this.trail = [];
@@ -240,7 +241,6 @@ class PhysicalTop {
     this.trail.push({ x: this.x, y: this.y, angle: this.angle });
     if (this.trail.length > 6) this.trail.shift();
 
-    // 坡度向心力
     const distToCenter = Math.hypot(this.x - arenaCenter.x, this.y - arenaCenter.y);
     if (distToCenter > 1) {
       const dirX = (arenaCenter.x - this.x) / distToCenter;
@@ -255,7 +255,7 @@ class PhysicalTop {
       const decay = this.tip.friction * 3.5;
       this.rpm -= decay * dt * 60;
       if (this.rpm < 0) this.rpm = 0;
-      this.angularVelocity = (this.rpm * Math.PI) / 30;
+      this.angularVelocity = (this.rpm * Math.PI / 30) * this.spinDir;
 
       const g = 9.8, distCM = 4, stabilityThreshold = 500;
       if (this.rpm > stabilityThreshold) {
@@ -264,37 +264,42 @@ class PhysicalTop {
         this.tilt += (stabilityThreshold - this.rpm) * 0.000005 * dt;
       }
       if (this.rpm > 50 && this.tilt > 0.01) {
-        const precessionRate = (this.mass * g * distCM) / (this.inertia * Math.max(1, this.angularVelocity));
-        this.precessionAngle += precessionRate * dt * 100;
+        const precessionRate = (this.mass * g * distCM) / (this.inertia * Math.max(1, Math.abs(this.angularVelocity)));
+        this.precessionAngle += precessionRate * dt * 100 * this.spinDir;
         const wobbleOffset = Math.sin(this.tilt) * 12;
         this.vx += Math.cos(this.precessionAngle) * wobbleOffset * dt;
         this.vy += Math.sin(this.precessionAngle) * wobbleOffset * dt;
       }
     } else {
-      const currentOmega = this.angularVelocity;
+      // 🔬 真實拉格朗日章動方程 (Nutation Equations)
+      const currentOmega = Math.abs(this.angularVelocity);
       const airResistance = 0.00003, bearingFriction = 0.05;
       const alpha = -(bearingFriction * currentOmega) - (airResistance * Math.pow(currentOmega, 2));
       
-      this.angularVelocity += alpha * dt;
-      if (this.angularVelocity < 0) this.angularVelocity = 0;
-      this.rpm = (this.angularVelocity * 30) / Math.PI;
+      const newOmega = currentOmega + alpha * dt;
+      this.rpm = Math.max(0, (newOmega * 30) / Math.PI);
+      this.angularVelocity = (this.rpm * Math.PI / 30) * this.spinDir;
 
       const g = 9.8, distCM = 4;
       const gravityTorque = this.mass * g * distCM;
-      const criticalOmega = gravityTorque / (this.inertia * 0.005);
+      const criticalOmega = Math.sqrt((4 * gravityTorque * this.inertia) / Math.pow(this.inertia, 2));
 
-      if (this.angularVelocity > criticalOmega) {
+      if (currentOmega > criticalOmega * 1.5) {
         this.tilt *= (1 - 0.05 * dt);
       } else {
-        this.tilt += (criticalOmega - this.angularVelocity) * 0.00015 * dt;
-      }
+        // 解耦章動與進動，形成自然的花瓣搖晃軌跡
+        const nutationFreq = currentOmega * 0.4;
+        const nutationAmp = (criticalOmega * 1.5 - currentOmega) * 0.002;
+        this.tilt += 0.00015 * dt * (criticalOmega * 1.5 - currentOmega);
+        
+        const instantTilt = this.tilt + Math.abs(Math.cos(Date.now() * nutationFreq * 0.001)) * nutationAmp;
+        const precessionRate = gravityTorque / (this.inertia * Math.max(1, currentOmega));
+        this.precessionAngle += precessionRate * dt * 80 * this.spinDir;
 
-      if (this.angularVelocity > 10 && this.tilt > 0.01) {
-        const precessionRate = gravityTorque / (this.inertia * Math.max(1, this.angularVelocity));
-        this.precessionAngle += precessionRate * dt * 80;
-        const wobbleOffset = Math.sin(this.tilt) * 16;
-        this.vx += Math.cos(this.precessionAngle) * wobbleOffset * dt;
-        this.vy += Math.sin(this.precessionAngle) * wobbleOffset * dt;
+        const wobbleX = Math.cos(this.precessionAngle) * Math.sin(instantTilt) * 20;
+        const wobbleY = Math.sin(this.precessionAngle) * Math.sin(instantTilt) * 20;
+        this.vx += wobbleX * dt;
+        this.vy += wobbleY * dt;
       }
     }
 
@@ -326,12 +331,21 @@ class PhysicalTop {
     }
 
     if (this.tip.shape === 'FLAT' && this.rpm > 150) {
-      const moveAngle = this.angle + Math.PI / 2;
+      const moveAngle = this.angle + (Math.PI / 2) * this.spinDir;
       this.vx += Math.cos(moveAngle) * (this.tip.moveForce * 1.2) * dt;
       this.vy += Math.sin(moveAngle) * (this.tip.moveForce * 1.2) * dt;
     } else if (this.tip.shape === 'PINPOINT') {
-      this.vx *= 0.97;
-      this.vy *= 0.97;
+      this.vx *= 0.97; this.vy *= 0.97;
+    } else if (this.tip.shape === 'BALL') {
+      this.vx *= 0.985; this.vy *= 0.985;
+    } else if (this.tip.shape === 'SEMIFLAT' || this.tip.shape === 'TAPER' || this.tip.shape === 'ORB') {
+      if (this.rpm > 1200) {
+        const moveAngle = this.angle + (Math.PI / 2) * this.spinDir;
+        this.vx += Math.cos(moveAngle) * (this.tip.moveForce * 0.9) * dt;
+        this.vy += Math.sin(moveAngle) * (this.tip.moveForce * 0.9) * dt;
+      } else {
+        this.vx *= 0.98; this.vy *= 0.98;
+      }
     }
 
     const railInner = 180, railOuter = 228;
@@ -339,7 +353,8 @@ class PhysicalTop {
       this.isXDashing = true;
       const rx = (arenaCenter.x - this.x) / distToCenter;
       const ry = (arenaCenter.y - this.y) / distToCenter;
-      const tx = -ry, ty = rx;
+      const tx = -ry * this.spinDir;
+      const ty = rx * this.spinDir;
 
       const boostPower = CURRENT_PHYSICS_MODE === 'ARCADE' ? (280 + (this.rpm / 2200) * 400) : (200 + (this.rpm / 2200) * 250);
       this.vx += tx * boostPower * dt;
@@ -360,7 +375,6 @@ class PhysicalTop {
       this.isXDashing = false;
     }
 
-    // 💡 半隱式歐拉積分 (Symplectic Euler) : 先更動速度，再以新速度推導位置
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.angle += this.angularVelocity * dt;
@@ -370,13 +384,11 @@ class PhysicalTop {
       this.rpm = 0;
     }
 
-    // 牆壁碰撞 (防隧道穿透)
     const maxRadius = arenaCenter.radius - this.radius;
     if (distToCenter > maxRadius) {
       const nx = (this.x - arenaCenter.x) / distToCenter;
       const ny = (this.y - arenaCenter.y) / distToCenter;
       
-      // 牆壁位置修正 (Position Correction)
       this.x = arenaCenter.x + nx * maxRadius;
       this.y = arenaCenter.y + ny * maxRadius;
 
@@ -404,11 +416,11 @@ class PhysicalTop {
   }
 
   getDebugData() {
-    return `<b>${this.name}</b> (${CURRENT_PHYSICS_MODE})<br>
+    return `<b>${this.name}</b><br>
+    旋轉: ${this.spinDir === 1 ? '右旋' : '左旋'}<br>
     RPM: ${Math.round(this.rpm)}<br>
     速度: ${Math.round(Math.hypot(this.vx, this.vy))}<br>
-    X-Dash: ${this.isXDashing ? '🔥 ACTIVE' : 'OFF'}<br>
-    AI 戰術: ${this.isCpu ? this.aiState : '玩家操控'}<br>
+    爆抗性: ${Math.round(this.burstResist * 100)}%<br>
     耐久: ${Math.round(this.shatterHp)} HP`;
   }
 
@@ -425,17 +437,23 @@ class PhysicalTop {
     ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
     ctx.fillStyle = this.color; ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(this.radius, 0);
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2);
+    
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(this.radius, 0);
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 2.5; ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, 0, Math.PI * 2);
     ctx.fillStyle = '#ffcc00'; ctx.fill(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = '#000'; ctx.font = 'bold 11px Arial';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('★', 0, 1);
+    ctx.fillStyle = '#000'; ctx.font = 'bold 10px Arial';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(this.spinDir === 1 ? 'R' : 'L', 0, 1);
     ctx.restore();
   }
 }
 
-// 兩體碰撞處理（加入 Position Correction 防止隧道重疊穿透）
+// 🌟 爆裂抗性 (Burst Resistance) 與攻擊力 (Attack Power) 碰撞計算
 function resolveAdvancedCollision(p1, p2) {
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
@@ -446,16 +464,13 @@ function resolveAdvancedCollision(p1, p2) {
     const nx = dx / dist;
     const ny = dy / dist;
 
-    // 💡 碰撞穿透修正 (Position Correction): 80% 修正，預留 0.05 寬容度避免微震
     const slop = 0.05;
     const percent = 0.8;
     const correction = Math.max(overlap - slop, 0) / ((1 / p1.mass) + (1 / p2.mass)) * percent;
     const cx = nx * correction;
     const cy = ny * correction;
-    p1.x -= cx / p1.mass;
-    p1.y -= cy / p1.mass;
-    p2.x += cx / p2.mass;
-    p2.y += cy / p2.mass;
+    p1.x -= cx / p1.mass; p1.y -= cy / p1.mass;
+    p2.x += cx / p2.mass; p2.y += cy / p2.mass;
 
     const tx = -ny, ty = nx;
     const kx = p1.vx - p2.vx;
@@ -463,8 +478,8 @@ function resolveAdvancedCollision(p1, p2) {
     const normalVel = kx * nx + ky * ny;
 
     if (normalVel > 0) {
-      // 物理上限約束：即使是 Arcade 模式，e 最大不可超過 1.0 (能量守恆) 
-      // 依賴速度賦予 (tangImpulse) 來創造「遊戲感」
+      const isOppositeSpin = (p1.spinDir !== p2.spinDir);
+
       let e = CURRENT_PHYSICS_MODE === 'ARCADE' ? 1.0 : 0.85;
       if (CURRENT_PHYSICS_MODE === 'REALISTIC') {
         const relSpeed = Math.abs(normalVel);
@@ -473,12 +488,17 @@ function resolveAdvancedCollision(p1, p2) {
 
       const impulse = ((1 + e) * normalVel) / ((1 / p1.mass) + (1 / p2.mass));
 
+      const liftForceP1 = impulse * p1.liftAngle;
+      const liftForceP2 = impulse * p2.liftAngle;
+
       p1.vx -= (impulse / p1.mass) * nx;
       p1.vy -= (impulse / p1.mass) * ny;
       p2.vx += (impulse / p2.mass) * nx;
       p2.vy += (impulse / p2.mass) * ny;
 
-      // 切向推擠與遊戲化增強
+      if (liftForceP1 > 0) { p2.vx += nx * liftForceP1 * 1.5; p2.vy += ny * liftForceP1 * 1.5; }
+      if (liftForceP2 > 0) { p1.vx -= nx * liftForceP2 * 1.5; p1.vy -= ny * liftForceP2 * 1.5; }
+
       const tangVel = kx * tx + ky * ty;
       const tangImpulse = tangVel * 0.2;
       p1.vx -= (tangImpulse / p1.mass) * tx;
@@ -486,13 +506,24 @@ function resolveAdvancedCollision(p1, p2) {
       p2.vx += (tangImpulse / p2.mass) * tx;
       p2.vy += (tangImpulse / p2.mass) * ty;
 
-      const rpmDamage = CURRENT_PHYSICS_MODE === 'ARCADE' ? 0.08 : 0.4;
-      const hpDamage = CURRENT_PHYSICS_MODE === 'ARCADE' ? 0.003 : 0.02;
+      if (isOppositeSpin) {
+        const rpmDiff = p1.rpm - p2.rpm;
+        const stealAmount = rpmDiff * 0.12;
+        p1.rpm -= stealAmount;
+        p2.rpm += stealAmount;
+      } else {
+        const rpmDamage = CURRENT_PHYSICS_MODE === 'ARCADE' ? 0.08 : 0.4;
+        p1.rpm -= impulse * rpmDamage;
+        p2.rpm -= impulse * rpmDamage;
+      }
 
-      p1.rpm -= impulse * rpmDamage;
-      p2.rpm -= impulse * rpmDamage;
-      p1.shatterHp -= impulse * hpDamage;
-      p2.shatterHp -= impulse * hpDamage;
+      // 💥 計算包含攻擊力與抗爆性的崩解數值 (Burst Damage Calculation)
+      const baseHpDamage = CURRENT_PHYSICS_MODE === 'ARCADE' ? 0.003 : 0.02;
+      const p1ShatterDamage = impulse * baseHpDamage * (p2.attackPower / p1.burstResist);
+      const p2ShatterDamage = impulse * baseHpDamage * (p1.attackPower / p2.burstResist);
+
+      p1.shatterHp -= p1ShatterDamage;
+      p2.shatterHp -= p2ShatterDamage;
 
       const hitX = p1.x + nx * p1.radius;
       const hitY = p1.y + ny * p1.radius;
@@ -515,7 +546,7 @@ function resolveAdvancedCollision(p1, p2) {
       }
 
       pPool.spawn(hitX, hitY, 0, 0, '#ffffff', false, true);
-      const particleColor = isExtremeHit ? '#00d2d3' : '#fff200';
+      const particleColor = isExtremeHit ? '#00d2d3' : (isOppositeSpin ? '#9b59b6' : '#fff200');
       for (let i = 0; i < (isExtremeHit ? 16 : 8); i++) {
         pPool.spawn(hitX, hitY, (Math.random() - 0.5) * 400, (Math.random() - 0.5) * 400, particleColor);
       }
