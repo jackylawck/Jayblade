@@ -6,6 +6,8 @@ h1 { color: #ffcc00; text-shadow: 0 0 10px rgba(255,204,0,0.5); font-size: 24px;
 .card { background: #1e1e28; border-radius: 12px; padding: 16px; max-width: 500px; margin: 0 auto 15px; border: 1px solid #333; }
 hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
 
+.physics-mode-box { background: #2f3542; padding: 10px; border-radius: 8px; border: 1px solid #ffcc00; margin-bottom: 15px; text-align: left; }
+
 .player-box { background: #252533; border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #ff4757; }
 .p2-box { border-left-color: #1e90ff; }
 .player-box h3 { font-size: 15px; text-align: left; margin-bottom: 8px; color: #ffcc00; }
@@ -14,6 +16,8 @@ hr { border: 0; border-top: 1px solid #333; margin: 15px 0; }
 .btn:hover { background: #ff6b81; }
 .btn-secondary { background: #2ed573; }
 .btn-secondary:hover { background: #7bed9f; }
+.btn-online { background: #00d2d3; color: #000; }
+.btn-online:hover { background: #48dbfb; }
 .btn-sm { font-size: 12px; padding: 6px 12px; border-radius: 6px; }
 .launch-btn { width: 100%; font-size: 18px; margin-top: 15px; padding: 14px; }
 
@@ -29,7 +33,7 @@ input[type="color"] { width: 100%; height: 36px; margin-top: 4px; border-radius:
 #canvas-container { position: relative; width: 100%; max-width: 450px; margin: 0 auto; aspect-ratio: 1 / 1; }
 canvas { width: 100% !important; height: 100% !important; border-radius: 50%; border: 4px solid #444; display: block; }
 
-.canvas-controls { margin-bottom: 8px; }
+.canvas-controls { margin-bottom: 8px; display: flex; align-items: center; justify-content: center; }
 #status-bar { font-size: 16px; font-weight: bold; margin-bottom: 6px; color: #70a1ff; min-height: 24px; }
 #stats-display { font-size: 13px; color: #ffcc00; margin-bottom: 4px; }
 #achieve-display { font-size: 12px; color: #2ed573; margin-bottom: 6px; font-weight: bold; }
