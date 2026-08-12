@@ -63,8 +63,6 @@ Jayblade/
 ├── sw.js                   # Service Worker 離線快取
 ├── JaybladeICON-192.png    # 192x192 PWA 圖示
 ├── JaybladeICON-512.png    # 512x512 PWA 主圖示
-├── screenshot1.png         # 設定介面預覽圖
-├── screenshot2.png         # 對戰畫面預覽圖
 └── js/
     ├── security.js         # 輕量級防篡改與資安防護模組
     ├── parts.js            # 配件資料庫與雙語對照
