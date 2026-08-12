@@ -172,8 +172,8 @@
     <div id="canvas-container"></div>
 
     <script>
-        var STADIUM_RADIUS = 9.5;
-        var WALL_HEIGHT = 2.2;
+        var STADIUM_RADIUS = 9.0;
+        var WALL_HEIGHT = 2.0;
         var PHYSICS_FIXED_TIMESTEP = 1 / 240;
         var PHYSICS_MAX_SUBSTEPS = 10;
 
@@ -192,21 +192,20 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // 🌟 3D 對撞火花特效
         function spawn3DSparks(x, y, z, count) {
             for (var i = 0; i < count; i++) {
-                var pGeo = new THREE.SphereGeometry(0.08 + Math.random() * 0.06, 6, 6);
+                var pGeo = new THREE.SphereGeometry(0.08 + Math.random() * 0.05, 6, 6);
                 var pMat = new THREE.MeshBasicMaterial({
                     color: Math.random() > 0.3 ? 0xffea00 : 0xff3300,
                     transparent: true,
                     opacity: 1.0
                 });
                 var mesh = new THREE.Mesh(pGeo, pMat);
-                mesh.position.set(x, y + 0.2, z);
+                mesh.position.set(x, y, z);
 
-                var vx = (Math.random() - 0.5) * 8;
-                var vy = 2 + Math.random() * 6;
-                var vz = (Math.random() - 0.5) * 8;
+                var vx = (Math.random() - 0.5) * 6;
+                var vy = 1 + Math.random() * 4;
+                var vz = (Math.random() - 0.5) * 6;
 
                 scene.add(mesh);
                 sparkParticles.push({ mesh: mesh, vx: vx, vy: vy, vz: vz, life: 1.0 });
@@ -219,7 +218,7 @@
                 p.mesh.position.x += p.vx * dt;
                 p.mesh.position.y += p.vy * dt;
                 p.mesh.position.z += p.vz * dt;
-                p.vy -= 18.0 * dt; // 重力下墜
+                p.vy -= 12.0 * dt;
 
                 p.life -= dt * 2.5;
                 p.mesh.material.opacity = Math.max(0, p.life);
@@ -231,7 +230,6 @@
             }
         }
 
-        // 🌟 帥氣金屬質感陀螺模型
         function Beyblade3DPhysics(scene, world, material, config) {
             this.name = config.name;
             this.isRightSpin = config.isRightSpin;
@@ -246,14 +244,13 @@
             });
 
             this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
-            this.body.position.set(config.x, config.y, config.z);
+            this.body.position.set(config.x, 0.4, config.z);
 
             var spinRad = (config.rpm * 2 * Math.PI) / 60 * (this.isRightSpin ? -1 : 1);
             this.body.angularVelocity.set(0, spinRad, 0);
 
             this.group = new THREE.Group();
 
-            // 1. 金屬攻擊刀刃 Crown
             var crownGeo = new THREE.CylinderGeometry(this.radius, this.radius * 0.8, 0.35, 16);
             var crownMat = new THREE.MeshStandardMaterial({
                 color: config.color,
@@ -263,7 +260,6 @@
             var crownMesh = new THREE.Mesh(crownGeo, crownMat);
             this.group.add(crownMesh);
 
-            // 2. 齒輪突起細節
             for (var b = 0; b < 6; b++) {
                 var toothGeo = new THREE.BoxGeometry(0.2, 0.3, 0.4);
                 var toothMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.1 });
@@ -274,7 +270,6 @@
                 this.group.add(tooth);
             }
 
-            // 3. 發光能量核心 Core
             var coreGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.15, 16);
             var coreMat = new THREE.MeshStandardMaterial({ color: 0x00f2fe, emissive: 0x00f2fe, emissiveIntensity: 0.6 });
             var coreMesh = new THREE.Mesh(coreGeo, coreMat);
@@ -286,16 +281,40 @@
         }
 
         Beyblade3DPhysics.prototype.stepPhysics = function(dt) {
+            // 🛠️ 1. 強制鎖定貼地 $Y$ 軸高度，徹底防飛天
+            this.body.position.y = 0.4;
+            this.body.velocity.y = 0;
+
             this.group.position.copy(this.body.position);
             this.group.quaternion.copy(this.body.quaternion);
 
+            // 🛠️ 2. 水平邊界邊緣物理碰撞與向心力
             var distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
-            if (distFromCenter > 0.1 && distFromCenter < STADIUM_RADIUS) {
-                var pull = 0.42 * distFromCenter; // 碗狀中心引力
+            
+            // 邊界硬平撞（不向上彈飛）
+            if (distFromCenter + this.radius >= STADIUM_RADIUS) {
+                var nx = this.body.position.x / distFromCenter;
+                var nz = this.body.position.z / distFromCenter;
+
+                // 強制拉回邊界內
+                this.body.position.x = nx * (STADIUM_RADIUS - this.radius);
+                this.body.position.z = nz * (STADIUM_RADIUS - this.radius);
+
+                // 水平反射 (恢復係數 0.3)
+                var dot = this.body.velocity.x * nx + this.body.velocity.z * nz;
+                if (dot > 0) {
+                    this.body.velocity.x -= (1.3) * dot * nx;
+                    this.body.velocity.z -= (1.3) * dot * nz;
+                    spawn3DSparks(this.body.position.x, 0.4, this.body.position.z, 6);
+                }
+            } else if (distFromCenter > 0.1) {
+                // 碗狀坡度向心力
+                var pull = 0.35 * distFromCenter;
                 var fx = (-this.body.position.x / distFromCenter) * pull;
                 var fz = (-this.body.position.z / distFromCenter) * pull;
                 this.body.applyForce(new CANNON.Vec3(fx, 0, fz), this.body.position);
             }
+
             this.body.angularVelocity.y *= 0.9997;
         };
 
@@ -303,10 +322,10 @@
             var container = document.getElementById('canvas-container');
             
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x060913); // 深夜電競科技背景
+            scene.background = new THREE.Color(0x060913);
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 15, 18);
+            camera.position.set(0, 16, 18);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -317,7 +336,6 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
-            // 🌟 賽場高質感舞台燈光
             scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
             var mainSpot = new THREE.SpotLight(0x38bdf8, 2.5);
@@ -340,7 +358,7 @@
             defaultMaterial = new CANNON.Material('default');
             stadiumMaterial = new CANNON.Material('stadium');
 
-            var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.25, restitution: 0.65 });
+            var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.3 });
             world.addContactMaterial(contactMat);
 
             create3DStadiumWithWalls();
@@ -352,20 +370,19 @@
             document.getElementById('ui-overlay-box').style.display = 'block';
         }
 
-        // 🌟 美化版 Beyblade X 原版戰鬥盤
         function create3DStadiumWithWalls() {
-            // 1. 亮白瓷光深碗底盤
-            var geo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS - 2.0, 1.2, 64);
+            // 1. 瓷白底盤
+            var geo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS - 1.8, 0.8, 64);
             var mat = new THREE.MeshStandardMaterial({
-                color: 0xf1f5f9, // 絕美亮白塑膠感
+                color: 0xf1f5f9,
                 roughness: 0.15,
                 metalness: 0.1
             });
             var stadiumMesh = new THREE.Mesh(geo, mat);
-            stadiumMesh.position.y = -0.6;
+            stadiumMesh.position.y = -0.4;
             scene.add(stadiumMesh);
 
-            // 盤底標誌環
+            // 盤心標誌環
             var centerRingGeo = new THREE.RingGeometry(1.5, 1.8, 32);
             var centerRingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide });
             var centerRing = new THREE.Mesh(centerRingGeo, centerRingMat);
@@ -373,7 +390,7 @@
             centerRing.position.y = 0.01;
             scene.add(centerRing);
 
-            // 2. 霓虹螢光綠 X-Dash 軌道齒輪環
+            // 2. 螢光綠 X-Dash 衝刺軌道
             var railGeo = new THREE.TorusGeometry(STADIUM_RADIUS - 0.3, 0.22, 16, 64);
             var railMat = new THREE.MeshStandardMaterial({
                 color: 0x10b981,
@@ -386,7 +403,7 @@
             railMesh.position.y = 0.05;
             scene.add(railMesh);
 
-            // 3. 半透明藍光高透護罩 (Polycarbonate Wall)
+            // 3. 半透明藍光防護護罩
             var wallGeo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS, WALL_HEIGHT, 64, 1, true);
             var wallMat = new THREE.MeshPhysicalMaterial({
                 color: 0x38bdf8,
@@ -401,7 +418,7 @@
             wallMesh.position.y = WALL_HEIGHT / 2;
             scene.add(wallMesh);
 
-            // 護罩頂部加固藍邊
+            // 護罩頂環
             var topRingGeo = new THREE.TorusGeometry(STADIUM_RADIUS, 0.12, 16, 64);
             var topRingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
             var topRing = new THREE.Mesh(topRingGeo, topRingMat);
@@ -414,24 +431,6 @@
             groundBody.addShape(new CANNON.Plane());
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
             world.addBody(groundBody);
-
-            // 5. 環形實體物理護牆 (防滑出場外)
-            var wallSegments = 32;
-            for (var i = 0; i < wallSegments; i++) {
-                var angle = (i / wallSegments) * Math.PI * 2;
-                var x = Math.cos(angle) * STADIUM_RADIUS;
-                var z = Math.sin(angle) * STADIUM_RADIUS;
-
-                var wallBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
-                wallBody.addShape(new CANNON.Plane());
-                wallBody.position.set(x, WALL_HEIGHT / 2, z);
-                
-                var quatY = new CANNON.Quaternion();
-                quatY.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle + Math.PI);
-                wallBody.quaternion = quatY;
-
-                world.addBody(wallBody);
-            }
         }
 
         function launchCustom3DBattle(mode) {
@@ -444,7 +443,7 @@
             var p1Rpm = p1Power === 'HEAVY' ? 12000 : (p1Power === 'MEDIUM' ? 9500 : 7000);
 
             var p1 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                name: '🔵 ' + p1Name, x: -2.5, y: 0.5, z: 0, rpm: p1Rpm, isRightSpin: p1Spin, color: 0x0284c7
+                name: '🔵 ' + p1Name, x: -2.5, y: 0.4, z: 0, rpm: p1Rpm, isRightSpin: p1Spin, color: 0x0284c7
             });
             p1.body.velocity.set(2.2, 0, 1.2);
             activeTops.push(p1);
@@ -456,7 +455,7 @@
                 var randomRpm = 8500 + Math.floor(Math.random() * 3500);
 
                 var ai = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: randomName, x: 2.5, y: 0.5, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xe11d48
+                    name: randomName, x: 2.5, y: 0.4, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xe11d48
                 });
                 ai.body.velocity.set(-2.2, 0, -1.2);
                 activeTops.push(ai);
@@ -470,7 +469,7 @@
                 var p2Rpm = p2Power === 'HEAVY' ? 12000 : (p2Power === 'MEDIUM' ? 9500 : 7000);
 
                 var p2 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🔴 ' + p2Name, x: 2.5, y: 0.5, z: 0, rpm: p2Rpm, isRightSpin: p2Spin, color: 0xe11d48
+                    name: '🔴 ' + p2Name, x: 2.5, y: 0.4, z: 0, rpm: p2Rpm, isRightSpin: p2Spin, color: 0xe11d48
                 });
                 p2.body.velocity.set(-2.2, 0, -1.2);
                 activeTops.push(p2);
@@ -480,19 +479,19 @@
             } else if (mode === 4) {
                 var p2Name4 = escapeHtml(document.getElementById('p2-name').value || '影武赤狼');
                 var p2_4 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🔴 ' + p2Name4, x: 2.5, y: 0.5, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48
+                    name: '🔴 ' + p2Name4, x: 2.5, y: 0.4, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48
                 });
                 p2_4.body.velocity.set(-2.2, 0, -1.2);
                 activeTops.push(p2_4);
 
                 var p3 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🟢 翡翠巨錘', x: 0, y: 0.5, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x10b981
+                    name: '🟢 翡翠巨錘', x: 0, y: 0.4, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x10b981
                 });
                 p3.body.velocity.set(1.0, 0, 2.0);
                 activeTops.push(p3);
 
                 var p4 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🟣 帝王紫刃', x: 0, y: 0.5, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x8b5cf6
+                    name: '🟣 帝王紫刃', x: 0, y: 0.4, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x8b5cf6
                 });
                 p4.body.velocity.set(-1.0, 0, -2.0);
                 activeTops.push(p4);
@@ -525,17 +524,17 @@
             if (isSimulating) {
                 world.step(PHYSICS_FIXED_TIMESTEP, dt, PHYSICS_MAX_SUBSTEPS);
 
-                // 檢測陀螺相撞產生火花
+                // 碰撞火花
                 for (var i = 0; i < activeTops.length; i++) {
                     for (var j = i + 1; j < activeTops.length; j++) {
                         var posA = activeTops[i].body.position;
                         var posB = activeTops[j].body.position;
                         var dist = posA.distanceTo(posB);
-                        if (dist < 2.0 && Math.random() > 0.4) {
+                        if (dist < 1.8 && Math.random() > 0.3) {
                             var midX = (posA.x + posB.x) / 2;
                             var midY = (posA.y + posB.y) / 2;
                             var midZ = (posA.z + posB.z) / 2;
-                            spawn3DSparks(midX, midY, midZ, 4);
+                            spawn3DSparks(midX, midY, midZ, 5);
                         }
                     }
                 }
