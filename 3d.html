@@ -42,8 +42,9 @@
         .form-row label { color: #ccc; }
         .form-row select, .form-row input[type="text"] { background: rgba(0,0,0,0.5); color: #00d2d3; border: 1px solid rgba(0,210,211,0.3); border-radius: 4px; padding: 2px 6px; font-size: 0.75rem; width: 60%; }
 
-        .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.7rem; color: #00ff66; background: rgba(0,0,0,0.6); padding: 8px; border-radius: 6px; border: 1px solid rgba(0, 255, 102, 0.3); margin-top: 6px; max-height: 160px; overflow-y: auto; line-height: 1.3; }
-        .debug-panel h4 { color: #ffcc00; margin-bottom: 4px; font-size: 0.75rem; }
+        /* 🛠️ 已修復：完全展開高度，取消 160px 限制，無 Scrollbar */
+        .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.72rem; color: #00ff66; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 6px; border: 1px solid rgba(0, 255, 102, 0.4); margin-top: 6px; height: auto; min-height: 120px; overflow: visible; line-height: 1.35; }
+        .debug-panel h4 { color: #ffcc00; margin-bottom: 6px; font-size: 0.78rem; border-bottom: 1px solid rgba(255,204,0,0.3); padding-bottom: 2px; }
         
         .energy-chart-box { margin-top: 6px; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
         .chart-title { font-size: 0.7rem; color: #2ecc71; margin-bottom: 2px; }
@@ -122,9 +123,6 @@
     <div id="canvas-container"></div>
 
     <script>
-        // ==========================================
-        // 內建配件庫數據 (免外掛檔案，確保選單 100% 有內容)
-        // ==========================================
         const PARTS_DB = {
             CROWNS: {
                 FEATHER: { name_zh: "羽翼飛刃", name_en: "Feather Blade", mass: 0.042, burstResist: 0.85 },
@@ -140,9 +138,6 @@
             }
         };
 
-        // ==========================================
-        // 全中 / 全英 雙語字典
-        // ==========================================
         const i18n = {
             zh: {
                 title: "🌀 爆上陀螺 Jayblade",
@@ -225,7 +220,6 @@
         const STADIUM_RADIUS = 12;
         const GEAR_RAIL_RADIUS = 10.5;
 
-        // 切換全中 / 全英
         function toggleLanguage() {
             currentLang = currentLang === 'zh' ? 'en' : 'zh';
             const t = i18n[currentLang];
@@ -254,11 +248,9 @@
             document.getElementById('touch-launch-zone').innerText = t.touchLaunch;
             document.getElementById('btn-lang').innerText = t.langBtn;
 
-            // 重新填充下拉選單語言
             initPartsSelectors();
         }
 
-        // 初始化配件選單
         function initPartsSelectors() {
             const crownSelect = document.getElementById('p1-crown');
             const tipSelect = document.getElementById('p1-tip');
@@ -417,7 +409,6 @@
                 this.group.quaternion.copy(this.body.quaternion);
                 this.rpm = Math.abs(this.body.angularVelocity.y) * 60 / (2 * Math.PI);
 
-                // 坡度向心力
                 const distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
                 if (distFromCenter > 0.2 && distFromCenter < STADIUM_RADIUS) {
                     const pullForce = 0.15 * distFromCenter;
@@ -426,7 +417,6 @@
                     this.body.applyForce(new CANNON.Vec3(pullX, 0, pullZ), this.body.position);
                 }
 
-                // X-DASH
                 if (this.xdashCooldown > 0) this.xdashCooldown -= dt;
                 if (this.xdashCooldown <= 0 && Math.abs(distFromCenter - GEAR_RAIL_RADIUS) < 0.6) {
                     const spinDir = this.isRightSpin ? -1 : 1;
@@ -453,19 +443,16 @@
 
             const t = i18n[currentLang];
 
-            // 讀取 P1 設定
             const p1Name = document.getElementById('p1-name').value || (currentLang === 'zh' ? '火鷹飛龍' : 'Falcon Drake');
             const p1Crown = document.getElementById('p1-crown').value;
             const p1Tip = document.getElementById('p1-tip').value;
             const p1Spin = document.getElementById('p1-spin').value === 'RIGHT';
             const p1Power = document.getElementById('p1-power').value;
 
-            // P1
             const top1 = new Beyblade3D(-3.5, 0.5, 0, 0x1e90ff, `🔵 ${p1Name}`, p1Spin, p1Crown, p1Tip, p1Power);
             top1.body.velocity.set(2.5, 0, 1.5);
             activeTops.push(top1);
 
-            // P2/CPU
             const p2Name = currentLang === 'zh' ? '影武赤狼' : 'Shadow Wolf';
             const top2 = new Beyblade3D(3.5, 0.5, 0, 0xff3838, `🔴 ${p2Name}`, false, 'DRAKE', 'FLAT', 'HEAVY');
             top2.body.velocity.set(-2.5, 0, -1.5);
@@ -516,7 +503,6 @@
                 world.step(1 / 60, dt, 3);
                 activeTops.forEach(t => t.update(dt));
 
-                // 碰撞處理
                 for (let i = 0; i < activeTops.length; i++) {
                     for (let j = i + 1; j < activeTops.length; j++) {
                         const p1 = activeTops[i], p2 = activeTops[j];
@@ -528,7 +514,6 @@
                     }
                 }
 
-                // 離場保護與條件檢查
                 const inGracePeriod = (now - matchStartTime) < 2500;
                 activeTops.forEach(t => {
                     if (!t.isShattered) {
@@ -541,7 +526,6 @@
                     }
                 });
 
-                // 📊 渲染全中 / 全英第一性原理物理數據面板
                 const t = i18n[currentLang];
                 let debugHTML = '';
                 activeTops.forEach(topItem => {
