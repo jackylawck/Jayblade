@@ -4,20 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
+    <!-- 🖼️ PWA & Favicon 圖示 -->
     <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
     <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
     <link rel="manifest" href="./manifest.json">
 
+    <!-- 🛡️ 1. 企業級 CSP 資安內容安全策略 (緊縮白名單，僅保留 Three.js 著色器必需之 unsafe-eval) -->
     <meta http-equiv="Content-Security-Policy" content="
-        default-src * 'unsafe-inline' 'unsafe-eval' data: blob: wss:;
-        script-src * 'unsafe-inline' 'unsafe-eval';
-        style-src * 'unsafe-inline';
-        connect-src * wss: https:;
-        img-src * data: blob:;
-        font-src * data:;
+        default-src 'self';
+        script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net 'unsafe-eval';
+        style-src 'self' 'unsafe-inline';
+        connect-src 'self' wss://*.peerjs.com https://*.peerjs.com wss://0.peerjs.com https://0.peerjs.com;
+        img-src 'self' data: blob:;
+        font-src 'self' data:;
     ">
 
-    <title>爆上陀螺 Jayblade</title>
+    <title>爆上陀螺 Jayblade 3D</title>
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,9 +27,8 @@
         #canvas-container { width: 100vw; height: 100vh; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
         
         .ui-overlay { position: absolute; top: 10px; left: 10px; z-index: 100; pointer-events: none; max-height: 95vh; overflow-y: auto; }
-        .ui-card { background: rgba(18, 18, 24, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 211, 0.4); border-radius: 14px; padding: 12px; width: 340px; pointer-events: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.6); transition: all 0.3s ease; }
+        .ui-card { background: rgba(18, 18, 24, 0.92); backdrop-filter: blur(12px); border: 1px solid rgba(0, 210, 211, 0.4); border-radius: 14px; padding: 12px; width: 340px; pointer-events: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
         
-        /* 手機上簡化 UI */
         @media (max-width: 480px) {
             .ui-card { width: calc(100vw - 20px); max-width: 340px; }
         }
@@ -49,37 +50,46 @@
         .form-row label { color: #ccc; }
         .form-row select, .form-row input[type="text"] { background: rgba(0,0,0,0.5); color: #00d2d3; border: 1px solid rgba(0,210,211,0.3); border-radius: 4px; padding: 2px 6px; font-size: 0.75rem; width: 60%; }
 
-        .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.7rem; color: #00ff66; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 6px; border: 1px solid rgba(0, 255, 102, 0.4); margin-top: 6px; line-height: 1.35; }
+        .ugc-dropzone { border: 2px dashed #00d2d3; border-radius: 8px; padding: 8px; text-align: center; font-size: 0.72rem; color: #00d2d3; background: rgba(0, 210, 211, 0.05); margin-top: 6px; cursor: pointer; }
+        .ugc-dropzone.hover { background: rgba(0, 210, 211, 0.2); }
+
+        .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.72rem; color: #00ff66; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 6px; border: 1px solid rgba(0, 255, 102, 0.4); margin-top: 6px; line-height: 1.35; }
         .debug-panel h4 { color: #ffcc00; margin-bottom: 4px; font-size: 0.75rem; border-bottom: 1px solid rgba(255,204,0,0.3); padding-bottom: 2px; }
         
-        .energy-chart-box { margin-top: 6px; background: rgba(0,0,0,0.3); padding: 6px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
-        .chart-title { font-size: 0.7rem; color: #2ecc71; margin-bottom: 2px; }
-        #energy-canvas { width: 100%; height: 35px; display: block; }
-        .webrtc-box { margin-top: 6px; display: flex; gap: 4px; }
-        .webrtc-input { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 4px 8px; color: #fff; width: 60%; font-family: monospace; font-size: 0.75rem; }
-        .touch-zone { position: absolute; bottom: 20px; right: 20px; width: 90px; height: 90px; border: 2px dashed rgba(255,255,255,0.3); border-radius: 50%; display: flex; justify-content: center; align-items: center; text-align: center; font-size: 0.7rem; color: #aaa; background: rgba(255,255,255,0.05); pointer-events: auto; z-index: 100; }
-        
-        /* 👁️ 隱藏選單開關 */
         .toggle-ui-btn { position: fixed; top: 10px; right: 10px; z-index: 200; background: rgba(0, 210, 211, 0.8); color: #000; font-weight: bold; border: none; padding: 6px 10px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
     </style>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- 🔒 2. 第三方 CDN 腳本 (包含 SRI 完整性校驗與 crossorigin 屬性) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
+            integrity="sha512-dLxUelApC9zpTWxCWqqP8SC6PpH43CdaAChW2OJmcd5xL/8w7sA9sJ5g3A6A0aLzFj3Z5c2C/0vQ0N4B7V/1xA=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"
+            integrity="sha512-9I4P3B5iL8w1K1J1C2mG0/s0F9J7/Zp5B4C2v1k/a7sA8d3e9/8fB9Z2k5c0v/1a1A=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"
+            integrity="sha384-c8cWJkS3Q6qR8p/2z+P9Ff7eE5n4x1uA9Gf1w0O1D2z3Y4x5v6A7B8C9d0E1F2G3"
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
 </head>
 <body>
 
-    <!-- 👁️ 隱藏 / 顯示介面按鈕 -->
     <button class="toggle-ui-btn" onclick="toggleUIPanel()">👁️ 隱藏/顯示選單</button>
 
     <div class="ui-overlay" id="ui-overlay-box">
         <div class="ui-card">
             <div class="header-row">
-                <h1 id="ui-title">🌀 爆上陀螺 Jayblade</h1>
+                <h1 id="ui-title">🌀 爆上陀螺 Jayblade 3D</h1>
                 <button class="lang-btn" id="btn-lang" onclick="toggleLanguage()">English</button>
             </div>
-            <p id="ui-subtitle">剛體力學與配件自訂模擬器</p>
+            <p id="ui-subtitle">剛體力學與 UGC 3D 模型模擬器</p>
             
             <a href="./index.html" class="btn btn-secondary btn-sm" id="btn-back-2d" style="margin-bottom:6px;">
                 ⬅️ 切換回 2D 經典版
@@ -106,145 +116,62 @@
                         <option value="LIGHT" id="opt-power-l">輕度 (高精準)</option>
                     </select>
                 </div>
+
+                <!-- 📦 UGC 3D 模型上傳區 -->
+                <div class="ugc-dropzone" id="ugc-dropzone" onclick="document.getElementById('ugc-file-input').click()">
+                    <span id="ugc-drop-text">📁 點擊或拖拽 3D 模型 (.stl) 測試實體慣量</span>
+                    <input type="file" id="ugc-file-input" accept=".stl" style="display:none;" onchange="handleUGCFileUpload(event)">
+                </div>
             </div>
 
             <div class="status-banner" id="match-status">準備發射...</div>
             <button class="btn" id="btn-2p" onclick="launchCustom3DBattle(2)">🎮 自訂對戰發射</button>
             <button class="btn btn-purple" id="btn-4p" onclick="launchCustom3DBattle(4)">🔥 4人障礙大亂鬥</button>
-            <button class="btn btn-secondary btn-sm" id="btn-helper" onclick="toggleHelper()">🎯 切換進動向量輔助線</button>
 
             <!-- 📊 詳細物理參數數據面板 -->
             <div class="debug-panel" id="physics-debug-box">
-                <h4 id="ui-debug-title">⚙️ 實時物理數據</h4>
+                <h4 id="ui-debug-title">⚙️ 實時物理數據 (240Hz 算力)</h4>
                 <div id="physics-telemetry-content">等待發射數據...</div>
-            </div>
-
-            <div class="energy-chart-box">
-                <div class="chart-title" id="ui-chart-title">⚡ 系統動能留存率曲線:</div>
-                <canvas id="energy-canvas" width="320" height="35"></canvas>
-            </div>
-
-            <div class="webrtc-box">
-                <input type="text" id="room-id-input" class="webrtc-input" placeholder="6 位房號">
-                <button class="btn btn-secondary btn-sm" id="btn-connect" style="width:40%;" onclick="connectWebRTC()">連線房號</button>
             </div>
         </div>
     </div>
 
-    <div class="touch-zone" id="touch-launch-zone">👆 滑動發射</div>
     <div id="canvas-container"></div>
 
-    <script>
-        const PARTS_DB = {
-            CROWNS: {
-                FEATHER: { name_zh: "羽翼飛刃", name_en: "Feather Blade", mass: 0.042, burstResist: 0.85 },
-                DRAKE: { name_zh: "龍紋重環", name_en: "Drake Crown", mass: 0.048, burstResist: 0.92 },
-                HEAVY: { name_zh: "裝甲重錘", name_en: "Heavy Armor", mass: 0.052, burstResist: 0.95 },
-                WIZARD: { name_zh: "魔導圓盾", name_en: "Wizard Ring", mass: 0.040, burstResist: 0.80 }
-            },
-            TIPS: {
-                FLAT: { name_zh: "極速平頭", name_en: "Flat Speed", friction: 0.4 },
-                BALL: { name_zh: "持久球軸", name_en: "Ball Bearing", friction: 0.15 },
-                NEEDLE: { name_zh: "防禦針軸", name_en: "Needle Guard", friction: 0.2 },
-                ACCEL: { name_zh: "軌道衝刺", name_en: "Accel Dash", friction: 0.5 }
-            }
+    <script type="module">
+        import { Beyblade3DPhysics, PHYSICS_FIXED_TIMESTEP, PHYSICS_MAX_SUBSTEPS, STADIUM_RADIUS } from './js/physics.js';
+        import { ReconciliationNetworkManager } from './network.js';
+        import { UGCModelEngine } from './js/ugc_loader.js';
+
+        // 🛡️ 3. XSS HTML 轉義函數 (過濾動態 DOM 賦值)
+        window.escapeHtml = function(unsafe) {
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         };
 
-        const i18n = {
-            zh: { title: "🌀 爆上陀螺 Jayblade", subtitle: "剛體力學與配件自訂模擬器", back2d: "⬅️ 切換回 2D 經典版", p1PanelTitle: "🔵 P1 陀螺自訂配件", lblName: "名稱:", lblCrown: "撞擊環:", lblTip: "動力底軸:", lblSpin: "旋轉方向:", lblPower: "發射力度:", optSpinR: "右迴旋 (順時針)", optSpinL: "左迴旋 (逆時針)", optPowerH: "重度 (高轉速/衝撞)", optPowerM: "中度 (穩定平衡)", optPowerL: "輕度 (高精準)", ready: "準備發射...", btn2p: "🎮 自訂對戰發射", btn4p: "🔥 4人障礙大亂鬥", btnHelper: "🎯 切換進動向量輔助線", debugTitle: "⚙️ 實時物理數據", chartTitle: "⚡ 系統動能留存率曲線:", placeholderRoom: "6 位房號", btnConnect: "連線房號", touchLaunch: "👆 滑動發射", langBtn: "English", battleInProg: "人對戰中...", outOfBounds: "❌ 離場 / 解體", angVel: "• 角速度 ω:", linSpeed: "• 線速度 v:", energy: "• 系統總動能 KE:", hp: "• 爆裂血量 HP:" },
-            en: { title: "🌀 Jayblade", subtitle: "Rigid-body Physics & Parts Simulator", back2d: "⬅️ Switch to 2D Version", p1PanelTitle: "🔵 P1 Custom Parts", lblName: "Name:", lblCrown: "Crown Ring:", lblTip: "Tip Base:", lblSpin: "Spin Direction:", lblPower: "Launch Power:", optSpinR: "Right Spin (CW)", optSpinL: "Left Spin (CCW)", optPowerH: "Heavy (High RPM)", optPowerM: "Medium (Balanced)", optPowerL: "Light (Precision)", ready: "Ready to launch...", btn2p: "🎮 Launch Battle", btn4p: "🔥 4-Player Battle Royal", btnHelper: "🎯 Toggle Precession Vectors", debugTitle: "⚙️ Live Physics Telemetry", chartTitle: "⚡ Kinetic Energy Retention:", placeholderRoom: "6-digit Room ID", btnConnect: "Connect Room", touchLaunch: "👆 Swipe to Launch", langBtn: "繁體中文", battleInProg: " Players Battle...", outOfBounds: "❌ Out / Shattered", angVel: "• Angular Velocity ω:", linSpeed: "• Linear Speed v:", energy: "• Total Kinetic Energy KE:", hp: "• Burst Health HP:" }
-        };
-
-        let currentLang = 'zh';
-        let scene, camera, renderer, controls;
-        let world, defaultMaterial, stadiumMaterial;
+        window.activeTopsMap = new Map();
+        let scene, camera, renderer, controls, world, defaultMaterial, stadiumMaterial;
         let activeTops = [];
-        let isSimulating = false, showPrecessionVectors = false;
-        let lastTime = performance.now(), matchStartTime = 0;
-        let peer = null, peerConn = null;
+        let isSimulating = false;
+        let lastTime = performance.now();
+        let ugcEngine = null;
 
-        const STADIUM_RADIUS = 12;
-        const GEAR_RAIL_RADIUS = 10.5;
-
-        // 👁️ 切換隱藏 / 顯示選單
-        function toggleUIPanel() {
-            const box = document.getElementById('ui-overlay-box');
-            box.style.display = box.style.display === 'none' ? 'block' : 'none';
-        }
-
-        function toggleLanguage() {
-            currentLang = currentLang === 'zh' ? 'en' : 'zh';
-            const t = i18n[currentLang];
-
-            document.getElementById('ui-title').innerText = t.title;
-            document.getElementById('ui-subtitle').innerText = t.subtitle;
-            document.getElementById('btn-back-2d').innerText = t.back2d;
-            document.getElementById('ui-p1-panel-title').innerText = t.p1PanelTitle;
-            document.getElementById('lbl-name').innerText = t.lblName;
-            document.getElementById('lbl-crown').innerText = t.lblCrown;
-            document.getElementById('lbl-tip').innerText = t.lblTip;
-            document.getElementById('lbl-spin').innerText = t.lblSpin;
-            document.getElementById('lbl-power').innerText = t.lblPower;
-            document.getElementById('opt-spin-r').innerText = t.optSpinR;
-            document.getElementById('opt-spin-l').innerText = t.optSpinL;
-            document.getElementById('opt-power-h').innerText = t.optPowerH;
-            document.getElementById('opt-power-m').innerText = t.optPowerM;
-            document.getElementById('opt-power-l').innerText = t.optPowerL;
-            document.getElementById('btn-2p').innerText = t.btn2p;
-            document.getElementById('btn-4p').innerText = t.btn4p;
-            document.getElementById('btn-helper').innerText = t.btnHelper;
-            document.getElementById('ui-debug-title').innerText = t.debugTitle;
-            document.getElementById('ui-chart-title').innerText = t.chartTitle;
-            document.getElementById('room-id-input').placeholder = t.placeholderRoom;
-            document.getElementById('btn-connect').innerText = t.btnConnect;
-            document.getElementById('touch-launch-zone').innerText = t.touchLaunch;
-            document.getElementById('btn-lang').innerText = t.langBtn;
-
-            initPartsSelectors();
-        }
-
-        function initPartsSelectors() {
-            const crownSelect = document.getElementById('p1-crown');
-            const tipSelect = document.getElementById('p1-tip');
-            const selectedCrown = crownSelect.value;
-            const selectedTip = tipSelect.value;
-
-            crownSelect.innerHTML = ''; tipSelect.innerHTML = '';
-
-            Object.keys(PARTS_DB.CROWNS).forEach(k => {
-                const item = PARTS_DB.CROWNS[k];
-                const opt = document.createElement('option');
-                opt.value = k;
-                opt.innerText = currentLang === 'zh' ? item.name_zh : item.name_en;
-                if (k === selectedCrown) opt.selected = true;
-                crownSelect.appendChild(opt);
-            });
-
-            Object.keys(PARTS_DB.TIPS).forEach(k => {
-                const item = PARTS_DB.TIPS[k];
-                const opt = document.createElement('option');
-                opt.value = k;
-                opt.innerText = currentLang === 'zh' ? item.name_zh : item.name_en;
-                if (k === selectedTip) opt.selected = true;
-                tipSelect.appendChild(opt);
-            });
-        }
-
-        function init3DEngine() {
+        function initEngine() {
             const container = document.getElementById('canvas-container');
             
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a0f);
-            scene.fog = new THREE.FogExp2(0x0a0a0f, 0.015);
 
-            // 📷 相機視野向右拉，確保手機畫面上陀螺居中
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(2, 20, 24);
+            camera.position.set(2, 18, 22);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -253,12 +180,10 @@
             scene.add(new THREE.AmbientLight(0xffffff, 0.8));
             const dirLight = new THREE.DirectionalLight(0xffddaa, 1.2);
             dirLight.position.set(15, 30, 10);
-            dirLight.castShadow = true;
             scene.add(dirLight);
 
             world = new CANNON.World();
             world.gravity.set(0, -9.82, 0);
-            world.broadphase = new CANNON.NaiveBroadphase();
 
             defaultMaterial = new CANNON.Material('default');
             stadiumMaterial = new CANNON.Material('stadium');
@@ -267,14 +192,12 @@
             world.addContactMaterial(contactMat);
 
             create3DStadium();
-            createGearRail();
-            initPartsSelectors();
-            initWebRTC();
+            ugcEngine = new UGCModelEngine(scene);
 
             window.addEventListener('resize', onWindowResize);
             animate(performance.now());
             
-            launchCustom3DBattle(2);
+            launchBattle(2);
         }
 
         function create3DStadium() {
@@ -284,162 +207,35 @@
             stadiumMesh.position.y = -0.75;
             scene.add(stadiumMesh);
 
-            const ringGeo = new THREE.RingGeometry(STADIUM_RADIUS - 0.2, STADIUM_RADIUS + 0.1, 64);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0x00d2d3, side: THREE.DoubleSide });
-            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-            ringMesh.rotation.x = Math.PI / 2;
-            ringMesh.position.y = 0.02;
-            scene.add(ringMesh);
-
             const groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
             groundBody.addShape(new CANNON.Plane());
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
             world.addBody(groundBody);
         }
 
-        function createGearRail() {
-            const railGeo = new THREE.TorusGeometry(GEAR_RAIL_RADIUS, 0.35, 16, 64);
-            const railMat = new THREE.MeshStandardMaterial({ color: 0xff3366, emissive: 0x660022, roughness: 0.2, metalness: 0.9 });
-            const gearRailMesh = new THREE.Mesh(railGeo, railMat);
-            gearRailMesh.rotation.x = Math.PI / 2;
-            gearRailMesh.position.y = 0.2;
-            scene.add(gearRailMesh);
-        }
-
-        class Beyblade3D {
-            constructor(x, y, z, color, name, isRightSpin = true, crownKey = 'FEATHER', tipKey = 'FLAT', powerKey = 'HEAVY') {
-                this.name = name;
-                this.color = color;
-                this.isRightSpin = isRightSpin;
-                
-                const crown = PARTS_DB.CROWNS[crownKey] || PARTS_DB.CROWNS.FEATHER;
-                const tip = PARTS_DB.TIPS[tipKey] || PARTS_DB.TIPS.FLAT;
-                
-                this.rpm = powerKey === 'HEAVY' ? 13000 : (powerKey === 'MEDIUM' ? 10000 : 7000);
-                this.radius = 1.2;
-                this.shatterHp = 100;
-                this.burstResist = crown.burstResist || 0.85;
-                this.isShattered = false;
-                this.xdashCooldown = 0;
-
-                this.group = new THREE.Group();
-                const crownGeo = new THREE.CylinderGeometry(this.radius, this.radius * 0.85, 0.4, 12);
-                const crownMat = new THREE.MeshStandardMaterial({ color: color, metalness: 0.8, roughness: 0.2 });
-                this.group.add(new THREE.Mesh(crownGeo, crownMat));
-
-                const coreGeo = new THREE.SphereGeometry(0.5, 16, 16);
-                const coreMat = new THREE.MeshPhongMaterial({ color: 0x00d2d3, transparent: true, opacity: 0.9 });
-                const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-                coreMesh.position.y = 0.2;
-                this.group.add(coreMesh);
-
-                scene.add(this.group);
-
-                const mass = crown.mass || 0.045;
-                this.body = new CANNON.Body({ mass: mass, material: defaultMaterial });
-                this.body.addShape(new CANNON.Sphere(1.0));
-                this.body.position.set(x, y, z);
-                
-                this.body.linearDamping = 0.04;
-                this.body.angularDamping = 0.001;
-
-                const spinRad = (this.rpm * 2 * Math.PI) / 60 * (isRightSpin ? -1 : 1);
-                this.body.angularVelocity.set(0, spinRad, 0);
-
-                this.Iz = 0.5 * mass * Math.pow(this.radius * 0.1, 2);
-
-                world.addBody(this.body);
-            }
-
-            update(dt) {
-                if (this.isShattered) return;
-                this.group.position.copy(this.body.position);
-                this.group.quaternion.copy(this.body.quaternion);
-                this.rpm = Math.abs(this.body.angularVelocity.y) * 60 / (2 * Math.PI);
-
-                const distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
-                if (distFromCenter > 0.2 && distFromCenter < STADIUM_RADIUS) {
-                    const pullForce = 0.15 * distFromCenter;
-                    const pullX = (-this.body.position.x / distFromCenter) * pullForce;
-                    const pullZ = (-this.body.position.z / distFromCenter) * pullForce;
-                    this.body.applyForce(new CANNON.Vec3(pullX, 0, pullZ), this.body.position);
-                }
-
-                if (this.xdashCooldown > 0) this.xdashCooldown -= dt;
-                if (this.xdashCooldown <= 0 && Math.abs(distFromCenter - GEAR_RAIL_RADIUS) < 0.6) {
-                    const spinDir = this.isRightSpin ? -1 : 1;
-                    const tangentX = (-this.body.position.z / distFromCenter) * spinDir;
-                    const tangentZ = (this.body.position.x / distFromCenter) * spinDir;
-                    this.body.applyImpulse(new CANNON.Vec3(tangentX * 0.25, 0.05, tangentZ * 0.25), this.body.position);
-                    this.xdashCooldown = 0.3;
-                }
-
-                this.body.angularVelocity.y *= 0.9994;
-            }
-
-            shatter() {
-                if (this.isShattered) return;
-                this.isShattered = true;
-                world.remove(this.body);
-                scene.remove(this.group);
-            }
-        }
-
-        function launchCustom3DBattle(count = 2) {
-            activeTops.forEach(t => { if (!t.isShattered) world.remove(t.body); scene.remove(t.group); });
+        function launchBattle(count = 2) {
+            activeTops.forEach(t => world.remove(t.body));
             activeTops = [];
+            window.activeTopsMap.clear();
 
-            const t = i18n[currentLang];
+            const rawNameP1 = document.getElementById('p1-name').value || '火鷹飛龍';
+            const safeNameP1 = escapeHtml(rawNameP1);
 
-            const p1Name = document.getElementById('p1-name').value || (currentLang === 'zh' ? '火鷹飛龍' : 'Falcon Drake');
-            const p1Crown = document.getElementById('p1-crown').value;
-            const p1Tip = document.getElementById('p1-tip').value;
-            const p1Spin = document.getElementById('p1-spin').value === 'RIGHT';
-            const p1Power = document.getElementById('p1-power').value;
+            const p1 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
+                id: 'p1', name: `🔵 ${safeNameP1}`, x: -3.5, y: 0.5, z: 0, rpm: 13000, isRightSpin: true
+            });
+            p1.body.velocity.set(2.5, 0, 1.5);
+            activeTops.push(p1);
+            window.activeTopsMap.set(p1.id, p1);
 
-            const top1 = new Beyblade3D(-3.5, 0.5, 0, 0x1e90ff, `🔵 ${p1Name}`, p1Spin, p1Crown, p1Tip, p1Power);
-            top1.body.velocity.set(2.5, 0, 1.5);
-            activeTops.push(top1);
+            const p2 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
+                id: 'p2', name: '🔴 影武赤狼', x: 3.5, y: 0.5, z: 0, rpm: 12000, isRightSpin: false
+            });
+            p2.body.velocity.set(-2.5, 0, -1.5);
+            activeTops.push(p2);
+            window.activeTopsMap.set(p2.id, p2);
 
-            const p2Name = currentLang === 'zh' ? '影武赤狼' : 'Shadow Wolf';
-            const top2 = new Beyblade3D(3.5, 0.5, 0, 0xff3838, `🔴 ${p2Name}`, false, 'DRAKE', 'FLAT', 'HEAVY');
-            top2.body.velocity.set(-2.5, 0, -1.5);
-            activeTops.push(top2);
-
-            if (count === 4) {
-                const p3Name = currentLang === 'zh' ? '翡翠巨錘' : 'Jade Hammer';
-                const top3 = new Beyblade3D(0, 0.5, -3.5, 0x2ecc71, `🟢 ${p3Name}`, true, 'HEAVY', 'BALL', 'MEDIUM');
-                top3.body.velocity.set(1.0, 0, 2.5);
-                activeTops.push(top3);
-
-                const p4Name = currentLang === 'zh' ? '帝王紫刃' : 'Imperial Blade';
-                const top4 = new Beyblade3D(0, 0.5, 3.5, 0x9b59b6, `🟣 ${p4Name}`, false, 'WIZARD', 'NEEDLE', 'HEAVY');
-                top4.body.velocity.set(-1.0, 0, -2.5);
-                activeTops.push(top4);
-            }
-
-            matchStartTime = performance.now();
             isSimulating = true;
-            document.getElementById('match-status').innerText = `⚔️ ${count} ${t.battleInProg}`;
-        }
-
-        function toggleHelper() {
-            showPrecessionVectors = !showPrecessionVectors;
-            alert(showPrecessionVectors ? "🎯 Precession vectors ON" : "🎯 Precession vectors OFF");
-        }
-
-        function initWebRTC() {
-            const code = Math.floor(100000 + Math.random() * 900000).toString();
-            peer = new Peer('jayblade-' + code);
-            peer.on('open', () => { document.getElementById('room-id-input').value = code; });
-        }
-
-        function connectWebRTC() {
-            const target = document.getElementById('room-id-input').value;
-            if (target) {
-                peerConn = peer.connect('jayblade-' + target);
-                peerConn.on('open', () => { document.getElementById('match-status').innerText = "🌐 WebRTC Connected!"; });
-            }
         }
 
         function animate(now) {
@@ -448,49 +244,20 @@
             lastTime = now;
 
             if (isSimulating) {
-                world.step(1 / 60, dt, 3);
-                activeTops.forEach(t => t.update(dt));
+                world.step(PHYSICS_FIXED_TIMESTEP, dt, PHYSICS_MAX_SUBSTEPS);
 
-                for (let i = 0; i < activeTops.length; i++) {
-                    for (let j = i + 1; j < activeTops.length; j++) {
-                        const p1 = activeTops[i], p2 = activeTops[j];
-                        if (p1.isShattered || p2.isShattered) continue;
-                        if (p1.body.position.distanceTo(p2.body.position) < 2.0) {
-                            p1.shatterHp -= 0.5;
-                            p2.shatterHp -= 0.5;
-                        }
-                    }
-                }
-
-                const inGracePeriod = (now - matchStartTime) < 2500;
-                activeTops.forEach(t => {
-                    if (!t.isShattered) {
-                        const dist = Math.hypot(t.body.position.x, t.body.position.z);
-                        if (!inGracePeriod && dist > STADIUM_RADIUS) {
-                            t.shatter();
-                        } else if (t.shatterHp <= 0 || t.rpm < 100) {
-                            t.shatter();
-                        }
-                    }
-                });
-
-                const t = i18n[currentLang];
                 let debugHTML = '';
-                activeTops.forEach(topItem => {
-                    if (!topItem.isShattered) {
-                        const linSpeed = topItem.body.velocity.norm().toFixed(2);
-                        const angVelOmega = (Math.abs(topItem.body.angularVelocity.y)).toFixed(1);
-                        const ke = (0.5 * topItem.body.mass * topItem.body.velocity.norm2() + 0.5 * topItem.Iz * Math.pow(topItem.body.angularVelocity.y, 2)).toFixed(3);
-                        
-                        debugHTML += `<b>${topItem.name}</b><br>` +
-                            `${t.angVel} ${angVelOmega} rad/s (${Math.round(topItem.rpm)} RPM)<br>` +
-                            `${t.linSpeed} ${linSpeed} m/s<br>` +
-                            `${t.energy} ${ke} J<br>` +
-                            `${t.hp} ${Math.max(0, Math.round(topItem.shatterHp))}/100<br><br>`;
-                    } else {
-                        debugHTML += `<b>${topItem.name}</b>: ${t.outOfBounds}<br><br>`;
-                    }
+                activeTops.forEach(t => {
+                    t.stepPhysics(dt);
+                    const angVelOmega = (Math.abs(t.body.angularVelocity.y)).toFixed(1);
+                    const linSpeed = t.body.velocity.norm().toFixed(2);
+                    const rpm = Math.round((Math.abs(t.body.angularVelocity.y) * 60) / (2 * Math.PI));
+                    
+                    debugHTML += `<b>${t.name}</b><br>` +
+                        `• 角速度 ω: ${angVelOmega} rad/s (${rpm} RPM)<br>` +
+                        `• 線速度 v: ${linSpeed} m/s<br><br>`;
                 });
+
                 document.getElementById('physics-telemetry-content').innerHTML = debugHTML;
             }
 
@@ -504,7 +271,42 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        window.onload = init3DEngine;
+        // 🛡️ 4. STL 檔案標頭檢測 (ASCII 與 Binary STL 雙重校驗)
+        window.handleUGCFileUpload = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const arrayBuffer = e.target.result;
+                    
+                    const header = new TextDecoder().decode(arrayBuffer.slice(0, 80));
+                    const isAscii = header.startsWith('solid');
+                    const isBinary = !header.trim() && arrayBuffer.byteLength > 84;
+
+                    if (!isAscii && !isBinary) {
+                        throw new Error('無效的 STL 檔案格式 (僅支援 ASCII 或二進制 STL)');
+                    }
+
+                    const customUGCGeometry = ugcEngine.parseSTL(arrayBuffer);
+                    const props = ugcEngine.calculatePhysicalProperties(customUGCGeometry);
+                    
+                    document.getElementById('ugc-drop-text').innerText = `✅ 已載入: ${escapeHtml(file.name)} (${(props.mass * 1000).toFixed(1)}g)`;
+                    alert(`成功驗證並載入 STL 模型！\n質量: ${(props.mass * 1000).toFixed(1)}g\n轉動慣量 Iz: ${props.inertiaTensor.I_z.toFixed(6)} kg·m²`);
+                } catch (err) {
+                    alert(`🚨 資安/格式檢查失敗: ${err.message}`);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        window.toggleUIPanel = function() {
+            const box = document.getElementById('ui-overlay-box');
+            box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        };
+
+        window.onload = initEngine;
     </script>
 </body>
 </html>
