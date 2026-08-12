@@ -364,6 +364,11 @@
             }
 
             isSimulating = true;
+
+            // 📱 手機端自動收起選單
+            if (window.innerWidth <= 768) {
+                document.getElementById('ui-overlay-box').style.display = 'none';
+            }
         }
 
         function bindEvents() {
