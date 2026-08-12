@@ -1,4 +1,4 @@
-// js/game.js - 《爆上陀螺 Jayblade》2D 遊戲主控、數據面板與勝負賽果判定引擎
+// js/game.js - 《爆上陀螺 Jayblade》2D 遊戲主控、自訂顏色與 30秒持久戰場引擎
 
 import { 
     Top2D, 
@@ -51,7 +51,6 @@ function updateStatusBar(text, color = "#ffcc00") {
     }
 }
 
-// 📊 實時物理數據面板更新器
 function updateTelemetry(dt) {
     const debugPanel = document.getElementById('debug-panel');
     if (!debugPanel || debugPanel.style.display === 'none') return;
@@ -81,7 +80,6 @@ function updateTelemetry(dt) {
 }
 
 function bindUIEvents() {
-    // 1. 發射按鈕
     const launchBtn = document.getElementById('btn-launch') || document.querySelector('.btn-launch');
     if (launchBtn) {
         launchBtn.addEventListener('click', (e) => {
@@ -90,7 +88,6 @@ function bindUIEvents() {
         });
     }
 
-    // 2. 重置按鈕
     const resetBtn = document.getElementById('btn-reset');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
@@ -103,7 +100,6 @@ function bindUIEvents() {
         });
     }
 
-    // 🛠️ 3. 綁定物理數據面板切換按鈕
     const debugBtn = document.getElementById('btn-debug');
     if (debugBtn) {
         debugBtn.onclick = () => {
@@ -120,40 +116,41 @@ export function start2DBattle() {
     canvas = document.getElementById('battleCanvas') || document.getElementById('arena');
     if (canvas) ctx = canvas.getContext('2d');
 
-    const p1Name = document.getElementById('p1-name')?.value || "火鷹飛龍";
+    // 🎨 正確讀取 UI 自訂名稱與顏色
+    const p1Name = document.getElementById('p1-name')?.value || "火鷹";
+    const p1Color = document.getElementById('p1-color')?.value || "#10b981"; // 讀取自訂顏色
     const p1Spin = (document.getElementById('p1-spin')?.value || "RIGHT") === "RIGHT";
     const p1Power = document.getElementById('p1-power')?.value || "HEAVY";
-    const p1Rpm = p1Power === "HEAVY" ? 13000 : (p1Power === "MEDIUM" ? 10000 : 7500);
+    const p1Rpm = p1Power === "HEAVY" ? 14000 : (p1Power === "MEDIUM" ? 11000 : 8500);
 
     const p1 = new Top2D({
         id: "p1",
-        name: `🔵 ${p1Name}`,
+        name: `${p1Name}`,
         x: STADIUM_CX - 75,
         y: STADIUM_CY + (Math.random() * 30 - 15),
         vx: 3.2 + Math.random() * 1.2,
         vy: -1.8 + Math.random() * 1.8,
         rpm: p1Rpm,
         isRightSpin: p1Spin,
-        color: "#0284c7",
+        color: p1Color, // 賦予選取顏色
         radius: 22,
         mass: 0.048
     });
 
-    const aiNames = ["🤖 暗黑狂狼", "🤖 幻影巨龍", "🤖 聖光神盾", "🤖 暴風阿修羅"];
-    const randomAiName = aiNames[Math.floor(Math.random() * aiNames.length)];
-    const randomAiSpin = Math.random() > 0.5;
-    const randomAiRpm = 9500 + Math.floor(Math.random() * 3500);
+    const p2Name = document.getElementById('p2-name')?.value || "影武赤狼";
+    const p2Color = document.getElementById('p2-color')?.value || "#ff3838";
+    const p2Spin = (document.getElementById('p2-spin')?.value || "RIGHT") === "RIGHT";
 
     const p2 = new Top2D({
         id: "p2",
-        name: randomAiName,
+        name: `🤖 ${p2Name}`,
         x: STADIUM_CX + 75,
         y: STADIUM_CY + (Math.random() * 30 - 15),
         vx: -3.2 - Math.random() * 1.2,
         vy: 1.8 - Math.random() * 1.8,
-        rpm: randomAiRpm,
-        isRightSpin: randomAiSpin,
-        color: "#e11d48",
+        rpm: 12000 + Math.floor(Math.random() * 2000),
+        isRightSpin: p2Spin,
+        color: p2Color,
         radius: 22,
         mass: 0.045
     });
@@ -169,7 +166,6 @@ export function start2DBattle() {
     gameLoop(performance.now());
 }
 
-// 🏆 勝負判斷邏輯 Engine
 function checkMatchResult() {
     if (isMatchEnded || !isGameRunning) return;
 
