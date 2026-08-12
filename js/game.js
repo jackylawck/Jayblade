@@ -194,11 +194,11 @@ function importShareCode(prefix) {
   } else { alert('❌ 分享碼無效'); }
 }
 
-// 🌐 WebRTC PeerJS 初始化與對連 (優化為 4 位數簡短房號)
+// 🌐 WebRTC PeerJS 初始化與對連 (已設定為 6 位數簡短房號)
 function initPeerJS() {
   if (peer || typeof Peer === 'undefined') return;
 
-  const shortId = Math.floor(1000 + Math.random() * 9000).toString();
+  const shortId = Math.floor(100000 + Math.random() * 900000).toString();
   peer = new Peer(shortId);
 
   peer.on('open', (id) => {
