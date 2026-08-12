@@ -18,7 +18,7 @@
 
     <!-- 🔍 2. 精準中英文雙語 SEO Meta 標籤 -->
     <title>爆上陀螺 Jayblade | 左右雙旋物理模擬器 Dual-Spin Physics Simulator</title>
-    <meta name="description" content="純本地 WebGL/Canvas 2D 剛體力學戰鬥陀螺對戰模擬器。融合拉格朗日章動方程、Stribeck 動態摩擦力、同旋對撞與異旋吸轉（Spin Steal）機制，支援 WebRTC 20Hz 遠端 P2P 對戰與 PWA 離線暢玩。Pure Local Dual-Spin Beyblade Physics Simulator & WebRTC P2P Multiplayer.">
+    <meta name="description" content="純本地 WebGL/Canvas 2D/3D 剛體力學戰鬥陀螺對戰模擬器。融合拉格朗日章動方程、Stribeck 動態摩擦力、同旋對撞與異旋吸轉（Spin Steal）機制，支援 WebRTC 遠端 P2P 對戰與 PWA 離線暢玩。Pure Local Dual-Spin Beyblade Physics Simulator & WebRTC P2P Multiplayer.">
     <meta name="keywords" content="爆上陀螺, Jayblade, 戰鬥陀螺X, Beyblade X, 物理模擬器, 剛體力學, 異旋吸轉, Spin Steal, WebRTC, P2P對戰, PWA, 羅子淇, Jacky Law, Physics Simulator, Dual-Spin">
     
     <!-- 👤 3. Code-Level Author & Credit Annotations (Google/SEO Crawlers Only) -->
@@ -32,7 +32,7 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jackylawck.github.io/Jayblade/">
 
-    <!-- 🌐 4. Open Graph Protocol (Facebook, LinkedIn, WhatsApp Preview Cards) -->
+    <!-- 🌐 4. Open Graph Protocol -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jackylawck.github.io/Jayblade/">
     <meta property="og:title" content="爆上陀螺 Jayblade | 左右雙旋物理模擬器">
@@ -51,7 +51,7 @@
     <meta name="twitter:description" content="Pure Local Dual-Spin Beyblade Physics Simulator & WebRTC P2P Multiplayer. PWA Ready.">
     <meta name="twitter:image" content="https://jackylawck.github.io/Jayblade/JaybladeICON-512.png">
 
-    <!-- 💡 6. JSON-LD Structured Data for Google Rich Snippets & Person Attribution -->
+    <!-- 💡 6. JSON-LD Structured Data for Google Rich Snippets -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -59,10 +59,10 @@
       "name": "爆上陀螺 Jayblade",
       "alternateName": ["Jayblade", "爆上陀螺", "Beyblade Jayblade Simulator"],
       "url": "https://jackylawck.github.io/Jayblade/",
-      "description": "純本地 HTML5 Canvas 剛體力學戰鬥陀螺模擬器，支援拉格朗日章動解耦、異旋動能吸收、WebRTC P2P 遠端連線與 PWA 離線體驗。",
+      "description": "純本地 HTML5 Canvas/WebGL 剛體力學戰鬥陀螺模擬器，支援拉格朗日章動解耦、異旋動能吸收、WebRTC P2P 遠端連線與 PWA 離線體驗。",
       "applicationCategory": "GameApplication",
       "operatingSystem": "All",
-      "browserRequirements": "Requires JavaScript. Requires HTML5 Canvas.",
+      "browserRequirements": "Requires JavaScript. Requires HTML5 Canvas/WebGL.",
       "author": {
         "@type": "Person",
         "name": "羅子淇 Jacky Law",
@@ -82,8 +82,15 @@
     }
     </script>
 
-    <!-- 🛡️ 7. Content Security Policy: 允許 PeerJS 信令伺服器與 P2P 連線 -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://unpkg.com https://*.peerjs.com wss://*.peerjs.com; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.peerjs.com wss://*.peerjs.com; img-src 'self' data:; frame-ancestors 'none';">
+    <!-- 🛡️ 7. Content Security Policy: 相容 Three.js CDN 與 PeerJS 伺服器 -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net https://*.peerjs.com wss://*.peerjs.com; 
+        script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net; 
+        style-src 'self' 'unsafe-inline'; 
+        connect-src 'self' https://*.peerjs.com wss://*.peerjs.com; 
+        img-src 'self' data: blob:; 
+        frame-ancestors 'none';
+    ">
 
     <!-- 📱 8. PWA & Mobile Web Assets -->
     <link rel="manifest" href="./manifest.json">
@@ -110,9 +117,17 @@
 
   <!-- 選單面板 -->
   <div id="setup-panel" class="card">
+    
+    <!-- 🚀 3D 模式推薦入口 -->
+    <div style="margin-bottom: 12px; background: rgba(0, 210, 211, 0.15); padding: 10px; border-radius: 8px; border: 1px solid #00d2d3; text-align: center;">
+      <a href="./3d.html" style="color: #00d2d3; font-weight: bold; text-decoration: none; font-size: 1rem; display: block;">
+        🚀 切換至 3D 科研級對戰模擬器 (3D Engine) →
+      </a>
+    </div>
+
     <div class="mode-buttons">
-      <button class="btn" id="btn-single" onclick="setGameMode('SINGLE')">🎮 單人對戰 (VS AI)</button>
-      <button class="btn btn-secondary" id="btn-versus" onclick="setGameMode('VERSUS')">⚔️ 雙人同機 (1P VS 2P)</button>
+      <button class="btn" id="btn-single" onclick="setGameMode('SINGLE')">🎮 2D 單人對戰 (VS AI)</button>
+      <button class="btn btn-secondary" id="btn-versus" onclick="setGameMode('VERSUS')">⚔️ 2D 雙人同機 (1P VS 2P)</button>
       <button class="btn btn-online" id="btn-online" onclick="setGameMode('ONLINE')">🌐 遠端連線 (WebRTC)</button>
     </div>
 
@@ -181,7 +196,7 @@
         </div>
       </div>
 
-      <!-- P2 設定 (僅雙人同機時顯示) -->
+      <!-- P2 設定 -->
       <div class="player-box p2-box" id="p2-setup-group" style="display:none;">
         <h3 id="ui-p2-title">🔴 P2 陀螺自訂</h3>
         <div class="form-group"><label id="lbl-p2-name">名稱: </label><input type="text" id="p2-name" value="影武赤狼"></div>
@@ -265,8 +280,6 @@
     <br>
     <button class="btn" id="btn-reset" onclick="resetGame()">🔄 重新設定 / 再次對戰</button>
   </div>
-
-  <!-- Code-level Credit Annotations for Search Engine Indexing: Designed & Developed by Jacky Law 羅子淇 (https://jackylawck.github.io/jackylawck/) -->
 
   <script src="js/security.js"></script>
   <script src="js/parts.js"></script>
