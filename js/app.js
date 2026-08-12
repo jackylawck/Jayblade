@@ -11,6 +11,7 @@ let activeTops = [];
 let obstacleBodies = [], obstacleMeshes = [];
 let isSimulating = false, matchEnded = false, showPrecessionVectors = false;
 let initialEnergy = 0;
+let matchStartTime = 0;
 let lastTime = performance.now();
 
 const config = PerformanceConfig.getSettings();
@@ -107,7 +108,6 @@ function clearObstacles() {
     obstacleMeshes = []; obstacleBodies = [];
 }
 
-// 🛠️ 修復：修復括號不匹配與撞擊邏輯
 function handleMultiTopImpacts() {
     for (let i = 0; i < activeTops.length; i++) {
         for (let j = i + 1; j < activeTops.length; j++) {
@@ -137,25 +137,30 @@ function handleMultiTopImpacts() {
                     gpuSparks.emit(midX, midY, midZ, FnMag / 15);
                     sfx3D.playImpact(Math.min(1.0, FnMag / 30), 1.0);
 
-                    p1.shatterHp -= (FnMag * 0.15) * (1.1 - p1.burstResist);
-                    p2.shatterHp -= (FnMag * 0.15) * (1.1 - p2.burstResist);
+                    // 扣除爆裂 HP (血量)
+                    p1.shatterHp -= (FnMag * 0.08) * (1.1 - p1.burstResist);
+                    p2.shatterHp -= (FnMag * 0.08) * (1.1 - p2.burstResist);
                 }
             }
         }
     }
 }
 
-// 🛠️ 補強：勝負檢查機制
+// 🛡️ 關鍵修復：加入開局 2.0 秒保護期，防止初速太快直接秒出場
 function checkMatchRules() {
     if (!isSimulating || matchEnded) return;
     const statusEl = document.getElementById('match-status');
     const now = performance.now();
 
+    // 發射前 2.0 秒內不判定離場
+    const inGracePeriod = (now - matchStartTime) < 2000;
+
     activeTops.forEach(top => {
         if (top.isShattered) return;
         const dist = Math.hypot(top.body.position.x, top.body.position.z);
 
-        if (dist > STADIUM_RADIUS) {
+        // 只有離場半徑超過 14m (盤外) 且過了保護期才判 Over
+        if (!inGracePeriod && dist > STADIUM_RADIUS + 2.0) {
             top.triggerShatter(gpuSparks, sfx3D);
             statusEl.innerText = (now - top.lastXDashTime) < 1500 ? 
                 `💥⚡ EXTREME FINISH! 【${top.name}】` : 
@@ -169,6 +174,9 @@ function checkMatchRules() {
     const survivors = activeTops.filter(t => !t.isShattered && t.rpm > 50);
     if (survivors.length === 1 && activeTops.length > 1) {
         statusEl.innerText = `🏆 WINNER! 【${survivors[0].name}】${uiManager.getText('winSuffix')}`;
+        matchEnded = true;
+    } else if (survivors.length === 0 && activeTops.length > 0) {
+        statusEl.innerText = `🌀 SPIN FINISH! 平手！`;
         matchEnded = true;
     }
 }
@@ -188,11 +196,12 @@ function launch3DBattle(playerCount = 2) {
     if (playerCount === 4) spawnArenaObstacles();
     else clearObstacles();
 
+    // 調適初速 (vx, vz) 讓陀螺喺盤內拉出弧線對撞，唔會直衝出界
     const configs = [
-        { x: -5, z: 0, color: 0x1e90ff, name: '🔵 火鷹飛龍', spin: true, res: 0.85, vx: 6, vz: 3 },
-        { x: 5, z: 0, color: 0xff3838, name: '🔴 影武赤狼', spin: false, res: 0.70, vx: -6, vz: -3 },
-        { x: 0, z: -5, color: 0x2ecc71, name: '🟢 翡翠巨錘', spin: true, res: 0.90, vx: 2, vz: 6 },
-        { x: 0, z: 5, color: 0x9b59b6, name: '🟣 帝王紫刃', spin: false, res: 0.65, vx: -2, vz: -6 }
+        { x: -4, z: 0, color: 0x1e90ff, name: '🔵 火鷹飛龍', spin: true, res: 0.85, vx: 3.5, vz: 2 },
+        { x: 4, z: 0, color: 0xff3838, name: '🔴 影武赤狼', spin: false, res: 0.70, vx: -3.5, vz: -2 },
+        { x: 0, z: -4, color: 0x2ecc71, name: '🟢 翡翠巨錘', spin: true, res: 0.90, vx: 1.5, vz: 3.5 },
+        { x: 0, z: 5, color: 0x9b59b6, name: '🟣 帝王紫刃', spin: false, res: 0.65, vx: -1.5, vz: -3.5 }
     ];
 
     for (let i = 0; i < playerCount; i++) {
@@ -203,7 +212,9 @@ function launch3DBattle(playerCount = 2) {
     }
 
     initialEnergy = calculateTotalKineticEnergy();
-    matchEnded = false; isSimulating = true;
+    matchStartTime = performance.now();
+    matchEnded = false; 
+    isSimulating = true;
     document.getElementById('match-status').innerText = `⚔️ ${playerCount} ${uiManager.getText('battleInProg')}`;
 }
 
@@ -221,7 +232,6 @@ function bindUIEvents() {
     document.getElementById('btn-2p').addEventListener('click', () => launch3DBattle(2));
     document.getElementById('btn-4p').addEventListener('click', () => launch3DBattle(4));
     
-    // 🌐 語言切換綁定
     const langBtn = document.getElementById('btn-lang');
     if (langBtn) {
         langBtn.addEventListener('click', () => uiManager.toggleLanguage());
@@ -253,7 +263,7 @@ function animate(now) {
         activeTops.forEach(top => top.update(dt, showPrecessionVectors, sfx3D, obstacleBodies));
         gpuSparks.update(dt);
         handleMultiTopImpacts();
-        checkMatchRules(); // 🛠️ 補強：執行勝負檢查
+        checkMatchRules();
         netManager.broadcastState(now, isSimulating, activeTops);
 
         const currentKE = calculateTotalKineticEnergy();
