@@ -4,12 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
-    <!-- PWA & Favicon -->
     <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
     <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
     <link rel="manifest" href="./manifest.json">
 
-    <!-- 修正版 CSP：允許 WebGL 著色器與 WebRTC 連線 -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src * 'unsafe-inline' 'unsafe-eval' data: blob: wss:;
         script-src * 'unsafe-inline' 'unsafe-eval';
@@ -58,7 +56,6 @@
         .toggle-ui-btn { position: fixed; bottom: 15px; left: 15px; z-index: 200; background: rgba(0, 210, 211, 0.85); color: #000; font-weight: bold; border: none; padding: 8px 12px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
     </style>
 
-    <!-- 第三方 CDN 腳本 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -79,7 +76,7 @@
                 ⬅️ 切換回 2D 經典版
             </a>
 
-            <!-- ⚙️ P1 配件自訂區 -->
+            <!-- P1 配件自訂 -->
             <div class="parts-panel">
                 <h3 id="ui-p1-panel-title">🔵 P1 陀螺自訂</h3>
                 <div class="form-row"><label class="lbl-name">名稱:</label><input type="text" id="p1-name" value="火鷹飛龍"></div>
@@ -118,7 +115,7 @@
                 </div>
             </div>
 
-            <!-- ⚙️ P2 配件自訂區 -->
+            <!-- P2 配件自訂 -->
             <div class="parts-panel">
                 <h3 id="ui-p2-panel-title" class="p2-title">🔴 P2 陀螺自訂 (對戰用)</h3>
                 <div class="form-row"><label class="lbl-name">名稱:</label><input type="text" id="p2-name" value="影武赤狼"></div>
@@ -162,7 +159,6 @@
             <button class="btn" id="btn-2p">⚔️ 1P vs 2P 自訂對戰</button>
             <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
 
-            <!-- 📊 詳細物理參數數據面板 -->
             <div class="debug-panel" id="physics-debug-box">
                 <h4 id="ui-debug-title">⚙️ 實時物理數據 (240Hz 算力)</h4>
                 <div id="physics-telemetry-content">等待發射數據...</div>
@@ -173,7 +169,8 @@
     <div id="canvas-container"></div>
 
     <script>
-        var STADIUM_RADIUS = 12;
+        var STADIUM_RADIUS = 10;
+        var WALL_HEIGHT = 1.8;
         var PHYSICS_FIXED_TIMESTEP = 1 / 240;
         var PHYSICS_MAX_SUBSTEPS = 10;
 
@@ -194,14 +191,14 @@
         function Beyblade3DPhysics(scene, world, material, config) {
             this.name = config.name;
             this.isRightSpin = config.isRightSpin;
-            this.radius = 1.2;
+            this.radius = 1.0;
             this.mass = config.mass || 0.045;
 
             this.body = new CANNON.Body({
                 mass: this.mass,
                 material: material,
-                linearDamping: 0.03,
-                angularDamping: 0.0008
+                linearDamping: 0.02,
+                angularDamping: 0.0006
             });
 
             this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
@@ -229,14 +226,15 @@
             this.group.position.copy(this.body.position);
             this.group.quaternion.copy(this.body.quaternion);
 
+            // 🌀 向心坡度重力引力（拉回中心）
             var distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
             if (distFromCenter > 0.1 && distFromCenter < STADIUM_RADIUS) {
-                var pull = 0.18 * distFromCenter;
+                var pull = 0.35 * distFromCenter; // 加強向心坡度力
                 var fx = (-this.body.position.x / distFromCenter) * pull;
                 var fz = (-this.body.position.z / distFromCenter) * pull;
                 this.body.applyForce(new CANNON.Vec3(fx, 0, fz), this.body.position);
             }
-            this.body.angularVelocity.y *= 0.9996;
+            this.body.angularVelocity.y *= 0.9997;
         };
 
         function initEngine() {
@@ -246,7 +244,7 @@
             scene.background = new THREE.Color(0x0a0a0f);
 
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(2, 18, 22);
+            camera.position.set(0, 16, 20);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -267,98 +265,137 @@
             defaultMaterial = new CANNON.Material('default');
             stadiumMaterial = new CANNON.Material('stadium');
 
-            var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.3, restitution: 0.2 });
+            var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.6 });
             world.addContactMaterial(contactMat);
 
-            create3DStadium();
+            create3DStadiumWithWalls();
             bindEvents();
 
             window.addEventListener('resize', onWindowResize);
             animate(performance.now());
             
-            // 進入 3D 版時顯示 UI 選單，不自動發射陀螺
             document.getElementById('ui-overlay-box').style.display = 'block';
         }
 
-        function create3DStadium() {
-            var geo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS - 1, 1.5, 48, 1, false);
-            var mat = new THREE.MeshStandardMaterial({ color: 0x1e1e38, roughness: 0.4, metalness: 0.6 });
+        // 🛠️ 建立具有「真實圍欄護欄」的戰鬥盤
+        function create3DStadiumWithWalls() {
+            // 1. 視覺底盤
+            var geo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS - 1.5, 1.0, 48);
+            var mat = new THREE.MeshStandardMaterial({ color: 0x1e1e38, roughness: 0.3, metalness: 0.7 });
             var stadiumMesh = new THREE.Mesh(geo, mat);
-            stadiumMesh.position.y = -0.75;
+            stadiumMesh.position.y = -0.5;
             scene.add(stadiumMesh);
 
+            // 2. 視覺半透明護罩圍欄 (Fence)
+            var wallGeo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS, WALL_HEIGHT, 48, 1, true);
+            var wallMat = new THREE.MeshPhysicalMaterial({
+                color: 0x00d2d3,
+                transparent: true,
+                opacity: 0.25,
+                roughness: 0.1,
+                transmission: 0.9,
+                thickness: 0.5,
+                side: THREE.DoubleSide
+            });
+            var wallMesh = new THREE.Mesh(wallGeo, wallMat);
+            wallMesh.position.y = WALL_HEIGHT / 2;
+            scene.add(wallMesh);
+
+            // 3. 綠色 X-Dash 軌道環
+            var railGeo = new THREE.TorusGeometry(STADIUM_RADIUS - 0.5, 0.15, 16, 64);
+            var railMat = new THREE.MeshBasicMaterial({ color: 0x00ff66 });
+            var railMesh = new THREE.Mesh(railGeo, railMat);
+            railMesh.rotation.x = Math.PI / 2;
+            railMesh.position.y = 0.05;
+            scene.add(railMesh);
+
+            // 4. 物理物理底面 (Ground)
             var groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
             groundBody.addShape(new CANNON.Plane());
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
             world.addBody(groundBody);
+
+            // 5. 🛠️ 物理圍欄硬牆 (以 32 塊平面組成的環形物理圍牆，阻止飛出場外)
+            var wallSegments = 32;
+            for (var i = 0; i < wallSegments; i++) {
+                var angle = (i / wallSegments) * Math.PI * 2;
+                var x = Math.cos(angle) * STADIUM_RADIUS;
+                var z = Math.sin(angle) * STADIUM_RADIUS;
+
+                var wallBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
+                wallBody.addShape(new CANNON.Plane());
+                
+                // 將牆壁面向中心點
+                wallBody.position.set(x, WALL_HEIGHT / 2, z);
+                var quatY = new CANNON.Quaternion();
+                quatY.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), angle + Math.PI);
+                wallBody.quaternion = quatY;
+
+                world.addBody(wallBody);
+            }
         }
 
-        // 核心對戰發射邏輯
         function launchCustom3DBattle(mode) {
             activeTops.forEach(function(t) { world.remove(t.body); scene.remove(t.group); });
             activeTops = [];
 
-            // P1 (玩家自訂)
             var p1Name = escapeHtml(document.getElementById('p1-name').value || '火鷹飛龍');
             var p1Spin = document.getElementById('p1-spin').value === 'RIGHT';
             var p1Power = document.getElementById('p1-power').value;
-            var p1Rpm = p1Power === 'HEAVY' ? 13000 : (p1Power === 'MEDIUM' ? 10000 : 7000);
+            var p1Rpm = p1Power === 'HEAVY' ? 12000 : (p1Power === 'MEDIUM' ? 9500 : 7000);
 
             var p1 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                name: '🔵 ' + p1Name, x: -3.5, y: 0.5, z: 0, rpm: p1Rpm, isRightSpin: p1Spin, color: 0x1e90ff
+                name: '🔵 ' + p1Name, x: -2.5, y: 0.5, z: 0, rpm: p1Rpm, isRightSpin: p1Spin, color: 0x1e90ff
             });
-            p1.body.velocity.set(2.5, 0, 1.5);
+            p1.body.velocity.set(2.0, 0, 1.2);
             activeTops.push(p1);
 
             if (mode === 'VS_AI') {
-                // 🤖 AI 自動生成對手
                 var aiNames = ['🤖 暗黑狂狼', '🤖 幻影巨龍', '🤖 聖光神盾', '🤖 暴風阿修羅'];
                 var randomName = aiNames[Math.floor(Math.random() * aiNames.length)];
                 var randomSpin = Math.random() > 0.5;
-                var randomRpm = 9000 + Math.floor(Math.random() * 4000);
+                var randomRpm = 8500 + Math.floor(Math.random() * 3500);
 
                 var ai = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: randomName, x: 3.5, y: 0.5, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xff3838
+                    name: randomName, x: 2.5, y: 0.5, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xff3838
                 });
-                ai.body.velocity.set(-2.5, 0, -1.5);
+                ai.body.velocity.set(-2.0, 0, -1.2);
                 activeTops.push(ai);
 
                 document.getElementById('match-status').innerText = '⚔️ 單人對戰 (VS AI) 中...';
 
             } else if (mode === 2) {
-                // ⚔️ 1P vs 2P 自訂對戰
                 var p2Name = escapeHtml(document.getElementById('p2-name').value || '影武赤狼');
                 var p2Spin = document.getElementById('p2-spin').value === 'RIGHT';
                 var p2Power = document.getElementById('p2-power').value;
-                var p2Rpm = p2Power === 'HEAVY' ? 13000 : (p2Power === 'MEDIUM' ? 10000 : 7000);
+                var p2Rpm = p2Power === 'HEAVY' ? 12000 : (p2Power === 'MEDIUM' ? 9500 : 7000);
 
                 var p2 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🔴 ' + p2Name, x: 3.5, y: 0.5, z: 0, rpm: p2Rpm, isRightSpin: p2Spin, color: 0xff3838
+                    name: '🔴 ' + p2Name, x: 2.5, y: 0.5, z: 0, rpm: p2Rpm, isRightSpin: p2Spin, color: 0xff3838
                 });
-                p2.body.velocity.set(-2.5, 0, -1.5);
+                p2.body.velocity.set(-2.0, 0, -1.2);
                 activeTops.push(p2);
 
                 document.getElementById('match-status').innerText = '⚔️ 雙人自訂對戰中...';
 
             } else if (mode === 4) {
-                // 🔥 4人障礙大亂鬥
                 var p2Name4 = escapeHtml(document.getElementById('p2-name').value || '影武赤狼');
                 var p2_4 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🔴 ' + p2Name4, x: 3.5, y: 0.5, z: 0, rpm: 12000, isRightSpin: false, color: 0xff3838
+                    name: '🔴 ' + p2Name4, x: 2.5, y: 0.5, z: 0, rpm: 11000, isRightSpin: false, color: 0xff3838
                 });
-                p2_4.body.velocity.set(-2.5, 0, -1.5);
+                p2_4.body.velocity.set(-2.0, 0, -1.2);
                 activeTops.push(p2_4);
 
                 var p3 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🟢 翡翠巨錘', x: 0, y: 0.5, z: -3.5, rpm: 10000, isRightSpin: true, color: 0x2ecc71
+                    name: '🟢 翡翠巨錘', x: 0, y: 0.5, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x2ecc71
                 });
-                p3.body.velocity.set(1.0, 0, 2.5);
+                p3.body.velocity.set(1.0, 0, 2.0);
                 activeTops.push(p3);
 
                 var p4 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🟣 帝王紫刃', x: 0, y: 0.5, z: 3.5, rpm: 13000, isRightSpin: false, color: 0x9b59b6
+                    name: '🟣 帝王紫刃', x: 0, y: 0.5, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x9b59b6
                 });
-                p4.body.velocity.set(-1.0, 0, -2.5);
+                p4.body.velocity.set(-1.0, 0, -2.0);
                 activeTops.push(p4);
 
                 document.getElementById('match-status').innerText = '⚔️ 4 人大亂鬥中...';
@@ -366,7 +403,6 @@
 
             isSimulating = true;
 
-            // 📱 手機端點擊發射後自動收起選單
             if (window.innerWidth <= 768) {
                 document.getElementById('ui-overlay-box').style.display = 'none';
             }
