@@ -1,61 +1,122 @@
-<!DOCTYPE html>
-<html lang="zh-HK">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-    <!-- 🛡️ 高水平 CSP 資安內容安全策略 -->
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self';
-        script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline';
-        style-src 'self' 'unsafe-inline';
-        connect-src 'self' wss://0.peerjs.com https://0.peerjs.com wss://*.peerjs.com;
-        img-src 'self' data: blob:;
-        font-src 'self' data:;
-    ">
+// 🛡️ 資安防護: DOM-based XSS 消毒工具
+export function escapeHtml(unsafeStr) {
+    if (typeof unsafeStr !== 'string') return '';
+    return unsafeStr
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
-    <title>爆上陀螺 Jayblade</title>
-    <link rel="stylesheet" href="css/3d.css">
+// 🌐 中英文雙語字典
+export const i18nDict = {
+    zh: {
+        title: "🌀 爆上陀螺 Jayblade",
+        subtitle: "剛體力學與家庭對戰模擬器",
+        ready: "準備發射...",
+        btn2p: "🎮 2人正規賽",
+        btn4p: "🔥 4人障礙大亂鬥",
+        btnHelper: "🎯 切換進動向量輔助線",
+        chartTitle: "⚡ 系統動能留存率曲線:",
+        placeholderRoom: "6 位房號",
+        btnConnect: "連線房號",
+        telemetryDefault: "⚙️ 請選擇對戰模式",
+        touchLaunch: "👆 滑動發射",
+        langBtn: "English",
+        webrtcConnected: "🌐 WebRTC 已連線！",
+        helperOn: "🎯 已開啟進動輔助線",
+        helperOff: "🎯 已關閉進動輔助線",
+        battleInProg: "人對戰中...",
+        outOfBounds: "❌ 離場",
+        winSuffix: " 勝出！"
+    },
+    en: {
+        title: "🌀 Jayblade",
+        subtitle: "Rigid-body Physics & Battle Simulator",
+        ready: "Ready to launch...",
+        btn2p: "🎮 2-Player Match",
+        btn4p: "🔥 4-Player Battle Royal",
+        btnHelper: "🎯 Toggle Precession Vectors",
+        chartTitle: "⚡ Kinetic Energy Retention:",
+        placeholderRoom: "6-digit Room ID",
+        btnConnect: "Connect Room",
+        telemetryDefault: "⚙️ Select a battle mode",
+        touchLaunch: "👆 Swipe to Launch",
+        langBtn: "繁體中文",
+        webrtcConnected: "🌐 WebRTC Connected!",
+        helperOn: "🎯 Precession vectors enabled",
+        helperOff: "🎯 Precession vectors disabled",
+        battleInProg: " Players Battle...",
+        outOfBounds: "❌ Out",
+        winSuffix: " Wins!"
+    }
+};
 
-    <!-- 核心第三方依賴庫 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-</head>
-<body>
+export class UIManager {
+    constructor() {
+        this.currentLang = 'zh'; // 預設為繁體中文
+    }
 
-    <div class="ui-overlay">
-        <div class="ui-card">
-            <div class="header-row">
-                <h1 id="ui-title">🌀 爆上陀螺 Jayblade</h1>
-                <button class="lang-btn" id="btn-lang">English</button>
-            </div>
-            <p id="ui-subtitle">剛體力學與家庭對戰模擬器</p>
-            <div class="status-banner" id="match-status">準備發射...</div>
-            <button class="btn" id="btn-2p">🎮 2人正規賽</button>
-            <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
-            <button class="btn btn-secondary" id="btn-helper">🎯 切換進動向量輔助線</button>
+    toggleLanguage() {
+        this.currentLang = this.currentLang === 'zh' ? 'en' : 'zh';
+        this.updateDOMTexts();
+        return this.currentLang;
+    }
 
-            <!-- 實時能量曲線 Canvas -->
-            <div class="energy-chart-box">
-                <div class="chart-title" id="ui-chart-title">⚡ 系統動能留存率曲線:</div>
-                <canvas id="energy-canvas" width="320" height="40"></canvas>
-            </div>
+    getText(key) {
+        return i18nDict[this.currentLang][key] || key;
+    }
 
-            <!-- WebRTC 控制區 -->
-            <div class="webrtc-box">
-                <input type="text" id="room-id-input" class="webrtc-input" placeholder="6 位房號">
-                <button class="btn btn-secondary" id="btn-connect" style="margin-top:0; width:40%;">連線房號</button>
-            </div>
+    updateDOMTexts() {
+        const t = i18nDict[this.currentLang];
+        document.getElementById('ui-title').innerText = t.title;
+        document.getElementById('ui-subtitle').innerText = t.subtitle;
+        document.getElementById('btn-2p').innerText = t.btn2p;
+        document.getElementById('btn-4p').innerText = t.btn4p;
+        document.getElementById('btn-helper').innerText = t.btnHelper;
+        document.getElementById('ui-chart-title').innerText = t.chartTitle;
+        document.getElementById('room-id-input').placeholder = t.placeholderRoom;
+        document.getElementById('btn-connect').innerText = t.btnConnect;
+        document.getElementById('touch-launch-zone').innerText = t.touchLaunch;
+        document.getElementById('btn-lang').innerText = t.langBtn;
+        
+        const status = document.getElementById('match-status');
+        if (status.innerText === '準備發射...' || status.innerText === 'Ready to launch...') {
+            status.innerText = t.ready;
+        }
+    }
+}
 
-            <div class="telemetry" id="telemetry-box">⚙️ 請選擇對戰模式</div>
-        </div>
-    </div>
+export class EnergyTrackerUI {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.history = [];
+        this.maxPoints = 60;
+    }
 
-    <div class="touch-zone" id="touch-launch-zone">👆 滑動發射</div>
-    <div id="canvas-container"></div>
+    recordAndDraw(currentKE, initialKE) {
+        if (initialKE <= 0) return;
+        const retention = Math.max(0, (currentKE / initialKE) * 100);
+        this.history.push(retention);
+        if (this.history.length > this.maxPoints) this.history.shift();
 
-    <script type="module" src="js/app.js"></script>
-</body>
-</html>
+        const ctx = this.ctx;
+        const w = this.canvas.width;
+        const h = this.canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.strokeStyle = '#2ecc71';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+
+        this.history.forEach((val, i) => {
+            const x = (i / (this.maxPoints - 1)) * w;
+            const y = h - (val / 100) * (h - 6) - 3;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    }
+}
