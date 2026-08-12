@@ -1,7 +1,7 @@
-// js/engine.js - 《爆上陀螺 Jayblade》2D 剛體力學物理演算與賽場級美化引擎
+// js/engine.js - 《爆上陀螺 Jayblade》2D 剛體力學物理演算與刀刃反衝碰撞引擎
 
-export let STADIUM_CX = 400; // 盤心 X 座標 (依 Canvas 寬度動態更新)
-export let STADIUM_CY = 300; // 盤心 Y 座標 (依 Canvas 高度動態更新)
+export let STADIUM_CX = 400; // 盤心 X 座標
+export let STADIUM_CY = 300; // 盤心 Y 座標
 export let STADIUM_R = 220;  // 戰鬥盤內壁半徑
 
 // Beyblade X 三大擊飛口袋角度範圍 (極座標弧度)
@@ -9,7 +9,7 @@ export const STADIUM_POCKETS = [
     {
         id: "EXTREME",
         name: "💥 EXTREME FINISH (3分)",
-        minAngle: -Math.PI * 0.65, // 頂部中央 Extreme 缺口 (約 -117° ~ -63°)
+        minAngle: -Math.PI * 0.65, // 頂部中央 Extreme 缺口
         maxAngle: -Math.PI * 0.35,
         color: "#00ff66",
         score: 3
@@ -17,7 +17,7 @@ export const STADIUM_POCKETS = [
     {
         id: "OVER_RIGHT",
         name: "⚠️ OVER FINISH (2分)",
-        minAngle: Math.PI * 0.15,   // 右下角 Over 口袋 (約 27° ~ 63°)
+        minAngle: Math.PI * 0.15,   // 右下角 Over 口袋
         maxAngle: Math.PI * 0.35,
         color: "#ff9f43",
         score: 2
@@ -25,14 +25,13 @@ export const STADIUM_POCKETS = [
     {
         id: "OVER_LEFT",
         name: "⚠️ OVER FINISH (2分)",
-        minAngle: Math.PI * 0.65,   // 左下角 Over 口袋 (約 117° ~ 153°)
+        minAngle: Math.PI * 0.65,   // 左下角 Over 口袋
         maxAngle: Math.PI * 0.85,
         color: "#ff9f43",
         score: 2
     }
 ];
 
-// 火花粒子陣列
 export const sparks = [];
 
 // ---------------------------------------------------------------------------
@@ -49,7 +48,7 @@ export class Top2D {
         this.y = config.y || STADIUM_CY;
         this.vx = config.vx || 0;
         this.vy = config.vy || 0;
-        this.rotation = Math.random() * Math.PI * 2; // 繪製自轉角度
+        this.rotation = Math.random() * Math.PI * 2;
         
         // 旋轉角速度 (rad/s) 與旋轉方向
         this.isRightSpin = config.isRightSpin ?? true;
@@ -57,16 +56,14 @@ export class Top2D {
         this.angularVelocity = (initialRpm * 2 * Math.PI) / 60 * (this.isRightSpin ? 1 : -1);
 
         // 物理力學屬性
-        this.radius = config.radius || 24;           // 撞擊半徑 (px)
-        this.mass = config.mass || 0.045;             // 質量 (kg)
-        this.burstResist = config.burstResist || 0.85; // 爆裂抗性 (0.6 ~ 0.98)
-        this.friction = config.friction || 0.35;      // Stribeck 摩擦力
+        this.radius = config.radius || 24;           // 撞擊半徑
+        this.mass = config.mass || 0.045;             // 質量
+        this.burstResist = config.burstResist || 0.85; // 爆裂抗性
+        this.friction = config.friction || 0.35;
 
-        // 轉動慣量 I = 1/2 * m * r^2
         const rMeters = this.radius * 0.005;
         this.inertia = 0.5 * this.mass * Math.pow(rMeters, 2);
 
-        // 遊戲狀態判定
         this.hp = 100;
         this.isKnockedOut = false;
         this.isBurst = false;
@@ -88,18 +85,12 @@ export class Top2D {
     }
 }
 
-// ---------------------------------------------------------------------------
-// 2. 賽場尺寸動態調整
-// ---------------------------------------------------------------------------
 export function updateStadiumCenter(width, height) {
     STADIUM_CX = width / 2;
     STADIUM_CY = height / 2;
     STADIUM_R = Math.min(width, height) * 0.38;
 }
 
-// ---------------------------------------------------------------------------
-// 3. 火花粒子系統
-// ---------------------------------------------------------------------------
 export function createSparks(x, y, count = 14) {
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
@@ -129,9 +120,6 @@ export function updateSparks() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// 4. 邊界碰撞與口袋擊飛 (Wall Bounce & Pocket Knockout)
-// ---------------------------------------------------------------------------
 export function check2DStadiumBoundary(top, onEventCallback) {
     if (top.isKnockedOut || top.isBurst) return;
 
@@ -139,11 +127,8 @@ export function check2DStadiumBoundary(top, onEventCallback) {
     const dy = top.y - STADIUM_CY;
     const dist = Math.hypot(dx, dy);
 
-    // 觸碰外圍牆體
     if (dist + top.radius >= STADIUM_R) {
         const hitAngle = Math.atan2(dy, dx);
-        
-        // 1. 檢查是否落入三大口袋
         const pocket = STADIUM_POCKETS.find(p => hitAngle >= p.minAngle && hitAngle <= p.maxAngle);
 
         if (pocket) {
@@ -157,7 +142,6 @@ export function check2DStadiumBoundary(top, onEventCallback) {
             return;
         }
 
-        // 2. 實體牆壁彈回 (Wall Bounce)
         const nx = dx / dist;
         const ny = dy / dist;
 
@@ -179,7 +163,7 @@ export function check2DStadiumBoundary(top, onEventCallback) {
 }
 
 // ---------------------------------------------------------------------------
-// 5. 雙陀螺對撞力學 (同旋衝量 / 異旋吸轉 Spin Steal)
+// 💥 雙陀螺對撞力學（含刀刃咬合強烈反衝彈開）
 // ---------------------------------------------------------------------------
 export function handleTopCollision(topA, topB, onEventCallback) {
     if (topA.isKnockedOut || topB.isKnockedOut || topA.isBurst || topB.isBurst) return;
@@ -189,35 +173,52 @@ export function handleTopCollision(topA, topB, onEventCallback) {
     const dist = Math.hypot(dx, dy);
     const minDist = topA.radius + topB.radius;
 
+    // 觸發碰撞條件：距離小於半徑之和
     if (dist < minDist && dist > 0) {
         const nx = dx / dist;
         const ny = dy / dist;
 
-        // 避免卡入重疊
-        const overlap = (minDist - dist) / 2;
+        // 1. 強制推開重疊，加上 0.5px 硬隔離，防止黏連
+        const overlap = (minDist - dist) / 2 + 0.5;
         topA.x -= nx * overlap;
         topA.y -= ny * overlap;
         topB.x += nx * overlap;
         topB.y += ny * overlap;
 
+        // 2. 法向相對平移速度
         const rvx = topB.vx - topA.vx;
         const rvy = topB.vy - topA.vy;
         const velAlongNormal = rvx * nx + rvy * ny;
 
-        if (velAlongNormal < 0) {
-            const restitution = 0.88;
-            let impulseMag = -(1 + restitution) * velAlongNormal / (1 / topA.mass + 1 / topB.mass);
+        // 3. 💥 齒輪刀刃轉速反衝力 (Rotational Engagement Knockback)
+        // 即使平移速度極小，只要陀螺在自轉，金屬鋸齒咬合就會爆發強大反衝力將雙方彈開！
+        const rpmA = topA.getRPM();
+        const rpmB = topB.getRPM();
+        const avgRpm = (rpmA + rpmB) / 2;
 
+        // 轉速高於 500 RPM 時，每次咬合獲得基礎彈開向量 (速度 2.0 ~ 5.5 m/s 級別)
+        const baseRecoilVelocity = Math.min(5.5, 2.0 + (avgRpm / 12000) * 3.5);
+
+        // 如果接近中，或者即便停止接近但仍在強烈重疊咬合中
+        if (velAlongNormal < 0 || dist < minDist) {
+            const restitution = 1.25; // 高彈開係數，模擬金屬齒輪爆發性彈開
+
+            // 計算組合了平移速度與轉速反衝的衝量
+            const effectiveVel = Math.min(velAlongNormal, -baseRecoilVelocity);
+            let impulseMag = -(1 + restitution) * effectiveVel / (1 / topA.mass + 1 / topB.mass);
+
+            // 施加強烈反衝撞開速度
             topA.vx -= (impulseMag / topA.mass) * nx;
             topA.vy -= (impulseMag / topA.mass) * ny;
             topB.vx += (impulseMag / topB.mass) * nx;
             topB.vy += (impulseMag / topB.mass) * ny;
 
+            // 雙旋力學 (同旋 vs 異旋吸轉)
             const isSameSpin = topA.isRightSpin === topB.isRightSpin;
 
             if (isSameSpin) {
-                // 同旋撞擊：互扣轉速與血量
-                const damage = impulseMag * 0.12;
+                // 【同旋對撞】強烈對彈，扣減轉速與血量
+                const damage = impulseMag * 0.15;
                 topA.angularVelocity *= (1 - 0.08 / topA.burstResist);
                 topB.angularVelocity *= (1 - 0.08 / topB.burstResist);
 
@@ -235,7 +236,7 @@ export function handleTopCollision(topA, topB, onEventCallback) {
                     if (onEventCallback) onEventCallback("BURST", { winner: topA, loser: topB });
                 }
             } else {
-                // 異旋吸轉 (Spin Steal)：動態轉速轉移
+                // 【異旋吸轉 Spin Steal】咬合彈開的同時轉移轉速
                 const avgSpin = (Math.abs(topA.angularVelocity) + Math.abs(topB.angularVelocity)) / 2;
                 const transferRate = 0.15;
 
@@ -248,6 +249,7 @@ export function handleTopCollision(topA, topB, onEventCallback) {
                 }
             }
 
+            // 觸發多粒子撞擊火花
             const midX = (topA.x + topB.x) / 2;
             const midY = (topA.y + topB.y) / 2;
             createSparks(midX, midY, 18);
@@ -260,10 +262,10 @@ export function handleTopCollision(topA, topB, onEventCallback) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. 物理主循環 (含 20–30 秒持久對戰參數)
+// 6. 物理主循環
 // ---------------------------------------------------------------------------
 export function updatePhysics2D(tops, dt, onEventCallback) {
-    const subSteps = 4; // 240Hz 算力
+    const subSteps = 4;
     const subDt = dt / subSteps;
 
     for (let step = 0; step < subSteps; step++) {
@@ -271,12 +273,11 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
             const top = tops[i];
             if (top.isKnockedOut || top.isBurst) continue;
 
-            // 位置與自轉更新
             top.x += top.vx * subDt * 60;
             top.y += top.vy * subDt * 60;
             top.rotation += (top.angularVelocity * subDt);
 
-            // 向心坡度重力引力 (Bowl Gravity)
+            // 向心坡度引力 (Bowl Gravity)
             const dx = top.x - STADIUM_CX;
             const dy = top.y - STADIUM_CY;
             const dist = Math.hypot(dx, dy);
@@ -287,10 +288,10 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
                 top.vy -= (dy / dist) * bowlPull;
             }
 
-            // 🛠️ 關鍵調整：調低阻尼，使對戰平滑延長至 20-30 秒
-            top.vx *= 0.994;               // 平移速度阻尼 (原 0.988)
+            // 20-30 秒持久對戰衰減率
+            top.vx *= 0.994;
             top.vy *= 0.994;
-            top.angularVelocity *= 0.9996; // 角速度轉速阻尼 (原 0.9985)
+            top.angularVelocity *= 0.9996;
 
             if (Math.abs(top.angularVelocity) < 2) {
                 top.angularVelocity = 0;
@@ -299,6 +300,7 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
             check2DStadiumBoundary(top, onEventCallback);
         }
 
+        // 陀螺碰撞檢測與反衝彈開
         for (let i = 0; i < tops.length; i++) {
             for (let j = i + 1; j < tops.length; j++) {
                 handleTopCollision(tops[i], tops[j], onEventCallback);
@@ -310,14 +312,14 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
 }
 
 // ---------------------------------------------------------------------------
-// 7. 🌟 賽場級美化版 2D 戰鬥盤 Canvas 繪製
+// 7. 賽場級美化版 2D 戰鬥盤 Canvas 繪製
 // ---------------------------------------------------------------------------
 export function draw2DStadiumLayout(ctx, width, height) {
     updateStadiumCenter(width, height);
 
     ctx.save();
 
-    // 1. 瓷白光澤底盤漸層 (Bey Stadium Porcelain White Finish)
+    // 1. 瓷白光澤底盤漸層
     const stadiumGrad = ctx.createRadialGradient(
         STADIUM_CX, STADIUM_CY, 10,
         STADIUM_CX, STADIUM_CY, STADIUM_R
@@ -360,14 +362,14 @@ export function draw2DStadiumLayout(ctx, width, height) {
         ctx.shadowBlur = 0;
     });
 
-    // 5. 外圍霓虹防護護牆 (Neon Outer Wall)
+    // 5. 外圍霓虹防護護牆
     ctx.beginPath();
     ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R + 6, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
     ctx.lineWidth = 4;
     ctx.stroke();
 
-    // 6. 繪製 2D 碰撞火花粒子
+    // 6. 2D 碰撞火花粒子
     sparks.forEach(p => {
         ctx.save();
         ctx.globalAlpha = p.life;
@@ -384,7 +386,7 @@ export function draw2DStadiumLayout(ctx, width, height) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. 🌟 繪製金屬質感 2D 陀螺 (Top2D Render)
+// 8. 繪製金屬質感 2D 陀螺
 // ---------------------------------------------------------------------------
 export function draw2DTop(ctx, top) {
     if (top.isKnockedOut || top.isBurst) return;
