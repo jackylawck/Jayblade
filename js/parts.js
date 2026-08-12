@@ -1,4 +1,3 @@
-// 配件資料庫與 CPU 難度設定
 const PARTS_DATABASE = {
   crowns: {
     'dragon_blade': { name: '龍刃衝鋒 (高攻擊重擊)', mass: 40, radius: 28, weightDist: 0.6, restitution: 0.88, color: '#ff3838' },
@@ -12,24 +11,9 @@ const PARTS_DATABASE = {
 };
 
 const CPU_DIFFICULTIES = {
-  EASY: {
-    name: '簡單',
-    counterStrategy: false,
-    launchPower: 'LIGHT',
-    aiReactionRate: 0.1
-  },
-  MEDIUM: {
-    name: '普通',
-    counterStrategy: true,
-    launchPower: 'MEDIUM',
-    aiReactionRate: 0.4
-  },
-  HARD: {
-    name: '困難',
-    counterStrategy: true,
-    launchPower: 'HEAVY',
-    aiReactionRate: 0.85
-  }
+  EASY: { name: '簡單', counterStrategy: false, launchPower: 'LIGHT', aiReactionRate: 0.1 },
+  MEDIUM: { name: '普通', counterStrategy: true, launchPower: 'MEDIUM', aiReactionRate: 0.4 },
+  HARD: { name: '困難 (行為樹 AI)', counterStrategy: true, launchPower: 'HEAVY', aiReactionRate: 0.85 }
 };
 
 const ACHIEVEMENTS_DB = {
@@ -38,11 +22,21 @@ const ACHIEVEMENTS_DB = {
   XDASH_KO:  { id: 'XDASH_KO',  name: '極速衝撞', desc: '觸發 X-Dash 擊飛對手出界', unlocked: false }
 };
 
-function saveUserPreferences(p1Data, p2Data, grid, diff) {
-  localStorage.setItem('jayblade_pref_pro', JSON.stringify({ p1Data, p2Data, grid, diff }));
+function generateShareCode(config) {
+  try { return btoa(JSON.stringify(config)); } catch (e) { return ''; }
+}
+
+function parseShareCode(code) {
+  try { return JSON.parse(atob(code)); } catch (e) { return null; }
+}
+
+function saveUserPreferences(p1Data, p2Data, grid, diff, engineMode) {
+  try { localStorage.setItem('jayblade_pref_pro', JSON.stringify({ p1Data, p2Data, grid, diff, engineMode })); } catch (e) {}
 }
 
 function loadUserPreferences() {
-  const saved = localStorage.getItem('jayblade_pref_pro');
-  return saved ? JSON.parse(saved) : null;
+  try {
+    const saved = localStorage.getItem('jayblade_pref_pro');
+    return saved ? JSON.parse(saved) : null;
+  } catch (e) { return null; }
 }
