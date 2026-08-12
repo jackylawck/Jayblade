@@ -1,4 +1,4 @@
-// js/game.js - 《爆上陀螺 Jayblade》2D 遊戲主控與勝負賽果判定引擎
+// js/game.js - 《爆上陀螺 Jayblade》2D 遊戲主控、數據面板與勝負賽果判定引擎
 
 import { 
     Top2D, 
@@ -51,7 +51,37 @@ function updateStatusBar(text, color = "#ffcc00") {
     }
 }
 
+// 📊 實時物理數據面板更新器
+function updateTelemetry(dt) {
+    const debugPanel = document.getElementById('debug-panel');
+    if (!debugPanel || debugPanel.style.display === 'none') return;
+
+    const fpsCounter = document.getElementById('fps-counter');
+    if (fpsCounter && dt > 0) {
+        fpsCounter.innerText = Math.round(1 / dt);
+    }
+
+    activeTops.forEach((top, idx) => {
+        const targetDiv = idx === 0 ? document.getElementById('p1-debug') : document.getElementById('p2-debug');
+        if (targetDiv) {
+            const rpm = top.getRPM();
+            const speed = top.getLinearSpeed().toFixed(2);
+            const ke = top.getKineticEnergy().toFixed(4);
+            const hp = Math.max(0, Math.round(top.hp));
+
+            targetDiv.innerHTML = `
+                <b style="color:${top.color}">${top.name}</b><br>
+                • 旋轉速度: ${rpm} RPM<br>
+                • 線速度 v: ${speed} m/s<br>
+                • 系統動能: ${ke} J<br>
+                • 爆裂血量: ${hp}%
+            `;
+        }
+    });
+}
+
 function bindUIEvents() {
+    // 1. 發射按鈕
     const launchBtn = document.getElementById('btn-launch') || document.querySelector('.btn-launch');
     if (launchBtn) {
         launchBtn.addEventListener('click', (e) => {
@@ -60,6 +90,7 @@ function bindUIEvents() {
         });
     }
 
+    // 2. 重置按鈕
     const resetBtn = document.getElementById('btn-reset');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
@@ -70,6 +101,18 @@ function bindUIEvents() {
             if (setupPanel) setupPanel.style.display = 'block';
             if (gamePanel) gamePanel.style.display = 'none';
         });
+    }
+
+    // 🛠️ 3. 綁定物理數據面板切換按鈕
+    const debugBtn = document.getElementById('btn-debug');
+    if (debugBtn) {
+        debugBtn.onclick = () => {
+            const debugPanel = document.getElementById('debug-panel');
+            if (debugPanel) {
+                const isHidden = debugPanel.style.display === 'none' || !debugPanel.style.display;
+                debugPanel.style.display = isHidden ? 'block' : 'none';
+            }
+        };
     }
 }
 
@@ -132,7 +175,6 @@ function checkMatchResult() {
 
     const aliveTops = activeTops.filter(t => !t.isKnockedOut && !t.isBurst && Math.abs(t.angularVelocity) > 2);
 
-    // 1. 口袋擊飛 / 爆裂勝利
     const burstTop = activeTops.find(t => t.isBurst);
     const koTop = activeTops.find(t => t.isKnockedOut);
 
@@ -150,7 +192,6 @@ function checkMatchResult() {
         return;
     }
 
-    // 2. 持久勝 (Spin Finish)
     if (aliveTops.length === 1 && activeTops.some(t => Math.abs(t.angularVelocity) <= 2)) {
         const winner = aliveTops[0];
         isMatchEnded = true;
@@ -158,7 +199,6 @@ function checkMatchResult() {
         return;
     }
 
-    // 3. 雙方平手停轉
     if (aliveTops.length === 0) {
         isMatchEnded = true;
         updateStatusBar("⚖️【雙方停轉】本局平手 (Draw)！", "#aaa");
@@ -179,6 +219,7 @@ function gameLoop(now) {
         });
 
         checkMatchResult();
+        updateTelemetry(dt);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         draw2DStadiumLayout(ctx, canvas.width, canvas.height);
