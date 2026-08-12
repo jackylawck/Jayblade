@@ -1,43 +1,61 @@
-// 🛡️ 資安防護: DOM-based XSS 特殊字元消毒淨化工具函式
-export function escapeHtml(unsafeStr) {
-    if (typeof unsafeStr !== 'string') return '';
-    return unsafeStr
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- 🛡️ 高水平 CSP 資安內容安全策略 -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.jsdelivr.net 'unsafe-inline';
+        style-src 'self' 'unsafe-inline';
+        connect-src 'self' wss://0.peerjs.com https://0.peerjs.com wss://*.peerjs.com;
+        img-src 'self' data: blob:;
+        font-src 'self' data:;
+    ">
 
-export class EnergyTrackerUI {
-    constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext('2d');
-        this.history = [];
-        this.maxPoints = 60;
-    }
+    <title>爆上陀螺 Jayblade</title>
+    <link rel="stylesheet" href="css/3d.css">
 
-    recordAndDraw(currentKE, initialKE) {
-        if (initialKE <= 0) return;
-        const retention = Math.max(0, (currentKE / initialKE) * 100);
-        this.history.push(retention);
-        if (this.history.length > this.maxPoints) this.history.shift();
+    <!-- 核心第三方依賴庫 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
 
-        const ctx = this.ctx;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
+    <div class="ui-overlay">
+        <div class="ui-card">
+            <div class="header-row">
+                <h1 id="ui-title">🌀 爆上陀螺 Jayblade</h1>
+                <button class="lang-btn" id="btn-lang">English</button>
+            </div>
+            <p id="ui-subtitle">剛體力學與家庭對戰模擬器</p>
+            <div class="status-banner" id="match-status">準備發射...</div>
+            <button class="btn" id="btn-2p">🎮 2人正規賽</button>
+            <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
+            <button class="btn btn-secondary" id="btn-helper">🎯 切換進動向量輔助線</button>
 
-        ctx.clearRect(0, 0, w, h);
-        ctx.strokeStyle = '#2ecc71';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
+            <!-- 實時能量曲線 Canvas -->
+            <div class="energy-chart-box">
+                <div class="chart-title" id="ui-chart-title">⚡ 系統動能留存率曲線:</div>
+                <canvas id="energy-canvas" width="320" height="40"></canvas>
+            </div>
 
-        this.history.forEach((val, i) => {
-            const x = (i / (this.maxPoints - 1)) * w;
-            const y = h - (val / 100) * (h - 6) - 3;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-    }
-}
+            <!-- WebRTC 控制區 -->
+            <div class="webrtc-box">
+                <input type="text" id="room-id-input" class="webrtc-input" placeholder="6 位房號">
+                <button class="btn btn-secondary" id="btn-connect" style="margin-top:0; width:40%;">連線房號</button>
+            </div>
+
+            <div class="telemetry" id="telemetry-box">⚙️ 請選擇對戰模式</div>
+        </div>
+    </div>
+
+    <div class="touch-zone" id="touch-launch-zone">👆 滑動發射</div>
+    <div id="canvas-container"></div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
