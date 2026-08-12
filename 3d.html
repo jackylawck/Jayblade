@@ -56,11 +56,10 @@
         .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.72rem; color: #00ff66; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 6px; border: 1px solid rgba(0, 255, 102, 0.4); margin-top: 6px; line-height: 1.35; }
         .debug-panel h4 { color: #ffcc00; margin-bottom: 4px; font-size: 0.75rem; border-bottom: 1px solid rgba(255,204,0,0.3); padding-bottom: 2px; }
         
-        /* 微調隱藏按鈕位置，避免擋住右上角按鈕 */
         .toggle-ui-btn { position: fixed; bottom: 15px; left: 15px; z-index: 200; background: rgba(0, 210, 211, 0.85); color: #000; font-weight: bold; border: none; padding: 8px 12px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
     </style>
 
-    <!-- 🔒 2. 第三方 CDN 腳本 (包含 SRI 完整性校驗與 crossorigin 屬性) -->
+    <!-- 🔒 2. 第三方 CDN 腳本 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"
             integrity="sha512-dLxUelApC9zpTWxCWqqP8SC6PpH43CdaAChW2OJmcd5xL/8w7sA9sJ5g3A6A0aLzFj3Z5c2C/0vQ0N4B7V/1xA=="
             crossorigin="anonymous"
@@ -100,8 +99,28 @@
             <div class="parts-panel">
                 <h3 id="ui-p1-panel-title">🔵 P1 陀螺自訂配件</h3>
                 <div class="form-row"><label id="lbl-name">名稱:</label><input type="text" id="p1-name" value="火鷹飛龍"></div>
-                <div class="form-row"><label id="lbl-crown">撞擊環:</label><select id="p1-crown"></select></div>
-                <div class="form-row"><label id="lbl-tip">動力底軸:</label><select id="p1-tip"></select></div>
+                
+                <!-- 🛠️ 硬編碼 HTML 預設選項：雙保險預防「沒有選項」 -->
+                <div class="form-row">
+                    <label id="lbl-crown">撞擊環:</label>
+                    <select id="p1-crown">
+                        <option value="FEATHER" selected>羽翼飛刃 (Feather Blade)</option>
+                        <option value="DRAKE">龍紋重環 (Drake Crown)</option>
+                        <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
+                        <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
+                    </select>
+                </div>
+                
+                <div class="form-row">
+                    <label id="lbl-tip">動力底軸:</label>
+                    <select id="p1-tip">
+                        <option value="FLAT" selected>極速平頭 (Flat Speed)</option>
+                        <option value="BALL">持久球軸 (Ball Bearing)</option>
+                        <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
+                        <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
+                    </select>
+                </div>
+
                 <div class="form-row">
                     <label id="lbl-spin">旋轉方向:</label>
                     <select id="p1-spin">
@@ -140,11 +159,11 @@
     <div id="canvas-container"></div>
 
     <script type="module">
+        // 🛠️ 修復：正修模組載入路徑（均加上 js/ 前綴）
         import { Beyblade3DPhysics, PHYSICS_FIXED_TIMESTEP, PHYSICS_MAX_SUBSTEPS, STADIUM_RADIUS } from './js/physics.js';
-        import { ReconciliationNetworkManager } from './network.js';
+        import { ReconciliationNetworkManager } from './js/network.js';
         import { UGCModelEngine } from './js/ugc_loader.js';
 
-        // 配件資料庫
         const PARTS_DB = {
             CROWNS: {
                 FEATHER: { name_zh: "羽翼飛刃", name_en: "Feather Blade", mass: 0.042, burstResist: 0.85 },
@@ -207,7 +226,6 @@
 
         let currentLang = 'zh';
 
-        // 🛡️ XSS HTML 轉義函數
         window.escapeHtml = function(unsafe) {
             return String(unsafe)
                 .replace(/&/g, "&amp;")
@@ -217,14 +235,13 @@
                 .replace(/'/g, "&#039;");
         };
 
-        // 填充配件下拉選單 (核心修復)
         window.initPartsSelectors = function() {
             const crownSelect = document.getElementById('p1-crown');
             const tipSelect = document.getElementById('p1-tip');
             if (!crownSelect || !tipSelect) return;
 
-            const selectedCrown = crownSelect.value;
-            const selectedTip = tipSelect.value;
+            const selectedCrown = crownSelect.value || 'FEATHER';
+            const selectedTip = tipSelect.value || 'FLAT';
 
             crownSelect.innerHTML = '';
             tipSelect.innerHTML = '';
@@ -233,7 +250,7 @@
                 const item = PARTS_DB.CROWNS[k];
                 const opt = document.createElement('option');
                 opt.value = k;
-                opt.innerText = currentLang === 'zh' ? item.name_zh : item.name_en;
+                opt.innerText = currentLang === 'zh' ? `${item.name_zh} (${item.name_en})` : item.name_en;
                 if (k === selectedCrown) opt.selected = true;
                 crownSelect.appendChild(opt);
             });
@@ -242,7 +259,7 @@
                 const item = PARTS_DB.TIPS[k];
                 const opt = document.createElement('option');
                 opt.value = k;
-                opt.innerText = currentLang === 'zh' ? item.name_zh : item.name_en;
+                opt.innerText = currentLang === 'zh' ? `${item.name_zh} (${item.name_en})` : item.name_en;
                 if (k === selectedTip) opt.selected = true;
                 tipSelect.appendChild(opt);
             });
@@ -315,7 +332,6 @@
             create3DStadium();
             ugcEngine = new UGCModelEngine(scene);
 
-            // 🛠️ 填寫配件下拉選單
             initPartsSelectors();
 
             window.addEventListener('resize', onWindowResize);
@@ -412,7 +428,6 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // STL 檔案標頭檢測
         window.handleUGCFileUpload = function(event) {
             const file = event.target.files[0];
             if (!file) return;
