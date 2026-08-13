@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、16款 Combo 配件雙語支援與對戰主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、WebRTC 網絡平滑插值 (Lerp) 與對戰主控
 
 import { 
     init3DEngine, 
@@ -16,7 +16,7 @@ import {
 let isSimulating = false;
 let isMatchEnded = false;
 let isCountdownRunning = false;
-let currentLang = 'zh'; // 'zh' | 'en'
+let currentLang = 'zh';
 let lastTime = performance.now();
 
 let peer = null;
@@ -24,7 +24,6 @@ let conn = null;
 let isHost = true;
 let peerId = '';
 
-// 🌐 16款 Combo 配件完整雙語字典
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
@@ -151,8 +150,6 @@ function applyLanguageUI() {
         else if (text.includes('發射力度') || text.includes('Launch Power')) lbl.innerText = t.lblPowers;
     });
 
-    if (!isSimulating && !isCountdownRunning) update3DStatus(t.readyStatus);
-
     const updateSelect = (selectId, dict) => {
         const sel = document.getElementById(selectId);
         if (!sel) return;
@@ -241,10 +238,14 @@ function setupNetworkHandlers() {
             if (data.p2Config) applyRemoteConfigToP2(data.p2Config);
             runCountdownLaunch(data.mode, false);
         } else if (data.type === 'POSE_SYNC' && !isHost) {
+            // 💡 2. Client 接收姿態數據，實作網絡線性插值 (Lerp) 防止位移突跳
             data.poses.forEach((p, idx) => {
                 if (activeTops[idx]) {
-                    activeTops[idx].body.position.set(p.x, p.y, p.z);
-                    activeTops[idx].body.quaternion.set(p.qx, p.qy, p.qz, p.qw);
+                    const body = activeTops[idx].body;
+                    body.position.x += (p.x - body.position.x) * 0.4;
+                    body.position.y += (p.y - body.position.y) * 0.4;
+                    body.position.z += (p.z - body.position.z) * 0.4;
+                    body.quaternion.slerp(new CANNON.Quaternion(p.qx, p.qy, p.qz, p.qw), 0.4, body.quaternion);
                     activeTops[idx].hp = p.hp;
                 }
             });
