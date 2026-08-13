@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、WebRTC P2P 遠端連線與科研物理面板主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、7位數簡短房號 WebRTC P2P 遠端連線主控
 
 import { 
     init3DEngine, 
@@ -51,7 +51,7 @@ const I18N = {
         readyStatus: "請選擇對戰模式發射...",
         toggleUi: "👁️ 隱藏/顯示選單",
         onlineTitle: "🌐 3D WebRTC 遠端連線大廳",
-        myId: "我的房間 ID:",
+        myId: "7位數房間 ID:",
         joinBtn: "加入房間",
         netStatusOffline: "狀態: 單機模式",
         netStatusConnected: "狀態: 🟢 已連線！",
@@ -85,7 +85,7 @@ const I18N = {
         ugcDrop: "📁 Click or drag custom 3D (.stl) design to test inertia",
         vsAi: "🎮 Single Player (VS AI)", vs2p: "⚔️ 1P vs 2P Local Battle", p2pLaunch: "🌐 3D Remote Match (WebRTC P2P)", vs4p: "🔥 4-Player Battle Royale",
         debugTitle: "⚙️ Real-time Telemetry (240Hz Physics)", readyStatus: "Select a battle mode to launch...", toggleUi: "👁️ Toggle UI Panel",
-        onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "My Room ID:", joinBtn: "Join Room",
+        onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "7-Digit Room ID:", joinBtn: "Join Room",
         netStatusOffline: "Status: Offline", netStatusConnected: "Status: 🟢 Connected!", netStatusConnecting: "Status: 🟡 Connecting...",
         crowns: { FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring" },
         tips: { FLAT: "Flat Speed", BALL: "Ball Bearing", NEEDLE: "Needle Guard", ACCEL: "Accel Dash" },
@@ -165,14 +165,17 @@ function applyLanguageUI() {
     if (activeTops.length > 0) { buildTelemetryDOM(); updateTelemetryValues(); }
 }
 
-// 🌐 建立 WebRTC 連線
+// 🌐 建立 WebRTC 連線 (生成標準 7 位數號碼: 3D-XXXX 例如 3D-8829)
 function initPeerJS() {
-    const randomId = 'jay3d-' + Math.random().toString(36).substring(2, 7);
-    peer = new Peer(randomId);
+    const randomNum = Math.floor(1000 + Math.random() * 9000); // 4位數字
+    const short7DigitId = `3D-${randomNum}`; // 總長度正好 7 個字元
+
+    peer = new Peer(short7DigitId);
 
     peer.on('open', (id) => {
         peerId = id;
-        document.getElementById('my-peer-id').innerText = id;
+        const myIdEl = document.getElementById('my-peer-id');
+        if (myIdEl) myIdEl.innerText = id;
     });
 
     peer.on('connection', (c) => {
@@ -180,6 +183,14 @@ function initPeerJS() {
         isHost = true;
         setupNetworkHandlers();
         document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
+    });
+
+    // 若 ID 剛好重複，備用隨機重試
+    peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+            const retryId = `3D-${Math.floor(1000 + Math.random() * 9000)}`;
+            peer = new Peer(retryId);
+        }
     });
 }
 
@@ -200,7 +211,6 @@ function setupNetworkHandlers() {
         if (data.type === 'LAUNCH') {
             runCountdownLaunch(data.mode, false);
         } else if (data.type === 'POSE_SYNC' && !isHost) {
-            // Client 接收 3D 姿態同步數據
             data.poses.forEach((p, idx) => {
                 if (activeTops[idx]) {
                     activeTops[idx].body.position.set(p.x, p.y, p.z);
@@ -212,7 +222,6 @@ function setupNetworkHandlers() {
     });
 }
 
-// 廣播 3D 剛體數據給對手
 function broadcast3DPoses() {
     if (conn && conn.open && isHost) {
         const poses = activeTops.map(t => ({
@@ -590,7 +599,6 @@ function gameLoop(now) {
             update3DSparks(dt);
             check3DMatchResult();
 
-            // 主機廣播 3D 剛體姿態數據
             broadcast3DPoses();
         }
         
