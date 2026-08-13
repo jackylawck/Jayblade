@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、全中/全英多語言切換與科研物理面板主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、100% 全中/全英多語言切換與科研物理面板主控
 
 import { 
     init3DEngine, 
@@ -19,7 +19,7 @@ let isCountdownRunning = false;
 let currentLang = 'zh'; // 'zh' | 'en'
 let lastTime = performance.now();
 
-// 🌐 完整多語言字典 (I18N Dictionary)
+// 🌐 100% 全中/全英無死角字典 (Full I18N Dictionary)
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
@@ -28,12 +28,14 @@ const I18N = {
         langBtn: "English",
         p1Title: "🔵 P1 陀螺自訂",
         p2Title: "🔴 P2 陀螺自訂 (對戰用)",
-        name: "名稱:",
-        color: "顏色:",
-        crown: "撞擊環:",
-        tip: "動力底軸:",
-        spin: "旋轉方向:",
-        power: "發射力度:",
+        p1NameDefault: "火鷹飛龍",
+        p2NameDefault: "影武赤狼",
+        lblNames: "名稱:",
+        lblColors: "顏色:",
+        lblCrowns: "撞擊環:",
+        lblTips: "動力底軸:",
+        lblSpins: "旋轉方向:",
+        lblPowers: "發射力度:",
         ugcDrop: "📁 點擊或拖拽自訂 3D 設計 (.stl) 檔測試實體慣量",
         vsAi: "🎮 單人對戰 (VS AI)",
         vs2p: "⚔️ 1P vs 2P 自訂對戰",
@@ -41,7 +43,6 @@ const I18N = {
         debugTitle: "⚙️ 實時物理數據 (240Hz 算力)",
         readyStatus: "請選擇對戰模式發射...",
         toggleUi: "👁️ 隱藏/顯示選單",
-        // 下拉選單選項
         crowns: {
             FEATHER: "羽翼飛刃 (Feather Blade)",
             DRAKE: "龍紋重環 (Drake Crown)",
@@ -63,7 +64,6 @@ const I18N = {
             MEDIUM: "中度 (穩定)",
             LIGHT: "輕度 (高精準)"
         },
-        // 實時物理數據
         rpm: "🌀 轉速",
         hp: "❤️ 爆裂血量",
         speed: "⚡ 線速度 v",
@@ -83,7 +83,6 @@ const I18N = {
         Fn: "法向支持力 N",
         Ff: "切向滑動摩擦力 F_f",
         Fc: "盤面向心拉力 F_c",
-        // 對戰狀態與勝負
         vsAiProgress: "⚔️ 對戰進行中... 兩車對撞！",
         vs2pProgress: "⚔️ 雙人對戰進行中...",
         vs4pProgress: "⚔️ 4 人大亂鬥進行中...",
@@ -99,12 +98,14 @@ const I18N = {
         langBtn: "中文 (繁體)",
         p1Title: "🔵 P1 Top Customization",
         p2Title: "🔴 P2 Top Customization",
-        name: "Name:",
-        color: "Color:",
-        crown: "Blade Ring:",
-        tip: "Bit Tip:",
-        spin: "Spin Dir:",
-        power: "Launch Power:",
+        p1NameDefault: "Fire Bird Dragon",
+        p2NameDefault: "Red Wolf",
+        lblNames: "Name:",
+        lblColors: "Color:",
+        lblCrowns: "Blade Ring:",
+        lblTips: "Bit Tip:",
+        lblSpins: "Spin Direction:",
+        lblPowers: "Launch Power:",
         ugcDrop: "📁 Click or drag custom 3D (.stl) design to test inertia",
         vsAi: "🎮 Single Player (VS AI)",
         vs2p: "⚔️ 1P vs 2P Battle",
@@ -175,7 +176,7 @@ function update3DStatus(text, color = "#38bdf8") {
     }
 }
 
-// 🌐 更新整體靜態 UI 文字 (全中/全英切換)
+// 🌐 100% 無死角套用語言 (全中/全英切換)
 function applyLanguageUI() {
     const t = I18N[currentLang];
 
@@ -196,11 +197,33 @@ function applyLanguageUI() {
     setTxt('ui-debug-title', t.debugTitle);
     setTxt('btn-toggle-ui', t.toggleUi);
 
+    // 1. 翻譯所有 Label 標籤
+    const labels = document.querySelectorAll('.form-row label');
+    labels.forEach(lbl => {
+        const text = lbl.innerText.trim();
+        if (text.includes('名稱') || text.includes('Name')) lbl.innerText = t.lblNames;
+        else if (text.includes('顏色') || text.includes('Color')) lbl.innerText = t.lblColors;
+        else if (text.includes('撞擊環') || text.includes('Blade Ring')) lbl.innerText = t.lblCrowns;
+        else if (text.includes('動力底軸') || text.includes('Bit Tip')) lbl.innerText = t.lblTips;
+        else if (text.includes('旋轉方向') || text.includes('Spin Direction')) lbl.innerText = t.lblSpins;
+        else if (text.includes('發射力度') || text.includes('Launch Power')) lbl.innerText = t.lblPowers;
+    });
+
+    // 2. 翻譯預設名稱輸入框（精準對應 Fire Bird Dragon）
+    const p1Input = document.getElementById('p1-name');
+    if (p1Input && (p1Input.value === '火鷹飛龍' || p1Input.value === 'Feather Dragon' || p1Input.value === 'Fire Bird Dragon')) {
+        p1Input.value = t.p1NameDefault;
+    }
+    const p2Input = document.getElementById('p2-name');
+    if (p2Input && (p2Input.value === '影武赤狼' || p2Input.value === 'Red Wolf')) {
+        p2Input.value = t.p2NameDefault;
+    }
+
     if (!isSimulating && !isCountdownRunning) {
         update3DStatus(t.readyStatus);
     }
 
-    // 更新選單中的下拉選項
+    // 3. 翻譯下拉選單
     const updateSelect = (selectId, dict) => {
         const sel = document.getElementById(selectId);
         if (!sel) return;
@@ -218,7 +241,7 @@ function applyLanguageUI() {
     updateSelect('p1-power', t.powers);
     updateSelect('p2-power', t.powers);
 
-    // 如果當前已有對戰數據，重新繪製 Telemetry 表頭語言
+    // 4. 若畫面上已有數據面板，刷新面板英文
     if (activeTops.length > 0) {
         buildTelemetryDOM();
         updateTelemetryValues();
@@ -306,7 +329,7 @@ function runCountdownLaunch(mode) {
 
 function spawnTopsAndStart(mode) {
     const dict = I18N[currentLang];
-    const p1Name = document.getElementById('p1-name')?.value || (currentLang === 'zh' ? '火鷹飛龍' : 'Feather Dragon');
+    const p1Name = document.getElementById('p1-name')?.value || dict.p1NameDefault;
     const p1Color = hexToNum(document.getElementById('p1-color')?.value);
     const p1Crown = document.getElementById('p1-crown')?.value || 'FEATHER';
     const p1Tip = document.getElementById('p1-tip')?.value || 'FLAT';
@@ -339,7 +362,7 @@ function spawnTopsAndStart(mode) {
         update3DStatus(dict.vsAiProgress, '#00d2d3');
 
     } else if (mode === 2) {
-        const p2Name = document.getElementById('p2-name')?.value || (currentLang === 'zh' ? '影武赤狼' : 'Red Wolf');
+        const p2Name = document.getElementById('p2-name')?.value || dict.p2NameDefault;
         const p2Color = hexToNum(document.getElementById('p2-color')?.value);
         const p2Crown = document.getElementById('p2-crown')?.value || 'DRAKE';
         const p2Tip = document.getElementById('p2-tip')?.value || 'BALL';
@@ -357,7 +380,7 @@ function spawnTopsAndStart(mode) {
         update3DStatus(dict.vs2pProgress, '#00d2d3');
 
     } else if (mode === 4) {
-        const p2Name4 = document.getElementById('p2-name')?.value || (currentLang === 'zh' ? '影武赤狼' : 'Red Wolf');
+        const p2Name4 = document.getElementById('p2-name')?.value || dict.p2NameDefault;
         const p2_4 = new Beyblade3DPhysics({
             name: '🔴 ' + p2Name4, x: 2.5, y: 1.2, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48, crownKey: 'DRAKE', tipKey: 'BALL'
         });
@@ -497,7 +520,6 @@ function bindUI() {
     document.getElementById('btn-2p').onclick = () => runCountdownLaunch(2);
     document.getElementById('btn-4p').onclick = () => runCountdownLaunch(4);
 
-    // 🌐 多語言按鈕綁定
     const langBtn = document.getElementById('btn-lang');
     if (langBtn) {
         langBtn.onclick = () => {
@@ -566,7 +588,7 @@ window.addEventListener('DOMContentLoaded', () => {
     init3DEngine(container);
     bindUI();
 
-    applyLanguageUI(); // 初始化套用語言
+    applyLanguageUI();
 
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
