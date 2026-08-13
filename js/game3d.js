@@ -1,4 +1,4 @@
-// js/game3d.js - 修正 4 人混戰誤判停頓 Bug
+// js/game3d.js - 爆上陀螺 3D UI 互動、WebRTC P2P 遠端連線與科研物理面板主控
 
 import { 
     init3DEngine, 
@@ -16,9 +16,16 @@ import {
 let isSimulating = false;
 let isMatchEnded = false;
 let isCountdownRunning = false;
-let currentLang = 'zh';
+let currentLang = 'zh'; // 'zh' | 'en'
 let lastTime = performance.now();
 
+// 🌐 網絡 PeerJS 狀態
+let peer = null;
+let conn = null;
+let isHost = true;
+let peerId = '';
+
+// 🌐 100% 全中/全英無死角字典 (Full I18N Dictionary)
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
@@ -37,11 +44,18 @@ const I18N = {
         lblPowers: "發射力度:",
         ugcDrop: "📁 點擊或拖拽自訂 3D 設計 (.stl) 檔測試實體慣量",
         vsAi: "🎮 單人對戰 (VS AI)",
-        vs2p: "⚔️ 1P vs 2P 自訂對戰",
+        vs2p: "⚔️ 1P vs 2P 同機對戰",
+        p2pLaunch: "🌐 3D 遠端對決 (WebRTC P2P)",
         vs4p: "🔥 4人障礙大亂鬥",
         debugTitle: "⚙️ 實時物理數據 (240Hz 算力)",
         readyStatus: "請選擇對戰模式發射...",
         toggleUi: "👁️ 隱藏/顯示選單",
+        onlineTitle: "🌐 3D WebRTC 遠端連線大廳",
+        myId: "我的房間 ID:",
+        joinBtn: "加入房間",
+        netStatusOffline: "狀態: 單機模式",
+        netStatusConnected: "狀態: 🟢 已連線！",
+        netStatusConnecting: "狀態: 🟡 連線中...",
         crowns: { FEATHER: "羽翼飛刃 (Feather Blade)", DRAKE: "龍紋重環 (Drake Crown)", HEAVY: "裝甲重錘 (Heavy Armor)", WIZARD: "魔導圓盾 (Wizard Ring)" },
         tips: { FLAT: "極速平頭 (Flat Speed)", BALL: "持久球軸 (Ball Bearing)", NEEDLE: "防禦針軸 (Needle Guard)", ACCEL: "軌道衝刺 (Accel Dash)" },
         spins: { RIGHT: "右迴旋 (順時針)", LEFT: "左迴旋 (逆時針)" },
@@ -69,8 +83,10 @@ const I18N = {
         p1NameDefault: "Fire Bird Dragon", p2NameDefault: "Red Wolf",
         lblNames: "Name:", lblColors: "Color:", lblCrowns: "Blade Ring:", lblTips: "Bit Tip:", lblSpins: "Spin Direction:", lblPowers: "Launch Power:",
         ugcDrop: "📁 Click or drag custom 3D (.stl) design to test inertia",
-        vsAi: "🎮 Single Player (VS AI)", vs2p: "⚔️ 1P vs 2P Battle", vs4p: "🔥 4-Player Battle Royale",
+        vsAi: "🎮 Single Player (VS AI)", vs2p: "⚔️ 1P vs 2P Local Battle", p2pLaunch: "🌐 3D Remote Match (WebRTC P2P)", vs4p: "🔥 4-Player Battle Royale",
         debugTitle: "⚙️ Real-time Telemetry (240Hz Physics)", readyStatus: "Select a battle mode to launch...", toggleUi: "👁️ Toggle UI Panel",
+        onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "My Room ID:", joinBtn: "Join Room",
+        netStatusOffline: "Status: Offline", netStatusConnected: "Status: 🟢 Connected!", netStatusConnecting: "Status: 🟡 Connecting...",
         crowns: { FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring" },
         tips: { FLAT: "Flat Speed", BALL: "Ball Bearing", NEEDLE: "Needle Guard", ACCEL: "Accel Dash" },
         spins: { RIGHT: "Right Spin (CW)", LEFT: "Left Spin (CCW)" },
@@ -106,8 +122,12 @@ function applyLanguageUI() {
     setTxt('btn-back-2d', t.back2d); setTxt('btn-lang', t.langBtn);
     setTxt('ui-p1-panel-title', t.p1Title); setTxt('ui-p2-panel-title', t.p2Title);
     setTxt('ugc-drop-text', t.ugcDrop); setTxt('btn-vs-ai', t.vsAi);
-    setTxt('btn-2p', t.vs2p); setTxt('btn-4p', t.vs4p);
+    setTxt('btn-2p', t.vs2p); setTxt('btn-p2p-launch', t.p2pLaunch); setTxt('btn-4p', t.vs4p);
     setTxt('ui-debug-title', t.debugTitle); setTxt('btn-toggle-ui', t.toggleUi);
+
+    setTxt('ui-online-title', t.onlineTitle);
+    setTxt('ui-lbl-myid', t.myId);
+    setTxt('btn-join-room', t.joinBtn);
 
     const labels = document.querySelectorAll('.form-row label');
     labels.forEach(lbl => {
@@ -145,6 +165,70 @@ function applyLanguageUI() {
     if (activeTops.length > 0) { buildTelemetryDOM(); updateTelemetryValues(); }
 }
 
+// 🌐 建立 WebRTC 連線
+function initPeerJS() {
+    const randomId = 'jay3d-' + Math.random().toString(36).substring(2, 7);
+    peer = new Peer(randomId);
+
+    peer.on('open', (id) => {
+        peerId = id;
+        document.getElementById('my-peer-id').innerText = id;
+    });
+
+    peer.on('connection', (c) => {
+        conn = c;
+        isHost = true;
+        setupNetworkHandlers();
+        document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
+    });
+}
+
+function joinPeerRoom(targetId) {
+    if (!targetId) return;
+    document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnecting;
+    conn = peer.connect(targetId);
+    isHost = false;
+    setupNetworkHandlers();
+}
+
+function setupNetworkHandlers() {
+    conn.on('open', () => {
+        document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
+    });
+
+    conn.on('data', (data) => {
+        if (data.type === 'LAUNCH') {
+            runCountdownLaunch(data.mode, false);
+        } else if (data.type === 'POSE_SYNC' && !isHost) {
+            // Client 接收 3D 姿態同步數據
+            data.poses.forEach((p, idx) => {
+                if (activeTops[idx]) {
+                    activeTops[idx].body.position.set(p.x, p.y, p.z);
+                    activeTops[idx].body.quaternion.set(p.qx, p.qy, p.qz, p.qw);
+                    activeTops[idx].hp = p.hp;
+                }
+            });
+        }
+    });
+}
+
+// 廣播 3D 剛體數據給對手
+function broadcast3DPoses() {
+    if (conn && conn.open && isHost) {
+        const poses = activeTops.map(t => ({
+            x: t.body.position.x,
+            y: t.body.position.y,
+            z: t.body.position.z,
+            qx: t.body.quaternion.x,
+            qy: t.body.quaternion.y,
+            qz: t.body.quaternion.z,
+            qw: t.body.quaternion.w,
+            hp: t.hp
+        }));
+        conn.send({ type: 'POSE_SYNC', poses });
+    }
+}
+
 function handleMatchEnd(resultText, color, winnerTop) {
     if (isMatchEnded) return;
     isMatchEnded = true;
@@ -160,22 +244,15 @@ function handleMatchEnd(resultText, color, winnerTop) {
     if (box) box.style.display = 'block';
 }
 
-// 🛠️ 關鍵修正：嚴謹的 4 人大亂鬥淘汰與結算邏輯
 function check3DMatchResult() {
     if (isMatchEnded || !isSimulating || isCountdownRunning || activeTops.length < 2) return;
 
     const dict = I18N[currentLang];
-    
-    // 仍在運轉中的陀螺（未擊飛、未爆裂、RPM > 30）
     const aliveTops = activeTops.filter(t => !t.isKnockedOut && !t.isBurst && t.getRPM() > 30);
-
-    // 剛觸發爆裂或擊飛的最新目標
     const newBurstTop = activeTops.find(t => t.isBurst && !t.hasBeenProcessed);
     const newKoTop = activeTops.find(t => t.isKnockedOut && !t.hasBeenProcessed);
 
-    // 只有當全場只剩 1 隻或 0 隻存活時，才正式宣告比賽結束！
     if (aliveTops.length <= 1) {
-        // 如果只剩 1 隻活著，且其他陀螺全部停止旋轉或出局
         const allOthersStopped = activeTops.every(t => t === aliveTops[0] || t.isBurst || t.isKnockedOut || t.getRPM() <= 30);
 
         if (allOthersStopped) {
@@ -195,10 +272,14 @@ function check3DMatchResult() {
     }
 }
 
-function runCountdownLaunch(mode) {
+function runCountdownLaunch(mode, broadcast = true) {
     if (isCountdownRunning) return;
     isCountdownRunning = true;
     isMatchEnded = false;
+
+    if (broadcast && conn && conn.open) {
+        conn.send({ type: 'LAUNCH', mode });
+    }
 
     activeTops.forEach(t => { world.remove(t.body); scene.remove(t.group); });
     activeTops.length = 0;
@@ -263,7 +344,7 @@ function spawnTopsAndStart(mode) {
 
         update3DStatus(dict.vsAiProgress, '#00d2d3');
 
-    } else if (mode === 2) {
+    } else if (mode === 2 || mode === 'P2P') {
         const p2Name = document.getElementById('p2-name')?.value || dict.p2NameDefault;
         const p2Color = hexToNum(document.getElementById('p2-color')?.value);
         const p2Crown = document.getElementById('p2-crown')?.value || 'DRAKE';
@@ -446,7 +527,13 @@ function updateTelemetryValues() {
 function bindUI() {
     document.getElementById('btn-vs-ai').onclick = () => runCountdownLaunch('VS_AI');
     document.getElementById('btn-2p').onclick = () => runCountdownLaunch(2);
+    document.getElementById('btn-p2p-launch').onclick = () => runCountdownLaunch('P2P');
     document.getElementById('btn-4p').onclick = () => runCountdownLaunch(4);
+
+    document.getElementById('btn-join-room').onclick = () => {
+        const joinId = document.getElementById('join-peer-id')?.value?.trim();
+        if (joinId) joinPeerRoom(joinId);
+    };
 
     const langBtn = document.getElementById('btn-lang');
     if (langBtn) {
@@ -502,6 +589,9 @@ function gameLoop(now) {
             handle3DTopCollisions();
             update3DSparks(dt);
             check3DMatchResult();
+
+            // 主機廣播 3D 剛體姿態數據
+            broadcast3DPoses();
         }
         
         updateTelemetryValues();
@@ -516,6 +606,7 @@ window.addEventListener('DOMContentLoaded', () => {
     init3DEngine(container);
     bindUI();
 
+    initPeerJS();
     applyLanguageUI();
 
     window.addEventListener('resize', () => {
