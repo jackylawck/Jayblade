@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、流程與勝負判定主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、質感物理數據與對戰邏輯主控
 
 import { 
     init3DEngine, 
@@ -102,7 +102,6 @@ function runCountdownLaunch(mode) {
 }
 
 function spawnTopsAndStart(mode) {
-    // P1 配件讀取
     const p1Name = document.getElementById('p1-name')?.value || '火鷹飛龍';
     const p1Color = hexToNum(document.getElementById('p1-color')?.value);
     const p1Crown = document.getElementById('p1-crown')?.value || 'FEATHER';
@@ -217,6 +216,66 @@ function bindUI() {
     }
 }
 
+// 💡 提升檔次的數據渲染：主指標 + 摺疊進階選單
+function renderTelemetryHTML() {
+    let debugHTML = '';
+
+    activeTops.forEach(t => {
+        t.stepPhysics(0.016);
+        const rpm = t.getRPM();
+        const rpmPct = Math.min(100, Math.round((rpm / 12000) * 100));
+        const hpPct = Math.max(0, Math.round((t.hp / t.maxHp) * 100));
+        const speed = t.getLinearSpeed().toFixed(2);
+        const ke = t.getKineticEnergy();
+        const tilt = t.getTiltAngle();
+        const Fc = t.getCentripetalForce();
+        const omega = Math.abs(t.body.angularVelocity.y).toFixed(1);
+
+        debugHTML += `
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(0, 242, 254, 0.2); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+                <div style="font-weight: bold; font-size: 0.8rem; color: #38bdf8; margin-bottom: 4px;">${t.name}</div>
+                
+                <!-- 1. RPM 條 -->
+                <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
+                    <span>🌀 轉速: <b>${rpm} RPM</b></span>
+                    <span>${rpmPct}%</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
+                    <div style="width: ${rpmPct}%; background: linear-gradient(90deg, #00f2fe, #4facfe); height: 100%;"></div>
+                </div>
+
+                <!-- 2. HP 條 -->
+                <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
+                    <span>❤️ 爆裂血量: <b>${Math.max(0, Math.round(t.hp))} HP</b></span>
+                    <span>${hpPct}%</span>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
+                    <div style="width: ${hpPct}%; background: linear-gradient(90deg, #ff416c, #ff4b2b); height: 100%;"></div>
+                </div>
+
+                <!-- 3. 移動速度 -->
+                <div style="font-size: 0.7rem; color: #cbd5e1; margin-bottom: 6px;">
+                    ⚡ 移動速度 $v$: <b>${speed} m/s</b>
+                </div>
+
+                <!-- 4. 摺疊進階物理數據 (提升檔次) -->
+                <details style="margin-top: 4px; font-size: 0.68rem; color: #94a3b8; cursor: pointer;">
+                    <summary style="color: #f59e0b; outline: none; padding: 2px 0;">🔬 展開進階物理向量 (Tensor / Force)</summary>
+                    <div style="background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px; margin-top: 4px; line-height: 1.4;">
+                        • 角速度 $\omega$: <b>${omega} rad/s</b><br>
+                        • 系統總動能 $E_k$: <b>${ke} J</b><br>
+                        • 向心拉力 $F_c$: <b>${Fc} N</b><br>
+                        • 3D 姿態傾斜角 $\theta$: <b>${tilt}°</b>
+                    </div>
+                </details>
+            </div>
+        `;
+    });
+
+    const telemetry = document.getElementById('physics-telemetry-content');
+    if (telemetry) telemetry.innerHTML = debugHTML;
+}
+
 function gameLoop(now) {
     requestAnimationFrame(gameLoop);
     const dt = Math.min((now - lastTime) / 1000, 0.05);
@@ -225,27 +284,10 @@ function gameLoop(now) {
     if (isSimulating) {
         world.step(1 / 240, dt, 10);
 
-        // 調用 engine3d 封裝的剛體碰撞力學
         handle3DTopCollisions();
-
         update3DSparks(dt);
         check3DMatchResult();
-
-        let debugHTML = '';
-        activeTops.forEach(t => {
-            t.stepPhysics(dt);
-            const angVelOmega = (Math.abs(t.body.angularVelocity.y)).toFixed(1);
-            const linSpeed = t.body.velocity.norm().toFixed(2);
-            const rpm = t.getRPM();
-            
-            debugHTML += `<b>${t.name}</b><br>` +
-                `• 角速度 ω: ${angVelOmega} rad/s (${rpm} RPM)<br>` +
-                `• 線速度 v: ${linSpeed} m/s<br>` +
-                `• 爆裂血量: ${Math.max(0, Math.round(t.hp))}%<br><br>`;
-        });
-
-        const telemetry = document.getElementById('physics-telemetry-content');
-        if (telemetry) telemetry.innerHTML = debugHTML;
+        renderTelemetryHTML();
     }
 
     controls.update();
