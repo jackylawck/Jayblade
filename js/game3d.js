@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、可摺疊科研數據與對戰邏輯主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、無流失 DOM 數據面板與對戰邏輯
 
 import { 
     init3DEngine, 
@@ -17,9 +17,6 @@ let isSimulating = false;
 let isMatchEnded = false;
 let isCountdownRunning = false;
 let lastTime = performance.now();
-
-// 💡 記憶每個陀螺的 details 展開狀態，防止 innerHTML 重繪時被關閉
-const detailsOpenState = {};
 
 function hexToNum(hexStr) {
     if (!hexStr) return 0x0284c7;
@@ -80,6 +77,10 @@ function runCountdownLaunch(mode) {
 
     activeTops.forEach(t => { world.remove(t.body); scene.remove(t.group); });
     activeTops.length = 0;
+
+    // 清空 DOM 結構以便重新構建
+    const telemetry = document.getElementById('physics-telemetry-content');
+    if (telemetry) telemetry.innerHTML = '';
 
     const sequence = ["3...", "2...", "1...", "🔥 GO!"];
     let step = 0;
@@ -177,6 +178,111 @@ function spawnTopsAndStart(mode) {
     }
 
     isSimulating = true;
+    buildTelemetryDOM(); // 建立不毀壞的固定 DOM 節點
+}
+
+// 💡 建立固定 DOM 結構 (僅執行一次，保證 <details> 點擊完全正常)
+function buildTelemetryDOM() {
+    const telemetry = document.getElementById('physics-telemetry-content');
+    if (!telemetry) return;
+
+    telemetry.innerHTML = ''; // 清空舊內容
+
+    activeTops.forEach((t, idx) => {
+        const card = document.createElement('div');
+        card.id = `top-card-${idx}`;
+        card.style.cssText = "background: rgba(255,255,255,0.03); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 8px; padding: 8px; margin-bottom: 8px;";
+
+        card.innerHTML = `
+            <div style="font-weight: bold; font-size: 0.8rem; color: #38bdf8; margin-bottom: 4px;">${t.name}</div>
+            
+            <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
+                <span>🌀 轉速: <b id="rpm-val-${idx}">0 RPM</b></span>
+                <span id="rpm-pct-${idx}">0%</span>
+            </div>
+            <div style="width: 100%; background: rgba(255,255,255,0.1); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
+                <div id="rpm-bar-${idx}" style="width: 0%; background: linear-gradient(90deg, #00f2fe, #4facfe); height: 100%; transition: width 0.1s;"></div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
+                <span>❤️ 爆裂血量: <b id="hp-val-${idx}">120 HP</b></span>
+                <span id="hp-pct-${idx}">100%</span>
+            </div>
+            <div style="width: 100%; background: rgba(255,255,255,0.1); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
+                <div id="hp-bar-${idx}" style="width: 100%; background: linear-gradient(90deg, #ff416c, #ff4b2b); height: 100%; transition: width 0.1s;"></div>
+            </div>
+
+            <div style="font-size: 0.7rem; color: #cbd5e1; margin-bottom: 6px;">
+                ⚡ 線速度 v: <b id="speed-val-${idx}">0.00 m/s</b>
+            </div>
+
+            <details style="margin-top: 4px; font-size: 0.68rem; color: #94a3b8; cursor: pointer;">
+                <summary style="color: #f59e0b; outline: none; padding: 2px 0; font-weight: bold; user-select:none;">🔬 展開科研級 3D 物理張量 (Rigid-body Physics)</summary>
+                
+                <div style="background: rgba(0,0,0,0.4); padding: 6px; border-radius: 4px; margin-top: 4px; line-height: 1.45; border-left: 2px solid #f59e0b;">
+                    <b style="color: #00f2fe;">1. 剛體角動量與轉矩</b><br>
+                    • 角速度 ω: <b id="omega-val-${idx}">0.0 rad/s</b><br>
+                    • 角動量向量 L: <b id="L-val-${idx}">(0, 0, 0) kg·m²/s</b><br>
+                    • 上次對撞衝量 J: <b id="J-val-${idx}">0.000 N·s</b><br><br>
+
+                    <b style="color: #10b981;">2. 能量解析系統</b><br>
+                    • 系統總動能 E_k: <b id="E-val-${idx}">0.000 J</b><br>
+                    • 轉動動能 E_rot: <b id="Erot-val-${idx}">0.000 J</b><br>
+                    • 平動動能 E_trans: <b id="Etrans-val-${idx}">0.000 J</b><br><br>
+
+                    <b style="color: #a855f7;">3. 陀螺儀姿態與進動</b><br>
+                    • 3D 姿態傾斜角 θ: <b id="tilt-val-${idx}">0.0°</b><br>
+                    • 進動頻率 f_precession: <b id="prec-val-${idx}">0.00 Hz</b><br><br>
+
+                    <b style="color: #ff7e5f;">4. 接觸面與外力場</b><br>
+                    • 法向支持力 N: <b id="Fn-val-${idx}">0.000 N</b><br>
+                    • 切向滑動摩擦力 F_f: <b id="Ff-val-${idx}">0.000 N</b><br>
+                    • 盤面向心拉力 F_c: <b id="Fc-val-${idx}">0.000 N</b>
+                </div>
+            </details>
+        `;
+        telemetry.appendChild(card);
+    });
+}
+
+// 💡 僅做純數據更新（Direct Value Assignment），極度流暢且 DOM 節點完全不被重構
+function updateTelemetryValues() {
+    activeTops.forEach((t, idx) => {
+        t.stepPhysics(0.016);
+        const rpm = t.getRPM();
+        const rpmPct = Math.min(100, Math.round((rpm / 12000) * 100));
+        const hpPct = Math.max(0, Math.round((t.hp / t.maxHp) * 100));
+        const speed = t.getLinearSpeed().toFixed(2);
+        const L = t.getAngularMomentumVector();
+
+        const rpmValEl = document.getElementById(`rpm-val-${idx}`);
+        if (!rpmValEl) return; // 尚未初始化
+
+        rpmValEl.innerText = `${rpm} RPM`;
+        document.getElementById(`rpm-pct-${idx}`).innerText = `${rpmPct}%`;
+        document.getElementById(`rpm-bar-${idx}`).style.width = `${rpmPct}%`;
+
+        document.getElementById(`hp-val-${idx}`).innerText = `${Math.max(0, Math.round(t.hp))} HP`;
+        document.getElementById(`hp-pct-${idx}`).innerText = `${hpPct}%`;
+        document.getElementById(`hp-bar-${idx}`).style.width = `${hpPct}%`;
+
+        document.getElementById(`speed-val-${idx}`).innerText = `${speed} m/s`;
+
+        document.getElementById(`omega-val-${idx}`).innerText = `${Math.abs(t.body.angularVelocity.y).toFixed(1)} rad/s`;
+        document.getElementById(`L-val-${idx}`).innerText = `(${L.Lx}, ${L.Ly}, ${L.Lz}) kg·m²/s`;
+        document.getElementById(`J-val-${idx}`).innerText = `${t.lastImpulseMag || "0.000"} N·s`;
+
+        document.getElementById(`E-val-${idx}`).innerText = `${t.getTotalKE()} J`;
+        document.getElementById(`Erot-val-${idx}`).innerText = `${t.getRotationalKE().toFixed(4)} J`;
+        document.getElementById(`Etrans-val-${idx}`).innerText = `${t.getTranslationalKE().toFixed(4)} J`;
+
+        document.getElementById(`tilt-val-${idx}`).innerText = `${t.getTiltAngle()}°`;
+        document.getElementById(`prec-val-${idx}`).innerText = `${t.getPrecessionFrequency()} Hz`;
+
+        document.getElementById(`Fn-val-${idx}`).innerText = `${t.getNormalForce()} N`;
+        document.getElementById(`Ff-val-${idx}`).innerText = `${t.getFrictionForce()} N`;
+        document.getElementById(`Fc-val-${idx}`).innerText = `${t.getCentripetalForce()} N`;
+    });
 }
 
 function bindUI() {
@@ -219,100 +325,6 @@ function bindUI() {
     }
 }
 
-// 🔬 科研級物理數據面板渲染 (保留展開狀態 + HP 動態扣減)
-function renderTelemetryHTML() {
-    let debugHTML = '';
-
-    activeTops.forEach((t, idx) => {
-        t.stepPhysics(0.016);
-        const rpm = t.getRPM();
-        const rpmPct = Math.min(100, Math.round((rpm / 12000) * 100));
-        const hpPct = Math.max(0, Math.round((t.hp / t.maxHp) * 100));
-        const speed = t.getLinearSpeed().toFixed(2);
-        const totalKE = t.getTotalKE();
-        const rotKE = t.getRotationalKE().toFixed(4);
-        const transKE = t.getTranslationalKE().toFixed(4);
-        const tilt = t.getTiltAngle();
-        const precessionFreq = t.getPrecessionFrequency();
-        const Fc = t.getCentripetalForce();
-        const Fn = t.getNormalForce();
-        const Ff = t.getFrictionForce();
-        const omega = Math.abs(t.body.angularVelocity.y).toFixed(1);
-        const L = t.getAngularMomentumVector();
-
-        const topKey = `top_${idx}_${t.name}`;
-        const isOpen = detailsOpenState[topKey] ? 'open' : '';
-
-        debugHTML += `
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
-                <div style="font-weight: bold; font-size: 0.8rem; color: #38bdf8; margin-bottom: 4px;">${t.name}</div>
-                
-                <!-- 1. RPM 條 -->
-                <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
-                    <span>🌀 轉速: <b>${rpm} RPM</b></span>
-                    <span>${rpmPct}%</span>
-                </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
-                    <div style="width: ${rpmPct}%; background: linear-gradient(90deg, #00f2fe, #4facfe); height: 100%;"></div>
-                </div>
-
-                <!-- 2. HP 條 (會隨碰撞動態扣減) -->
-                <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
-                    <span>❤️ 爆裂血量: <b>${Math.max(0, Math.round(t.hp))} HP</b></span>
-                    <span>${hpPct}%</span>
-                </div>
-                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
-                    <div style="width: ${hpPct}%; background: linear-gradient(90deg, #ff416c, #ff4b2b); height: 100%;"></div>
-                </div>
-
-                <!-- 3. 移動速度 -->
-                <div style="font-size: 0.7rem; color: #cbd5e1; margin-bottom: 6px;">
-                    ⚡ 線速度 v: <b>${speed} m/s</b>
-                </div>
-
-                <!-- 4. 🔬 科研摺疊選單 (綁定 ontoggle 保持狀態) -->
-                <details data-topkey="${topKey}" ${isOpen} style="margin-top: 4px; font-size: 0.68rem; color: #94a3b8; cursor: pointer;">
-                    <summary style="color: #f59e0b; outline: none; padding: 2px 0; font-weight: bold;">🔬 展開科研級 3D 物理張量 (Rigid-body Physics)</summary>
-                    
-                    <div style="background: rgba(0,0,0,0.4); padding: 6px; border-radius: 4px; margin-top: 4px; line-height: 1.45; border-left: 2px solid #f59e0b;">
-                        <b style="color: #00f2fe;">1. 剛體角動量與轉矩</b><br>
-                        • 角速度 ω: <b>${omega} rad/s</b><br>
-                        • 角動量向量 L: <b>(${L.Lx}, ${L.Ly}, ${L.Lz}) kg·m²/s</b><br>
-                        • 上次對撞衝量 J: <b>${t.lastImpulseMag || "0.000"} N·s</b><br><br>
-
-                        <b style="color: #10b981;">2. 能量解析系統</b><br>
-                        • 系統總動能 E_k: <b>${totalKE} J</b><br>
-                        • 轉動動能 E_rot: <b>${rotKE} J</b><br>
-                        • 平動動能 E_trans: <b>${transKE} J</b><br><br>
-
-                        <b style="color: #a855f7;">3. 陀螺儀姿態與進動</b><br>
-                        • 3D 姿態傾斜角 θ: <b>${tilt}°</b><br>
-                        • 進動頻率 f_precession: <b>${precessionFreq} Hz</b><br><br>
-
-                        <b style="color: #ff7e5f;">4. 接觸面與外力場</b><br>
-                        • 法向支持力 N: <b>${Fn} N</b><br>
-                        • 切向滑動摩擦力 F_f: <b>${Ff} N</b><br>
-                        • 盤面向心拉力 F_c: <b>${Fc} N</b>
-                    </div>
-                </details>
-            </div>
-        `;
-    });
-
-    const telemetry = document.getElementById('physics-telemetry-content');
-    if (telemetry) {
-        telemetry.innerHTML = debugHTML;
-
-        // 綁定 details 事件監聽，紀錄玩家開合狀態
-        telemetry.querySelectorAll('details').forEach(el => {
-            el.ontoggle = () => {
-                const key = el.getAttribute('data-topkey');
-                if (key) detailsOpenState[key] = el.open;
-            };
-        });
-    }
-}
-
 function gameLoop(now) {
     requestAnimationFrame(gameLoop);
     const dt = Math.min((now - lastTime) / 1000, 0.05);
@@ -324,7 +336,7 @@ function gameLoop(now) {
         handle3DTopCollisions();
         update3DSparks(dt);
         check3DMatchResult();
-        renderTelemetryHTML();
+        updateTelemetryValues(); // 使用純數值賦值更新，絕不銷毀 DOM 節點
     }
 
     controls.update();
