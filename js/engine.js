@@ -1,10 +1,9 @@
-// js/engine.js - 《爆上陀螺 Jayblade》 Arcade 熱血打擊感物理引擎
+// js/engine.js - 《爆上陀螺 Jayblade》2D 物理引擎 (修正爆裂傷害，拉長對戰時間)
 
 export let STADIUM_CX = 400;
 export let STADIUM_CY = 300;
 export let STADIUM_R = 220;
 
-// 畫面震動變數
 export let screenShake = 0;
 
 export const STADIUM_POCKETS = [
@@ -34,9 +33,9 @@ export class Top2D {
 
         this.radius = config.radius || 24;
         this.mass = config.mass || 0.048;
-        this.burstResist = config.burstResist || 0.85;
+        this.burstResist = config.burstResist || 1.8; // 調高爆裂抗性
 
-        this.hp = 100;
+        this.hp = 150; // 調高基礎血量，防止太快爆裂
         this.isKnockedOut = false;
         this.isBurst = false;
         this.knockoutReason = "";
@@ -67,7 +66,6 @@ export function createSparks(x, y, count = 20) {
             color: Math.random() > 0.3 ? "#ffea00" : "#ff3300"
         });
     }
-    // 衝擊波圈
     shockwaves.push({ x, y, r: 10, maxR: 50, alpha: 1.0 });
 }
 
@@ -102,7 +100,7 @@ export function check2DStadiumBoundary(top, onEventCallback) {
             top.isKnockedOut = true;
             top.vx = 0; top.vy = 0; top.angularVelocity = 0;
             top.knockoutReason = pocket.name;
-            screenShake = 20;
+            screenShake = 15;
             if (onEventCallback) onEventCallback("KNOCKOUT", { top, pocket });
             return;
         }
@@ -120,7 +118,6 @@ export function check2DStadiumBoundary(top, onEventCallback) {
     }
 }
 
-// 💥 暴發性重擊彈開與震動
 export function handleTopCollision(topA, topB, onEventCallback) {
     if (topA.isKnockedOut || topB.isKnockedOut || topA.isBurst || topB.isBurst) return;
 
@@ -133,7 +130,6 @@ export function handleTopCollision(topA, topB, onEventCallback) {
         const nx = dx / dist;
         const ny = dy / dist;
 
-        // 硬隔離 3px 防止黏連
         const overlap = (minDist - dist) / 2 + 3.0;
         topA.x -= nx * overlap; topA.y -= ny * overlap;
         topB.x += nx * overlap; topB.y += ny * overlap;
@@ -142,13 +138,11 @@ export function handleTopCollision(topA, topB, onEventCallback) {
         const rpmB = Math.abs(topB.getRPM());
         const avgRpm = (rpmA + rpmB) / 2;
 
-        // 巨額碰撞彈飛衝力 (4.5 ~ 9.5 暴衝)
-        const recoilPower = 4.5 + (avgRpm / 12000) * 5.0;
+        const recoilPower = 4.0 + (avgRpm / 12000) * 4.0;
         
-        // 不規則角度偏折（模擬金屬齒輪咬合）
-        const randomRandomAngle = (Math.random() - 0.5) * 0.6;
-        const cosA = Math.cos(randomRandomAngle);
-        const sinA = Math.sin(randomRandomAngle);
+        const randomAngle = (Math.random() - 0.5) * 0.5;
+        const cosA = Math.cos(randomAngle);
+        const sinA = Math.sin(randomAngle);
         const rx = nx * cosA - ny * sinA;
         const ry = nx * sinA + ny * cosA;
 
@@ -157,10 +151,10 @@ export function handleTopCollision(topA, topB, onEventCallback) {
         topB.vx = rx * recoilPower;
         topB.vy = ry * recoilPower;
 
-        // 觸發畫面大震動
-        screenShake = Math.min(25, recoilPower * 3.5);
+        screenShake = Math.min(20, recoilPower * 2.5);
 
-        const damage = recoilPower * 4.5;
+        // 🛠️ 關鍵修正：將傷害大幅降至 0.8，防止過快爆裂，大幅延長對局
+        const damage = recoilPower * 0.8;
         topA.hp -= damage / topA.burstResist;
         topB.hp -= damage / topB.burstResist;
 
@@ -169,7 +163,7 @@ export function handleTopCollision(topA, topB, onEventCallback) {
 
         const midX = (topA.x + topB.x) / 2;
         const midY = (topA.y + topB.y) / 2;
-        createSparks(midX, midY, 24);
+        createSparks(midX, midY, 16);
 
         if (onEventCallback) onEventCallback("CLASH", { topA, topB, impulse: recoilPower, x: midX, y: midY });
     }
@@ -192,7 +186,6 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
             const dy = top.y - STADIUM_CY;
             const dist = Math.hypot(dx, dy);
 
-            // ⚡ X-Dash 軌道極速暴衝機制！
             const railMin = STADIUM_R - 22;
             const railMax = STADIUM_R - 6;
 
@@ -201,19 +194,17 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
                 const tangentY = dx / dist;
                 const dir = top.isRightSpin ? 1 : -1;
                 
-                // 進入軌道極速狂飆，撞向盤心！
-                top.vx += tangentX * 0.8 * dir - (dx / dist) * 0.3;
-                top.vy += tangentY * 0.8 * dir - (dy / dist) * 0.3;
+                top.vx += tangentX * 0.7 * dir - (dx / dist) * 0.25;
+                top.vy += tangentY * 0.7 * dir - (dy / dist) * 0.25;
                 createSparks(top.x, top.y, 2);
             } else if (dist > 5 && dist < railMin) {
-                // 盤心拉引
-                top.vx -= (dx / dist) * 0.28;
-                top.vy -= (dy / dist) * 0.28;
+                top.vx -= (dx / dist) * 0.25;
+                top.vy -= (dy / dist) * 0.25;
             }
 
-            top.vx *= 0.992;
-            top.vy *= 0.992;
-            top.angularVelocity *= 0.9994;
+            top.vx *= 0.993;
+            top.vy *= 0.993;
+            top.angularVelocity *= 0.9996; // 持久旋轉阻尼
 
             if (Math.abs(top.angularVelocity) < 2) top.angularVelocity = 0;
 
@@ -234,7 +225,6 @@ export function draw2DStadiumLayout(ctx, width, height) {
 
     ctx.save();
 
-    // 畫面震動效果 (Screen Shake)
     if (screenShake > 0.5) {
         const shakeX = (Math.random() - 0.5) * screenShake;
         const shakeY = (Math.random() - 0.5) * screenShake;
@@ -251,14 +241,12 @@ export function draw2DStadiumLayout(ctx, width, height) {
     ctx.fillStyle = stadiumGrad;
     ctx.fill();
 
-    // 螢光綠衝刺齒軌
     ctx.beginPath();
     ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R - 12, 0, Math.PI * 2);
     ctx.strokeStyle = "#10b981";
     ctx.lineWidth = 8;
     ctx.stroke();
 
-    // 三大口袋
     STADIUM_POCKETS.forEach(p => {
         ctx.beginPath();
         ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R + 2, p.minAngle, p.maxAngle);
@@ -267,7 +255,6 @@ export function draw2DStadiumLayout(ctx, width, height) {
         ctx.stroke();
     });
 
-    // 衝擊波圈
     shockwaves.forEach(sw => {
         ctx.save();
         ctx.beginPath();
@@ -278,7 +265,6 @@ export function draw2DStadiumLayout(ctx, width, height) {
         ctx.restore();
     });
 
-    // 火花
     sparks.forEach(p => {
         ctx.save();
         ctx.globalAlpha = p.life;
