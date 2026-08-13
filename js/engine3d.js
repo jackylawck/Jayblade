@@ -1,4 +1,4 @@
-// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (含配件力學與底軸摩擦)
+// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (含動態陰影與 3D 空間碰撞)
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -7,19 +7,18 @@ export var scene, camera, renderer, controls, world, defaultMaterial, stadiumMat
 export var activeTops = [];
 export var sparkParticles = [];
 
-// 配件力學參數庫 (Crown & Tip Dynamics)
 export const PARTS_PHYSICS = {
     CROWN: {
-        FEATHER: { mass: 0.042, radius: 1.05, drag: 0.003 }, // 羽翼飛刃：輕量、高速
-        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.005 }, // 龍紋重環：標準配重
-        HEAVY:   { mass: 0.056, radius: 0.98, drag: 0.007 }, // 裝甲重錘：極重、衝量大
-        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.004 }  // 魔導圓盾：偏防守
+        FEATHER: { mass: 0.042, radius: 1.05, drag: 0.003 },
+        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.005 },
+        HEAVY:   { mass: 0.056, radius: 0.98, drag: 0.007 },
+        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.004 }
     },
     TIP: {
-        FLAT:   { friction: 0.08, angularDamping: 0.006, grip: 1.8 }, // 平頭：高抓地暴衝、持久略低
-        BALL:   { friction: 0.02, angularDamping: 0.002, grip: 0.5 }, // 球軸：極低摩擦、超高持久
-        NEEDLE: { friction: 0.04, angularDamping: 0.004, grip: 1.2 }, // 針軸：定點防禦
-        ACCEL:  { friction: 0.09, angularDamping: 0.007, grip: 2.2 }  // 衝刺：極高切向抓地
+        FLAT:   { friction: 0.08, angularDamping: 0.006, grip: 1.8 },
+        BALL:   { friction: 0.02, angularDamping: 0.002, grip: 0.5 },
+        NEEDLE: { friction: 0.04, angularDamping: 0.004, grip: 1.2 },
+        ACCEL:  { friction: 0.09, angularDamping: 0.007, grip: 2.2 }
     }
 };
 
@@ -33,26 +32,35 @@ export function init3DEngine(containerEl) {
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    
+    // 💡 1. 開啟 3D 動態陰影渲染
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     containerEl.appendChild(renderer.domElement);
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-    var mainSpot = new THREE.SpotLight(0x38bdf8, 2.5);
-    mainSpot.position.set(0, 25, 0);
+    // 💡 2. 設定投射陰影的主光源
+    var mainSpot = new THREE.SpotLight(0xffffff, 2.0);
+    mainSpot.position.set(0, 20, 5);
     mainSpot.angle = Math.PI / 3;
-    mainSpot.penumbra = 0.5;
+    mainSpot.penumbra = 0.4;
+    mainSpot.castShadow = true;
+    mainSpot.shadow.mapSize.width = 1024;
+    mainSpot.shadow.mapSize.height = 1024;
+    mainSpot.shadow.camera.near = 0.5;
+    mainSpot.shadow.camera.far = 30;
     scene.add(mainSpot);
 
-    var sideLight1 = new THREE.DirectionalLight(0xff7e5f, 1.2);
-    sideLight1.position.set(15, 20, 10);
+    var sideLight1 = new THREE.DirectionalLight(0xff7e5f, 0.8);
+    sideLight1.position.set(15, 15, 10);
     scene.add(sideLight1);
 
-    var sideLight2 = new THREE.DirectionalLight(0x00f2fe, 1.2);
-    sideLight2.position.set(-15, 20, -10);
+    var sideLight2 = new THREE.DirectionalLight(0x00f2fe, 0.8);
+    sideLight2.position.set(-15, 15, -10);
     scene.add(sideLight2);
 
     world = new CANNON.World();
@@ -72,6 +80,7 @@ function create3DStadiumLayout() {
     var mat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.15, metalness: 0.1 });
     var stadiumMesh = new THREE.Mesh(geo, mat);
     stadiumMesh.position.y = -0.4;
+    stadiumMesh.receiveShadow = true; // 💡 戰鬥盤接收影子
     scene.add(stadiumMesh);
 
     var centerRingGeo = new THREE.RingGeometry(1.5, 1.8, 32);
@@ -100,13 +109,11 @@ function create3DStadiumLayout() {
     world.addBody(groundBody);
 }
 
-// 3D 陀螺剛體類別 (動態加載配件力學)
 export class Beyblade3DPhysics {
     constructor(config) {
         this.name = config.name;
         this.isRightSpin = config.isRightSpin;
 
-        // 讀取配件力學屬性
         const crownKey = config.crownKey || "DRAKE";
         const tipKey = config.tipKey || "FLAT";
         const crownData = PARTS_PHYSICS.CROWN[crownKey] || PARTS_PHYSICS.CROWN.DRAKE;
@@ -115,13 +122,11 @@ export class Beyblade3DPhysics {
         this.radius = crownData.radius;
         this.mass = crownData.mass;
         this.tipFriction = tipData.friction;
-        this.tipGrip = tipData.grip;
 
         this.hp = 120;
         this.isKnockedOut = false;
         this.isBurst = false;
 
-        // CANNON.js 物理剛體初始化
         this.body = new CANNON.Body({
             mass: this.mass,
             material: defaultMaterial,
@@ -135,7 +140,6 @@ export class Beyblade3DPhysics {
         var spinRad = (config.rpm * 2 * Math.PI) / 60 * (this.isRightSpin ? -1 : 1);
         this.body.angularVelocity.set(0, spinRad, 0);
 
-        // Three.js Mesh
         this.group = new THREE.Group();
 
         var crownGeo = new THREE.CylinderGeometry(this.radius, this.radius * 0.8, 0.35, 16);
@@ -145,6 +149,7 @@ export class Beyblade3DPhysics {
             roughness: 0.15
         });
         var crownMesh = new THREE.Mesh(crownGeo, crownMat);
+        crownMesh.castShadow = true; // 💡 陀螺產生影子
         this.group.add(crownMesh);
 
         for (var b = 0; b < 6; b++) {
@@ -154,6 +159,7 @@ export class Beyblade3DPhysics {
             var ang = (b / 6) * Math.PI * 2;
             tooth.position.set(Math.cos(ang) * (this.radius * 0.88), 0, Math.sin(ang) * (this.radius * 0.88));
             tooth.rotation.y = -ang;
+            tooth.castShadow = true;
             this.group.add(tooth);
         }
 
@@ -179,7 +185,6 @@ export class Beyblade3DPhysics {
 
         var distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
 
-        // 碗狀坡度向心引力
         if (distFromCenter > 0.1 && distFromCenter < STADIUM_RADIUS) {
             var nx = this.body.position.x / distFromCenter;
             var nz = this.body.position.z / distFromCenter;
@@ -187,7 +192,6 @@ export class Beyblade3DPhysics {
             this.body.applyForce(new CANNON.Vec3(-nx * bowlPull, 0, -nz * bowlPull), this.body.position);
         }
 
-        // 觸牆彈回與擊飛判定
         if (distFromCenter + this.radius >= STADIUM_RADIUS) {
             var nx = this.body.position.x / distFromCenter;
             var nz = this.body.position.z / distFromCenter;
@@ -210,11 +214,12 @@ export class Beyblade3DPhysics {
                 this.body.velocity.x *= 0.90;
                 this.body.velocity.z *= 0.90;
 
-                spawn3DSparks(this.body.position.x, 0.4, this.body.position.z, 6);
+                if (this.getRPM() > 200) {
+                    spawn3DSparks(this.body.position.x, 0.4, this.body.position.z, 6);
+                }
             }
         }
 
-        // 側躺倒地檢查
         var up = new CANNON.Vec3(0, 1, 0);
         var topUp = this.body.quaternion.vmult(new CANNON.Vec3(0, 1, 0));
         var dotUp = topUp.dot(up);
@@ -230,7 +235,7 @@ export class Beyblade3DPhysics {
     }
 }
 
-// 💥 3D 剛體對撞與齒輪反衝力學 (封裝於引擎層)
+// 💥 修正：包含 3D Y 軸高度判定與停轉防刷火花
 export function handle3DTopCollisions() {
     for (let i = 0; i < activeTops.length; i++) {
         for (let j = i + 1; j < activeTops.length; j++) {
@@ -240,35 +245,38 @@ export function handle3DTopCollisions() {
 
             const posA = topA.body.position;
             const posB = topB.body.position;
-            
+
+            const rpmA = topA.getRPM();
+            const rpmB = topB.getRPM();
+
+            // 💡 修正 1：如果雙方轉速低於 50 RPM，視為已停轉靜止，不產生火花與推力
+            if (rpmA < 50 && rpmB < 50) continue;
+
             const dx = posB.x - posA.x;
+            const dy = posB.y - posA.y;
             const dz = posB.z - posA.z;
-            const dist = Math.hypot(dx, dz);
+            
+            // 💡 修正 2：改用包含 Y 軸的 3D 空間距離
+            const dist3D = Math.hypot(dx, dy, dz);
             const minDist = topA.radius + topB.radius;
 
-            if (dist < minDist && dist > 0) {
-                const nx = dx / dist;
-                const nz = dz / dist;
+            // 只有落到盤面附近 (Y < 0.8) 且真實 3D 距離接觸才觸發
+            if (dist3D < minDist && dist3D > 0 && posA.y < 0.8 && posB.y < 0.8) {
+                const nx = dx / dist3D;
+                const nz = dz / dist3D;
 
-                // 1. 位置硬性隔離
-                const overlap = (minDist - dist) / 2 + 0.15;
+                const overlap = (minDist - dist3D) / 2 + 0.15;
                 posA.x -= nx * overlap;
                 posA.z -= nz * overlap;
                 posB.x += nx * overlap;
                 posB.z += nz * overlap;
 
-                // 2. 轉速轉化為反衝推力
-                const rpmA = topA.getRPM();
-                const rpmB = topB.getRPM();
                 const avgRpm = (rpmA + rpmB) / 2;
-
                 const recoilImpulse = avgRpm > 100 ? (0.16 + (avgRpm / 12000) * 0.26) : 0.08;
 
-                // 3. 施加 3D 衝力彈開
                 topA.body.applyImpulse(new CANNON.Vec3(-nx * recoilImpulse, 0.05, -nz * recoilImpulse), posA);
                 topB.body.applyImpulse(new CANNON.Vec3(nx * recoilImpulse, 0.05, nz * recoilImpulse), posB);
 
-                // 4. 對撞角動量與血量扣減
                 topA.body.angularVelocity.y *= 0.94;
                 topB.body.angularVelocity.y *= 0.94;
 
