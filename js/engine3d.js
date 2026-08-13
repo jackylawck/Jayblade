@@ -1,4 +1,4 @@
-// js/engine3d.js - 爆上陀螺 3D 科研級剛體力學物理引擎
+// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (精準對撞與物理張量版)
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -124,13 +124,12 @@ export class Beyblade3DPhysics {
         this.isKnockedOut = false;
         this.isBurst = false;
 
-        // 轉動慣量張量估算 I_yy = 1/2 m r^2, I_xx = I_zz = 1/4 m r^2 + 1/12 m h^2
-        const rMeters = this.radius * 0.03; // 縮放至公制 SI 單位
+        const rMeters = this.radius * 0.03;
         this.I_yy = 0.5 * this.mass * Math.pow(rMeters, 2);
         this.I_xx = 0.25 * this.mass * Math.pow(rMeters, 2) + (1/12) * this.mass * Math.pow(0.015, 2);
         this.I_zz = this.I_xx;
 
-        this.lastImpulseMag = 0; // 上次撞擊衝量
+        this.lastImpulseMag = 0;
 
         this.body = new CANNON.Body({
             mass: this.mass,
@@ -186,7 +185,6 @@ export class Beyblade3DPhysics {
         return this.body.velocity.norm();
     }
 
-    // 🔬 科研級 3D 物理數據計算方法群
     getTranslationalKE() {
         return 0.5 * this.mass * Math.pow(this.getLinearSpeed(), 2);
     }
@@ -219,7 +217,6 @@ export class Beyblade3DPhysics {
         const tiltRad = parseFloat(this.getTiltAngle()) * (Math.PI / 180);
         const wy = Math.abs(this.body.angularVelocity.y);
         if (wy < 1 || tiltRad < 0.01) return "0.00";
-        // 陀螺進動角頻率 Ω_p = (m * g * r_cm) / (I_yy * ω)
         const Omega_p = (this.mass * 9.81 * 0.01) / (this.I_yy * wy);
         return (Omega_p / (2 * Math.PI)).toFixed(2);
     }
@@ -296,6 +293,7 @@ export class Beyblade3DPhysics {
     }
 }
 
+// 💥 修正：放寬 3D 對撞半徑，確保每次對撞能精準扣減 HP
 export function handle3DTopCollisions() {
     for (let i = 0; i < activeTops.length; i++) {
         for (let j = i + 1; j < activeTops.length; j++) {
@@ -315,38 +313,41 @@ export function handle3DTopCollisions() {
             const dy = posB.y - posA.y;
             const dz = posB.z - posA.z;
             
-            const dist3D = Math.hypot(dx, dy, dz);
-            const minDist = topA.radius + topB.radius;
+            const distHorizontal = Math.hypot(dx, dz);
+            const heightDiff = Math.abs(dy);
+            const minDist = topA.radius + topB.radius + 0.3; // 放寬碰撞觸發半徑
 
-            if (dist3D < minDist && dist3D > 0 && posA.y < 0.8 && posB.y < 0.8) {
-                const nx = dx / dist3D;
-                const nz = dz / dist3D;
+            if (distHorizontal < minDist && distHorizontal > 0 && heightDiff < 1.2) {
+                const nx = dx / (distHorizontal || 1);
+                const nz = dz / (distHorizontal || 1);
 
-                const overlap = (minDist - dist3D) / 2 + 0.15;
+                const overlap = (minDist - distHorizontal) / 2 + 0.1;
                 posA.x -= nx * overlap;
                 posA.z -= nz * overlap;
                 posB.x += nx * overlap;
                 posB.z += nz * overlap;
 
                 const avgRpm = (rpmA + rpmB) / 2;
-                const recoilImpulse = avgRpm > 100 ? (0.16 + (avgRpm / 12000) * 0.26) : 0.08;
+                const recoilImpulse = avgRpm > 100 ? (0.20 + (avgRpm / 12000) * 0.35) : 0.12;
 
-                topA.body.applyImpulse(new CANNON.Vec3(-nx * recoilImpulse, 0.05, -nz * recoilImpulse), posA);
-                topB.body.applyImpulse(new CANNON.Vec3(nx * recoilImpulse, 0.05, nz * recoilImpulse), posB);
+                topA.body.applyImpulse(new CANNON.Vec3(-nx * recoilImpulse, 0.08, -nz * recoilImpulse), posA);
+                topB.body.applyImpulse(new CANNON.Vec3(nx * recoilImpulse, 0.08, nz * recoilImpulse), posB);
 
                 topA.lastImpulseMag = recoilImpulse.toFixed(3);
                 topB.lastImpulseMag = recoilImpulse.toFixed(3);
 
-                topA.body.angularVelocity.y *= 0.94;
-                topB.body.angularVelocity.y *= 0.94;
+                topA.body.angularVelocity.y *= 0.93;
+                topB.body.angularVelocity.y *= 0.93;
 
-                topA.hp -= recoilImpulse * 35;
-                topB.hp -= recoilImpulse * 35;
+                // 💥 實質扣減 HP (爆裂卡扣傷害)
+                const dmg = recoilImpulse * 45;
+                topA.hp -= dmg;
+                topB.hp -= dmg;
 
-                if (topA.hp <= 0) topA.isBurst = true;
-                if (topB.hp <= 0) topB.isBurst = true;
+                if (topA.hp <= 0) { topA.hp = 0; topA.isBurst = true; }
+                if (topB.hp <= 0) { topB.hp = 0; topB.isBurst = true; }
 
-                spawn3DSparks((posA.x + posB.x) / 2, 0.4, (posA.z + posB.z) / 2, 12);
+                spawn3DSparks((posA.x + posB.x) / 2, 0.4, (posA.z + posB.z) / 2, 14);
             }
         }
     }
