@@ -1,7 +1,7 @@
 # 🌀 爆上陀螺 Jayblade
 
-**左右雙旋物理模擬器**  
-**Dual-Spin Beyblade Physics Simulator (2D / 3D WebGL)**
+**3D 剛體力學戰鬥陀螺模擬器**  
+**HD 3D Rigid-Body Beyblade Physics Simulator (WebGL / WebRTC)**
 
 [繁體中文](#-繁體中文說明) | [English](#-english-description)
 
@@ -17,47 +17,47 @@ This repository is a non-commercial project created for my son. All friends are 
 
 ## 繁體中文說明
 
-《爆上陀螺 Jayblade》是一款純本地運行的 WebGL 2D/3D 剛體力學戰鬥陀螺對戰模擬器。專為追求真實物理力學與競技深度的玩家設計。
+《爆上陀螺 Jayblade 3D》是一款純本地運行的 WebGL 高清 3D 剛體力學戰鬥陀螺模擬器。以 `index.html` 作為 3D 主戰場，專為追求真實物理力學、16款 Combo 戰術組合與競技深度的玩家設計。
 
 ### ✨ 核心特色
-- 🔬 **第一性原理 2D/3D 物理引擎**：採用 Three.js 與 Cannon.js 剛體動力學，整合半隱式歐拉積分、240Hz 高頻子步（Sub-stepping）防穿透演算、動態恢復係數與拉格朗日章動/進動方程。
-- 🎮 **多元對戰模式**：支援單人對戰 (VS AI 隨機敵機)、1P vs 2P 雙人獨立自訂對戰，以及 4 人障礙大亂鬥。
-- 📊 **實時物理數據監控 (Telemetry)**：實時計算並渲染角速度 $\omega$ (RPM)、線速度 $v$ (m/s)、系統總動能 $KE$ (J) 與動能留存率衰減曲線。
-- 🌀 **左右雙旋對戰**：
-  - **同旋對撞 (Same Spin)**：相對速度高、衝量強烈，極易觸發爆裂（Burst Finish）與擊飛（Over Finish）。
-  - **異旋吸轉 (Spin Steal)**：接觸點切向速度同向，透過金屬環動態摩擦力轉移轉速。
-- ⚙️ **Stribeck 動態摩擦力 & Hunt-Crossley 黏彈性接觸**：底軸在高速時產生不規則軌道衝刺（X-Dash），碰撞時具備漸進式非線性緩衝觸感。
-- 💥 **1P / 2P 獨立配件自訂**：1P 與 2P 可獨立自由組合撞擊環（Crown）與動力底軸（Tip），具備獨立爆裂抗性（`burstResist`）與質量參數。
-- 📦 **UGC 3D 模型實體慣量測試**：支援拖拽上傳 3D 打印檔 (.stl)，自動進行檔案頭簽名檢查並演算轉動慣量張量（Inertia Tensor）。
-- 📐 **中央碗狀盤面坡度 (Bowl Gravity)**：模擬真實戰鬥盤斜面拉回中心對撞，防止初速過快秒離場。
-- 🌐 **WebRTC P2P 遠端連線**：20Hz 主從式狀態同步與客戶端插值渲染，支援 **6 位數簡短房號**，傳輸採用 `Float32Array` 二進制封包壓縮（體積削減 >80%）。
-- 🔒 **企業級資安全面防護**：內建 CSP (Content Security Policy) 標頭、CDN SRI 雜湊完整性校驗、XSS HTML 轉義過濾、二進制 STL 檔案頭簽名檢查與 LocalStorage 加密。
-- 📱 **手機端極致體驗 (Mobile UX)**：點擊發射自動收起選單（Auto-hide UI）、防攔截觸控事件綁定，以及一鍵隱藏/顯示選單面板。
-- 📱 **PWA 跨平台安裝**：支援安裝至 iOS / Android / Desktop 主畫面，離線暢玩。
-- 🌐 **全介面雙語一鍵切換**：繁體中文與 English 全選單、按鈕與數據面板一鍵動態切換。
+- 🔬 **第一性原理 3D 剛體物理引擎**：採用 Three.js 與 Cannon.js，整合 240Hz 高頻子步（Sub-stepping）防穿透演算、動態流體空氣阻力（$F_{\text{drag}}$）、真實動態陰影與倒地磨地快速煞停機制。
+- ⚔️ **16 款戰術 Combo 組合**：收錄 **8 款撞擊環（Blade）**（羽翼飛刃、朱雀翼刃、死神鐮刀、犀牛角盾等）與 **8 款動力底軸（Bit）**（極速平頭、持久球軸、防禦針軸、橡膠平軸等），完美呈現質量、轉動慣量與摩擦係數差異。
+- 🎮 **多元對戰模式**：支援單人對戰 (VS AI)、1P vs 2P 同機對戰、**WebRTC P2P 遠端連線對決**，以及 4 人障礙大亂鬥。
+- 🔬 **4 大維度物理張量面板 (Telemetry)**：
+  - **剛體角動量與轉矩**：角速度 $\omega$ (RPM)、角動量向量 $\mathbf{L}$、衝量 $J$ ($N\cdot s$)。
+  - **能量解析系統**：系統總動能 $E_k$ ($J$)、轉動動能 $E_{\text{rot}}$、平動動能 $E_{\text{trans}}$。
+  - **陀螺儀姿態與進動**：3D 姿態傾斜角 $\theta$、進動頻率 $f_{\text{precession}}$ ($Hz$)。
+  - **接觸面與外力場**：法向支持力 $N$、切向滑動摩擦力 $F_f$、盤面向心拉力 $F_c$。
+- 🌀 **雙旋與對撞機制**：
+  - **同旋爆撞 (Same Spin)**：高相對速度與反衝衝量 (Recoil Impulse)，實時扣減爆裂血量（HP）至 0 觸發 **💥 Burst Finish**。
+  - **異旋吸轉 (Spin Steal)**：接觸點動態摩擦力轉移轉速。
+- 📦 **UGC 3D 模型慣量測試**：支援拖拽上傳 3D 打印檔 (.stl)，自動進行檔案頭簽名檢查並演算轉動慣量張量（Inertia Tensor）。
+- 🌐 **WebRTC P2P 遠端連線對戰**：採用 **7 位數純數字房間 ID**，主機端廣播剛體姿態，客戶端實作姿態平滑插值 (Lerp/Slerp)，實現跨裝置遠端連線。
+- 🌐 **100% 全介面雙語動態切換**：支援 **繁體中文** 與 **English** 一鍵切換，包含所有 UI 標籤、對戰 Banner、下拉選項與科研物理面板。
+- 📱 **手機端極致體驗 (Mobile UX & PWA)**：預設 3, 2, 1, GO! 發射動畫、發射後自動隱藏 UI，支援 PWA 安裝至 iOS / Android 主畫面離線暢玩。
 
 ---
 
 ## English Description
 
-*Jayblade* is a pure local WebGL 2D/3D rigid-body physics simulator for Beyblade battles. Designed for physics enthusiasts and players seeking high-level competitive depth.
+*Jayblade 3D* is a local WebGL HD 3D rigid-body physics simulator for Beyblade battles. Featuring `index.html` as the main 3D arena, it is built for physics enthusiasts and players seeking strategic Combo customization and competitive depth.
 
 ### ✨ Key Features
-- 🔬 **First-Principles 2D/3D Physics Engine**: Built with Three.js & Cannon.js, 240Hz high-frequency sub-stepping collision detection, dynamic restitution, and decoupled Lagrange nutation/precession kinematics.
-- 🎮 **Multiple Battle Modes**: Supports Single-Player VS AI (random generated opponent), 1P vs 2P custom matchups, and 4-Player Battle Royal.
-- 📊 **Real-time Live Telemetry**: Live computation of angular velocity $\omega$ (RPM), linear speed $v$ (m/s), total kinetic energy $KE$ (J), and kinetic energy retention curves.
-- 🌀 **Dual-Spin Mechanics**:
-  - **Same-Spin Collision**: High relative impulse leading to heavy Burst and Over Finishes.
-  - **Spin Steal (Opposite Spin)**: Equalizes angular velocity through dynamic metallic friction force during collisions.
-- ⚙️ **Stribeck Dynamic Friction & Hunt-Crossley Contact**: Flat tips slide at high speed for rail dashes (X-Dash), featuring non-linear damping dissipation during impacts.
-- 💥 **1P / 2P Independent Customization**: Custom Crowns & Tips for both players with individual `burstResist` and mass metrics.
+- 🔬 **First-Principles 3D Physics Engine**: Powered by Three.js & Cannon.js, 240Hz sub-stepping collision detection, fluid aerodynamic drag ($F_{\text{drag}}$), dynamic soft shadows, and tilt-friction stopping dynamics.
+- ⚔️ **16 Tactical Combo Parts**: Includes **8 Blades** (Feather Blade, Phoenix Wing, Scythe Incendio, Rhino Horn, etc.) and **8 Bit Tips** (Flat Speed, Ball Bearing, Rubber Recoil, Hexa Shield, etc.) with realistic mass, inertia, and friction coefficients.
+- 🎮 **Multiple Battle Modes**: Single-Player VS AI, 1P vs 2P Local Battle, **WebRTC P2P Remote Online Battle**, and 4-Player Battle Royale.
+- 🔬 **4-Dimension Telemetry Panel**:
+  - **Angular Dynamics**: Angular velocity $\omega$ (RPM), angular momentum vector $\mathbf{L}$, impact impulse $J$ ($N\cdot s$).
+  - **Energy System**: Total kinetic energy $E_k$ ($J$), rotational energy $E_{\text{rot}}$, translational energy $E_{\text{trans}}$.
+  - **Gyroscopic Kinematics**: 3D tilt angle $\theta$, precession frequency $f_{\text{precession}}$ ($Hz$).
+  - **Surface Dynamics**: Normal force $N$, friction force $F_f$, centripetal pull $F_c$.
+- 🌀 **Dual-Spin & Clash Mechanics**:
+  - **Same-Spin Recoil**: High relative impulse reducing Burst Health (HP) down to 0 for **💥 Burst Finishes**.
+  - **Spin Steal**: Angular velocity transfer via metallic contact friction.
 - 📦 **UGC 3D STL Model Inertia Testing**: Drag & drop custom 3D printing files (.stl) with header validation and automated Inertia Tensor calculation.
-- 📐 **Center Bowl Slope Gravity**: Simulates authentic stadium sloped gravity pulling tops towards the center for extended battles.
-- 🌐 **WebRTC P2P Multiplayer**: Server-authoritative 20Hz synchronization using compressed `Float32Array` binary payloads (>80% bandwidth reduction) with 6-digit room IDs.
-- 🔒 **Enterprise-Grade Security**: Strict CSP headers, SRI integrity checks, HTML XSS sanitization, binary STL validation, and encrypted storage.
-- 📱 **Mobile UX Optimized**: Auto-hides UI upon launch on mobile screens, native touch bindings, and responsive toggle menu button.
-- 📱 **PWA Support**: Fully installable on iOS, Android, and Desktop with offline capability.
-- 🌐 **Bilingual Interface**: One-click dynamic toggle between Traditional Chinese and English.
+- 🌐 **WebRTC P2P Remote Match**: Simplified **7-digit numeric Room ID**, host-authoritative physics broadcasting with client-side linear interpolation (Lerp/Slerp).
+- 🌐 **100% Bilingual Interface**: One-click toggle between **Traditional Chinese** and **English** for all labels, drop-downs, banners, and telemetry Data.
+- 📱 **Mobile UX & PWA**: Features "3, 2, 1, GO!" countdown, mobile auto-hiding UI overlay, and PWA installation for offline play on iOS and Android.
 
 ---
 
@@ -65,39 +65,38 @@ This repository is a non-commercial project created for my son. All friends are 
 
 ```text
 Jayblade/
-├── index.html            # 2D 經典版主頁 & SEO / PWA Meta
-├── 3d.html               # 3D 剛體對戰模擬器頁面 (單人VS AI / 1P vs 2P / 4人亂鬥)
-├── style.css             # 2D 頁面響應式 UI 與電競主題樣式
-├── css/
-│   └── 3d.css            # 3D 頁面 UI 樣式表
-├── manifest.json         # PWA 設定檔與截圖聲明
-├── sw.js                 # Service Worker 離線快取與自動版本更新
-├── JaybladeICON-192.png  # 192x192 PWA 圖示
-├── JaybladeICON-512.png  # 512x512 PWA 主圖示
+├── index.html          # 3D 高清主模擬器頁面 (VS AI / 1P vs 2P / WebRTC / 4人亂鬥)
+├── 2d.html             # 2D 經典省電版頁面
+├── manifest.json       # PWA 設定檔與圖示聲明
+├── sw.js               # Service Worker 離線快取與離線支援
+├── JaybladeICON-192.png # 192x192 PWA 圖示
+├── JaybladeICON-512.png # 512x512 PWA 主圖示
 └── js/
-    ├── security.js       # 2D 輕量級防篡改與資安模組
-    ├── parts.js          # 配件資料庫與雙語對照
-    ├── engine.js         # 2D 剛體力學物理演算與音效引擎
-    ├── game.js           # 2D 遊戲主循環、WebRTC 與 UI 控制
-    ├── config.js         # 3D 裝置效能動態分級
-    ├── audio.js          # 3D Web Audio 音效引擎
-    ├── particles.js      # 3D GPU Shader 加速火花系統
-    ├── network.js        # 3D WebRTC 狀態快照與對齊 (Reconciliation)
-    ├── ui.js             # 3D 雙語字典與實時能量曲線 Canvas
-    ├── physics.js        # 3D Cannon.js 240Hz 高頻剛體物理引擎
-    └── ugc_loader.js     # UGC 3D STL 模型檔頭檢查與慣量張量演算
+    ├── engine3d.js     # 3D Cannon.js / Three.js 剛體力學引擎、16款 Combo 屬性與碰撞
+    └── game3d.js       # 3D 遊戲主循環、WebRTC P2P (7位數房號)、雙語字典與 Telemetry 渲染
 
 ```
+
+---
+
 ## 🚀 本地執行與部署 / Deployment
-本專案為無後端（Zero-Backend）純前端應用，可以直接部署至 GitHub Pages：
- 1. 將檔案推送至你的 GitHub Repository：
+
+本專案為無後端（Zero-Backend）純前端應用，可直接部署至 GitHub Pages：
+
+1. 推送更新至 GitHub Repository：
+
 ```bash
 git add .
-git commit -m "Docs: Update README with VS AI mode, 1P/2P customization, mobile UX auto-hide UI, and STL UGC support"
+git commit -m "Docs: Update README to focus on 3D simulator, 16 Combo parts, WebRTC 7-digit ID, and physics tensors"
 git push origin main
 
 ```
- 2. 在 GitHub Repository 的 **Settings -> Pages** 中選擇 main 分支並儲存。
- 3. 數分鐘後即可經由 https://<your-username>.github.io/<repository-name>/ 開啟 2D 版，或開啟 https://<your-username>.github.io/<repository-name>/3d.html 體驗 3D 版。
+
+2. 開啟 GitHub Repository **Settings -> Pages**，選擇 `main` 分支並儲存。
+3. 部署完成後，即可經由 `https://<your-username>.github.io/<repository-name>/` 體驗全新的 **Jayblade 3D 主戰場**（或存取 `2d.html` 進入 2D 經典版）。
+
+---
+
 ## 📄 授權條款 / License
+
 MIT License © 2026 Jacky Law (羅子淇)
