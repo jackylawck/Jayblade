@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、7位數簡短房號 WebRTC P2P 遠端連線主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、WebRTC 對手數據同步與 7位數純數字房號主控
 
 import { 
     init3DEngine, 
@@ -25,7 +25,6 @@ let conn = null;
 let isHost = true;
 let peerId = '';
 
-// 🌐 100% 全中/全英無死角字典 (Full I18N Dictionary)
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
@@ -51,7 +50,7 @@ const I18N = {
         readyStatus: "請選擇對戰模式發射...",
         toggleUi: "👁️ 隱藏/顯示選單",
         onlineTitle: "🌐 3D WebRTC 遠端連線大廳",
-        myId: "7位數房間 ID:",
+        myId: "7位數字房間 ID:",
         joinBtn: "加入房間",
         netStatusOffline: "狀態: 單機模式",
         netStatusConnected: "狀態: 🟢 已連線！",
@@ -140,17 +139,6 @@ function applyLanguageUI() {
         else if (text.includes('發射力度') || text.includes('Launch Power')) lbl.innerText = t.lblPowers;
     });
 
-    const p1Input = document.getElementById('p1-name');
-    if (p1Input && (p1Input.value === '火鷹飛龍' || p1Input.value === 'Feather Dragon' || p1Input.value === 'Fire Bird Dragon')) {
-        p1Input.value = t.p1NameDefault;
-    }
-    const p2Input = document.getElementById('p2-name');
-    if (p2Input && (p2Input.value === '影武赤狼' || p2Input.value === 'Red Wolf')) {
-        p2Input.value = t.p2NameDefault;
-    }
-
-    if (!isSimulating && !isCountdownRunning) update3DStatus(t.readyStatus);
-
     const updateSelect = (selectId, dict) => {
         const sel = document.getElementById(selectId);
         if (!sel) return;
@@ -165,12 +153,38 @@ function applyLanguageUI() {
     if (activeTops.length > 0) { buildTelemetryDOM(); updateTelemetryValues(); }
 }
 
-// 🌐 建立 WebRTC 連線 (生成標準 7 位數號碼: 3D-XXXX 例如 3D-8829)
-function initPeerJS() {
-    const randomNum = Math.floor(1000 + Math.random() * 9000); // 4位數字
-    const short7DigitId = `3D-${randomNum}`; // 總長度正好 7 個字元
+// 🌐 取得本地 P1 設定封包
+function getLocalP1Config() {
+    return {
+        name: document.getElementById('p1-name')?.value || 'Player 1',
+        color: document.getElementById('p1-color')?.value || '#0284c7',
+        crown: document.getElementById('p1-crown')?.value || 'FEATHER',
+        tip: document.getElementById('p1-tip')?.value || 'FLAT',
+        spin: document.getElementById('p1-spin')?.value || 'RIGHT',
+        power: document.getElementById('p1-power')?.value || 'HEAVY'
+    };
+}
 
-    peer = new Peer(short7DigitId);
+// 🌐 讀取並寫入 remote P2 UI
+function applyRemoteConfigToP2(config) {
+    if (!config) return;
+    const p2Name = document.getElementById('p2-name');
+    if (p2Name) p2Name.value = config.name;
+    const p2Color = document.getElementById('p2-color');
+    if (p2Color) p2Color.value = config.color;
+    const p2Crown = document.getElementById('p2-crown');
+    if (p2Crown) p2Crown.value = config.crown;
+    const p2Tip = document.getElementById('p2-tip');
+    if (p2Tip) p2Tip.value = config.tip;
+    const p2Spin = document.getElementById('p2-spin');
+    if (p2Spin) p2Spin.value = config.spin;
+    const p2Power = document.getElementById('p2-power');
+    if (p2Power) p2Power.value = config.power;
+}
+
+function initPeerJS() {
+    const random7Digits = Math.floor(1000000 + Math.random() * 9000000).toString();
+    peer = new Peer(random7Digits);
 
     peer.on('open', (id) => {
         peerId = id;
@@ -183,13 +197,15 @@ function initPeerJS() {
         isHost = true;
         setupNetworkHandlers();
         document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
+        
+        // 連線完成後立即同步 P1 資料給對手
+        conn.send({ type: 'PLAYER_CONFIG', config: getLocalP1Config() });
     });
 
-    // 若 ID 剛好重複，備用隨機重試
     peer.on('error', (err) => {
         if (err.type === 'unavailable-id') {
-            const retryId = `3D-${Math.floor(1000 + Math.random() * 9000)}`;
-            peer = new Peer(retryId);
+            const retry7Digits = Math.floor(1000000 + Math.random() * 9000000).toString();
+            peer = new Peer(retry7Digits);
         }
     });
 }
@@ -205,10 +221,16 @@ function joinPeerRoom(targetId) {
 function setupNetworkHandlers() {
     conn.on('open', () => {
         document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
+        // 連線成功發送自己的 P1 設定給對方
+        conn.send({ type: 'PLAYER_CONFIG', config: getLocalP1Config() });
     });
 
     conn.on('data', (data) => {
-        if (data.type === 'LAUNCH') {
+        if (data.type === 'PLAYER_CONFIG') {
+            // 收到對手的 P1 設定，更新至自己的 P2
+            applyRemoteConfigToP2(data.config);
+        } else if (data.type === 'LAUNCH') {
+            if (data.p2Config) applyRemoteConfigToP2(data.p2Config);
             runCountdownLaunch(data.mode, false);
         } else if (data.type === 'POSE_SYNC' && !isHost) {
             data.poses.forEach((p, idx) => {
@@ -287,7 +309,11 @@ function runCountdownLaunch(mode, broadcast = true) {
     isMatchEnded = false;
 
     if (broadcast && conn && conn.open) {
-        conn.send({ type: 'LAUNCH', mode });
+        conn.send({ 
+            type: 'LAUNCH', 
+            mode,
+            p2Config: getLocalP1Config() // 傳送自己的 P1 給對手當 P2
+        });
     }
 
     activeTops.forEach(t => { world.remove(t.body); scene.remove(t.group); });
