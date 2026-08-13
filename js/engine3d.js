@@ -1,4 +1,4 @@
-// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (含進階數據與自然煞停)
+// js/engine3d.js - 爆上陀螺 3D 科研級剛體力學物理引擎
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -124,6 +124,14 @@ export class Beyblade3DPhysics {
         this.isKnockedOut = false;
         this.isBurst = false;
 
+        // 轉動慣量張量估算 I_yy = 1/2 m r^2, I_xx = I_zz = 1/4 m r^2 + 1/12 m h^2
+        const rMeters = this.radius * 0.03; // 縮放至公制 SI 單位
+        this.I_yy = 0.5 * this.mass * Math.pow(rMeters, 2);
+        this.I_xx = 0.25 * this.mass * Math.pow(rMeters, 2) + (1/12) * this.mass * Math.pow(0.015, 2);
+        this.I_zz = this.I_xx;
+
+        this.lastImpulseMag = 0; // 上次撞擊衝量
+
         this.body = new CANNON.Body({
             mass: this.mass,
             material: defaultMaterial,
@@ -178,11 +186,27 @@ export class Beyblade3DPhysics {
         return this.body.velocity.norm();
     }
 
-    getKineticEnergy() {
-        var v = this.getLinearSpeed();
-        var w = Math.abs(this.body.angularVelocity.y);
-        var inertia = 0.5 * this.mass * Math.pow(this.radius * 0.05, 2);
-        return (0.5 * this.mass * Math.pow(v, 2) + 0.5 * inertia * Math.pow(w, 2)).toFixed(3);
+    // 🔬 科研級 3D 物理數據計算方法群
+    getTranslationalKE() {
+        return 0.5 * this.mass * Math.pow(this.getLinearSpeed(), 2);
+    }
+
+    getRotationalKE() {
+        const wy = this.body.angularVelocity.y;
+        const wx = this.body.angularVelocity.x;
+        const wz = this.body.angularVelocity.z;
+        return 0.5 * (this.I_yy * Math.pow(wy, 2) + this.I_xx * Math.pow(wx, 2) + this.I_zz * Math.pow(wz, 2));
+    }
+
+    getTotalKE() {
+        return (this.getTranslationalKE() + this.getRotationalKE()).toFixed(4);
+    }
+
+    getAngularMomentumVector() {
+        const Lx = (this.I_xx * this.body.angularVelocity.x).toFixed(5);
+        const Ly = (this.I_yy * this.body.angularVelocity.y).toFixed(5);
+        const Lz = (this.I_zz * this.body.angularVelocity.z).toFixed(5);
+        return { Lx, Ly, Lz };
     }
 
     getTiltAngle() {
@@ -191,9 +215,27 @@ export class Beyblade3DPhysics {
         return (Math.acos(Math.min(1.0, Math.max(-1.0, topUp.dot(up)))) * 180 / Math.PI).toFixed(1);
     }
 
+    getPrecessionFrequency() {
+        const tiltRad = parseFloat(this.getTiltAngle()) * (Math.PI / 180);
+        const wy = Math.abs(this.body.angularVelocity.y);
+        if (wy < 1 || tiltRad < 0.01) return "0.00";
+        // 陀螺進動角頻率 Ω_p = (m * g * r_cm) / (I_yy * ω)
+        const Omega_p = (this.mass * 9.81 * 0.01) / (this.I_yy * wy);
+        return (Omega_p / (2 * Math.PI)).toFixed(2);
+    }
+
     getCentripetalForce() {
         var dist = Math.hypot(this.body.position.x, this.body.position.z);
         return (0.75 * dist * this.mass).toFixed(2);
+    }
+
+    getNormalForce() {
+        const verticalAccel = Math.abs(this.body.velocity.y);
+        return (this.mass * 9.81 + this.mass * verticalAccel).toFixed(3);
+    }
+
+    getFrictionForce() {
+        return (parseFloat(this.getNormalForce()) * this.tipFriction).toFixed(3);
     }
 
     stepPhysics(dt) {
@@ -239,17 +281,14 @@ export class Beyblade3DPhysics {
             }
         }
 
-        // 💡 自然衰減與煞停邏輯
         var tilt = parseFloat(this.getTiltAngle());
         if (tilt > 45) {
             this.body.angularVelocity.scale(0.92, this.body.angularVelocity);
             this.body.velocity.scale(0.90, this.body.velocity);
         } else {
-            // 平穩自轉阻尼衰減 (確保 15-20 秒漸進停止)
             this.body.angularVelocity.y *= 0.9965;
         }
 
-        // 轉速低於 30 RPM 徹底停止
         if (this.getRPM() < 30) {
             this.body.angularVelocity.set(0, 0, 0);
             this.body.velocity.set(0, 0, 0);
@@ -294,6 +333,9 @@ export function handle3DTopCollisions() {
 
                 topA.body.applyImpulse(new CANNON.Vec3(-nx * recoilImpulse, 0.05, -nz * recoilImpulse), posA);
                 topB.body.applyImpulse(new CANNON.Vec3(nx * recoilImpulse, 0.05, nz * recoilImpulse), posB);
+
+                topA.lastImpulseMag = recoilImpulse.toFixed(3);
+                topB.lastImpulseMag = recoilImpulse.toFixed(3);
 
                 topA.body.angularVelocity.y *= 0.94;
                 topB.body.angularVelocity.y *= 0.94;
