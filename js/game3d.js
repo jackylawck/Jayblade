@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、質感物理數據與對戰邏輯主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、多維度科研物理面板與對戰邏輯
 
 import { 
     init3DEngine, 
@@ -216,7 +216,7 @@ function bindUI() {
     }
 }
 
-// 💡 提升檔次的數據渲染：主指標 + 摺疊進階選單
+// 🔬 科研級物理數據面板渲染 (含 4 大專業分類摺疊選單)
 function renderTelemetryHTML() {
     let debugHTML = '';
 
@@ -226,16 +226,22 @@ function renderTelemetryHTML() {
         const rpmPct = Math.min(100, Math.round((rpm / 12000) * 100));
         const hpPct = Math.max(0, Math.round((t.hp / t.maxHp) * 100));
         const speed = t.getLinearSpeed().toFixed(2);
-        const ke = t.getKineticEnergy();
+        const totalKE = t.getTotalKE();
+        const rotKE = t.getRotationalKE().toFixed(4);
+        const transKE = t.getTranslationalKE().toFixed(4);
         const tilt = t.getTiltAngle();
+        const precessionFreq = t.getPrecessionFrequency();
         const Fc = t.getCentripetalForce();
+        const Fn = t.getNormalForce();
+        const Ff = t.getFrictionForce();
         const omega = Math.abs(t.body.angularVelocity.y).toFixed(1);
+        const L = t.getAngularMomentumVector();
 
         debugHTML += `
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(0, 242, 254, 0.2); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
                 <div style="font-weight: bold; font-size: 0.8rem; color: #38bdf8; margin-bottom: 4px;">${t.name}</div>
                 
-                <!-- 1. RPM 條 -->
+                <!-- 1. RPM 條 (主要) -->
                 <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
                     <span>🌀 轉速: <b>${rpm} RPM</b></span>
                     <span>${rpmPct}%</span>
@@ -244,7 +250,7 @@ function renderTelemetryHTML() {
                     <div style="width: ${rpmPct}%; background: linear-gradient(90deg, #00f2fe, #4facfe); height: 100%;"></div>
                 </div>
 
-                <!-- 2. HP 條 -->
+                <!-- 2. HP 條 (主要) -->
                 <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
                     <span>❤️ 爆裂血量: <b>${Math.max(0, Math.round(t.hp))} HP</b></span>
                     <span>${hpPct}%</span>
@@ -253,19 +259,38 @@ function renderTelemetryHTML() {
                     <div style="width: ${hpPct}%; background: linear-gradient(90deg, #ff416c, #ff4b2b); height: 100%;"></div>
                 </div>
 
-                <!-- 3. 移動速度 -->
+                <!-- 3. 移動速度 (主要) -->
                 <div style="font-size: 0.7rem; color: #cbd5e1; margin-bottom: 6px;">
-                    ⚡ 移動速度 $v$: <b>${speed} m/s</b>
+                    ⚡ 線速度 $v$: <b>${speed} m/s</b>
                 </div>
 
-                <!-- 4. 摺疊進階物理數據 (提升檔次) -->
+                <!-- 4. 🔬 專業物理學家 / 科研摺疊選單 (Details) -->
                 <details style="margin-top: 4px; font-size: 0.68rem; color: #94a3b8; cursor: pointer;">
-                    <summary style="color: #f59e0b; outline: none; padding: 2px 0;">🔬 展開進階物理向量 (Tensor / Force)</summary>
-                    <div style="background: rgba(0,0,0,0.3); padding: 6px; border-radius: 4px; margin-top: 4px; line-height: 1.4;">
+                    <summary style="color: #f59e0b; outline: none; padding: 2px 0; font-weight: bold;">🔬 展開科研級 3D 物理張量 (Rigid-body Physics)</summary>
+                    
+                    <div style="background: rgba(0,0,0,0.4); padding: 6px; border-radius: 4px; margin-top: 4px; line-height: 1.45; border-left: 2px solid #f59e0b;">
+                        <!-- 剛體角動量 -->
+                        <b style="color: #00f2fe;">1. 剛體角動量與轉矩 (Angular Dynamics)</b><br>
                         • 角速度 $\omega$: <b>${omega} rad/s</b><br>
-                        • 系統總動能 $E_k$: <b>${ke} J</b><br>
-                        • 向心拉力 $F_c$: <b>${Fc} N</b><br>
-                        • 3D 姿態傾斜角 $\theta$: <b>${tilt}°</b>
+                        • 角動量向量 $\mathbf{L}$: <b>(${L.Lx}, ${L.Ly}, ${L.Lz}) \text{ kg}\cdot\text{m}^2/\text{s}</b><br>
+                        • 上次對撞衝量 $J$: <b>${t.lastImpulseMag || "0.000"} N\cdot s</b><br><br>
+
+                        <!-- 能量系統 -->
+                        <b style="color: #10b981;">2. 能量解析系統 (Energy System)</b><br>
+                        • 系統總動能 $E_k$: <b>${totalKE} J</b><br>
+                        • 轉動動能 $E_{\text{rot}}$: <b>${rotKE} J</b><br>
+                        • 平動動能 $E_{\text{trans}}$: <b>${transKE} J</b><br><br>
+
+                        <!-- 陀螺儀進動 -->
+                        <b style="color: #a855f7;">3. 陀螺儀姿態與進動 (Gyroscopic State)</b><br>
+                        • 3D 姿態傾斜角 $\theta$: <b>${tilt}°</b><br>
+                        • 進動頻率 $f_{\text{precession}}$: <b>${precessionFreq} Hz</b><br><br>
+
+                        <!-- 外力與接觸面 -->
+                        <b style="color: #ff7e5f;">4. 接觸面與外力場 (Surface Dynamics)</b><br>
+                        • 法向支持力 $N$: <b>${Fn} N</b><br>
+                        • 切向滑動摩擦力 $F_f$: <b>${Ff} N</b><br>
+                        • 盤面向心拉力 $F_c$: <b>${Fc} N</b>
                     </div>
                 </details>
             </div>
