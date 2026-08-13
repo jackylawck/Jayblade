@@ -28,7 +28,7 @@ let peerId = '';
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
-        subtitle: "Beyblade X 高清 3D 剛體對戰模擬器",
+        subtitle: "3D 剛體對戰模擬器",
         back2d: "⚡ 切換至 2D 經典/省電版 (2D Classic) →",
         langBtn: "English",
         p1Title: "🔵 P1 陀螺自訂",
@@ -82,7 +82,7 @@ const I18N = {
     },
     en: {
         title: "🌀 Jayblade 3D Simulator",
-        subtitle: "Beyblade X HD 3D Rigid-Body Physics Simulator",
+        subtitle: "3D Rigid-Body Physics Simulator",
         back2d: "⚡ Switch to 2D Classic Version →",
         langBtn: "中文 (繁體)",
         p1Title: "🔵 P1 Top Customization", p2Title: "🔴 P2 Top Customization",
