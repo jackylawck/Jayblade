@@ -1,4 +1,4 @@
-// js/engine3d.js - 爆上陀螺 3D 剛體力學物理與繪製引擎 (含勝負判定與倒地煞停)
+// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (含配件力學與底軸摩擦)
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -6,6 +6,22 @@ export var WALL_HEIGHT = 2.0;
 export var scene, camera, renderer, controls, world, defaultMaterial, stadiumMaterial;
 export var activeTops = [];
 export var sparkParticles = [];
+
+// 配件力學參數庫 (Crown & Tip Dynamics)
+export const PARTS_PHYSICS = {
+    CROWN: {
+        FEATHER: { mass: 0.042, radius: 1.05, drag: 0.003 }, // 羽翼飛刃：輕量、高速
+        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.005 }, // 龍紋重環：標準配重
+        HEAVY:   { mass: 0.056, radius: 0.98, drag: 0.007 }, // 裝甲重錘：極重、衝量大
+        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.004 }  // 魔導圓盾：偏防守
+    },
+    TIP: {
+        FLAT:   { friction: 0.08, angularDamping: 0.006, grip: 1.8 }, // 平頭：高抓地暴衝、持久略低
+        BALL:   { friction: 0.02, angularDamping: 0.002, grip: 0.5 }, // 球軸：極低摩擦、超高持久
+        NEEDLE: { friction: 0.04, angularDamping: 0.004, grip: 1.2 }, // 針軸：定點防禦
+        ACCEL:  { friction: 0.09, angularDamping: 0.007, grip: 2.2 }  // 衝刺：極高切向抓地
+    }
+};
 
 export function init3DEngine(containerEl) {
     scene = new THREE.Scene();
@@ -45,7 +61,7 @@ export function init3DEngine(containerEl) {
     defaultMaterial = new CANNON.Material('default');
     stadiumMaterial = new CANNON.Material('stadium');
 
-    var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.25, restitution: 0.3 });
+    var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.3 });
     world.addContactMaterial(contactMat);
 
     create3DStadiumLayout();
@@ -84,30 +100,42 @@ function create3DStadiumLayout() {
     world.addBody(groundBody);
 }
 
+// 3D 陀螺剛體類別 (動態加載配件力學)
 export class Beyblade3DPhysics {
     constructor(config) {
         this.name = config.name;
         this.isRightSpin = config.isRightSpin;
-        this.radius = 1.0;
-        this.mass = config.mass || 0.045;
+
+        // 讀取配件力學屬性
+        const crownKey = config.crownKey || "DRAKE";
+        const tipKey = config.tipKey || "FLAT";
+        const crownData = PARTS_PHYSICS.CROWN[crownKey] || PARTS_PHYSICS.CROWN.DRAKE;
+        const tipData = PARTS_PHYSICS.TIP[tipKey] || PARTS_PHYSICS.TIP.FLAT;
+
+        this.radius = crownData.radius;
+        this.mass = crownData.mass;
+        this.tipFriction = tipData.friction;
+        this.tipGrip = tipData.grip;
 
         this.hp = 120;
         this.isKnockedOut = false;
         this.isBurst = false;
 
+        // CANNON.js 物理剛體初始化
         this.body = new CANNON.Body({
             mass: this.mass,
             material: defaultMaterial,
-            linearDamping: 0.05,
-            angularDamping: 0.005
+            linearDamping: this.tipFriction,
+            angularDamping: tipData.angularDamping
         });
 
         this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
-        this.body.position.set(config.x, 0.4, config.z);
+        this.body.position.set(config.x, config.y || 0.4, config.z);
 
         var spinRad = (config.rpm * 2 * Math.PI) / 60 * (this.isRightSpin ? -1 : 1);
         this.body.angularVelocity.set(0, spinRad, 0);
 
+        // Three.js Mesh
         this.group = new THREE.Group();
 
         var crownGeo = new THREE.CylinderGeometry(this.radius, this.radius * 0.8, 0.35, 16);
@@ -164,7 +192,6 @@ export class Beyblade3DPhysics {
             var nx = this.body.position.x / distFromCenter;
             var nz = this.body.position.z / distFromCenter;
 
-            // 越過護牆判定為擊飛 (KO)
             if (this.body.position.y > WALL_HEIGHT || distFromCenter > STADIUM_RADIUS + 1.5) {
                 this.isKnockedOut = true;
                 return;
@@ -187,20 +214,72 @@ export class Beyblade3DPhysics {
             }
         }
 
-        // 💡 側躺倒地檢查：陀螺 Y 軸傾斜過大時快速煞停，防止無休止摩擦
+        // 側躺倒地檢查
         var up = new CANNON.Vec3(0, 1, 0);
         var topUp = this.body.quaternion.vmult(new CANNON.Vec3(0, 1, 0));
         var dotUp = topUp.dot(up);
 
-        if (dotUp < 0.5) { // 傾斜大於 60 度，視為倒地磨地
+        if (dotUp < 0.5) {
             this.body.angularVelocity.scale(0.92, this.body.angularVelocity);
             this.body.velocity.scale(0.90, this.body.velocity);
-        } else {
-            this.body.angularVelocity.y *= 0.995;
         }
 
         if (this.getRPM() < 30) {
             this.body.angularVelocity.set(0, 0, 0);
+        }
+    }
+}
+
+// 💥 3D 剛體對撞與齒輪反衝力學 (封裝於引擎層)
+export function handle3DTopCollisions() {
+    for (let i = 0; i < activeTops.length; i++) {
+        for (let j = i + 1; j < activeTops.length; j++) {
+            const topA = activeTops[i];
+            const topB = activeTops[j];
+            if (topA.isKnockedOut || topB.isKnockedOut || topA.isBurst || topB.isBurst) continue;
+
+            const posA = topA.body.position;
+            const posB = topB.body.position;
+            
+            const dx = posB.x - posA.x;
+            const dz = posB.z - posA.z;
+            const dist = Math.hypot(dx, dz);
+            const minDist = topA.radius + topB.radius;
+
+            if (dist < minDist && dist > 0) {
+                const nx = dx / dist;
+                const nz = dz / dist;
+
+                // 1. 位置硬性隔離
+                const overlap = (minDist - dist) / 2 + 0.15;
+                posA.x -= nx * overlap;
+                posA.z -= nz * overlap;
+                posB.x += nx * overlap;
+                posB.z += nz * overlap;
+
+                // 2. 轉速轉化為反衝推力
+                const rpmA = topA.getRPM();
+                const rpmB = topB.getRPM();
+                const avgRpm = (rpmA + rpmB) / 2;
+
+                const recoilImpulse = avgRpm > 100 ? (0.16 + (avgRpm / 12000) * 0.26) : 0.08;
+
+                // 3. 施加 3D 衝力彈開
+                topA.body.applyImpulse(new CANNON.Vec3(-nx * recoilImpulse, 0.05, -nz * recoilImpulse), posA);
+                topB.body.applyImpulse(new CANNON.Vec3(nx * recoilImpulse, 0.05, nz * recoilImpulse), posB);
+
+                // 4. 對撞角動量與血量扣減
+                topA.body.angularVelocity.y *= 0.94;
+                topB.body.angularVelocity.y *= 0.94;
+
+                topA.hp -= recoilImpulse * 35;
+                topB.hp -= recoilImpulse * 35;
+
+                if (topA.hp <= 0) topA.isBurst = true;
+                if (topB.hp <= 0) topB.isBurst = true;
+
+                spawn3DSparks((posA.x + posB.x) / 2, 0.4, (posA.z + posB.z) / 2, 12);
+            }
         }
     }
 }
