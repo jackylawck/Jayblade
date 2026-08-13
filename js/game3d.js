@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、WebRTC 對手數據同步與 7位數純數字房號主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、16款 Combo 配件雙語支援與對戰主控
 
 import { 
     init3DEngine, 
@@ -19,12 +19,12 @@ let isCountdownRunning = false;
 let currentLang = 'zh'; // 'zh' | 'en'
 let lastTime = performance.now();
 
-// 🌐 網絡 PeerJS 狀態
 let peer = null;
 let conn = null;
 let isHost = true;
 let peerId = '';
 
+// 🌐 16款 Combo 配件完整雙語字典
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
@@ -55,8 +55,14 @@ const I18N = {
         netStatusOffline: "狀態: 單機模式",
         netStatusConnected: "狀態: 🟢 已連線！",
         netStatusConnecting: "狀態: 🟡 連線中...",
-        crowns: { FEATHER: "羽翼飛刃 (Feather Blade)", DRAKE: "龍紋重環 (Drake Crown)", HEAVY: "裝甲重錘 (Heavy Armor)", WIZARD: "魔導圓盾 (Wizard Ring)" },
-        tips: { FLAT: "極速平頭 (Flat Speed)", BALL: "持久球軸 (Ball Bearing)", NEEDLE: "防禦針軸 (Needle Guard)", ACCEL: "軌道衝刺 (Accel Dash)" },
+        crowns: { 
+            FEATHER: "羽翼飛刃 (Feather Blade)", DRAKE: "龍紋重環 (Drake Crown)", HEAVY: "裝甲重錘 (Heavy Armor)", WIZARD: "魔導圓盾 (Wizard Ring)",
+            PHOENIX: "朱雀翼刃 (Phoenix Wing)", SCYTHE: "死神鐮刀 (Scythe Incendio)", RHINO: "犀牛角盾 (Rhino Horn)", VIPER: "毒蛇交鋒 (Viper Tail)"
+        },
+        tips: { 
+            FLAT: "極速平頭 (Flat Speed)", BALL: "持久球軸 (Ball Bearing)", NEEDLE: "防禦針軸 (Needle Guard)", ACCEL: "軌道衝刺 (Accel Dash)",
+            HEXA: "六角防禦 (Hexa Shield)", POINT: "半球尖軸 (Point Dual)", TAPER: "漸銳平軸 (Taper Counter)", RUBBER: "橡膠平軸 (Rubber Recoil)"
+        },
         spins: { RIGHT: "右迴旋 (順時針)", LEFT: "左迴旋 (逆時針)" },
         powers: { HEAVY: "重度 (高轉速)", MEDIUM: "中度 (穩定)", LIGHT: "輕度 (高精準)" },
         rpm: "🌀 轉速", hp: "❤️ 爆裂血量", speed: "⚡ 線速度 v",
@@ -86,8 +92,14 @@ const I18N = {
         debugTitle: "⚙️ Real-time Telemetry (240Hz Physics)", readyStatus: "Select a battle mode to launch...", toggleUi: "👁️ Toggle UI Panel",
         onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "7-Digit Room ID:", joinBtn: "Join Room",
         netStatusOffline: "Status: Offline", netStatusConnected: "Status: 🟢 Connected!", netStatusConnecting: "Status: 🟡 Connecting...",
-        crowns: { FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring" },
-        tips: { FLAT: "Flat Speed", BALL: "Ball Bearing", NEEDLE: "Needle Guard", ACCEL: "Accel Dash" },
+        crowns: { 
+            FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring",
+            PHOENIX: "Phoenix Wing", SCYTHE: "Scythe Incendio", RHINO: "Rhino Horn", VIPER: "Viper Tail"
+        },
+        tips: { 
+            FLAT: "Flat Speed", BALL: "Ball Bearing", NEEDLE: "Needle Guard", ACCEL: "Accel Dash",
+            HEXA: "Hexa Shield", POINT: "Point Dual", TAPER: "Taper Counter", RUBBER: "Rubber Recoil"
+        },
         spins: { RIGHT: "Right Spin (CW)", LEFT: "Left Spin (CCW)" },
         powers: { HEAVY: "Heavy (Max RPM)", MEDIUM: "Balanced", LIGHT: "Precision" },
         rpm: "🌀 Spin Rate", hp: "❤️ Burst Health", speed: "⚡ Linear Speed v",
@@ -139,6 +151,8 @@ function applyLanguageUI() {
         else if (text.includes('發射力度') || text.includes('Launch Power')) lbl.innerText = t.lblPowers;
     });
 
+    if (!isSimulating && !isCountdownRunning) update3DStatus(t.readyStatus);
+
     const updateSelect = (selectId, dict) => {
         const sel = document.getElementById(selectId);
         if (!sel) return;
@@ -153,7 +167,6 @@ function applyLanguageUI() {
     if (activeTops.length > 0) { buildTelemetryDOM(); updateTelemetryValues(); }
 }
 
-// 🌐 取得本地 P1 設定封包
 function getLocalP1Config() {
     return {
         name: document.getElementById('p1-name')?.value || 'Player 1',
@@ -165,7 +178,6 @@ function getLocalP1Config() {
     };
 }
 
-// 🌐 讀取並寫入 remote P2 UI
 function applyRemoteConfigToP2(config) {
     if (!config) return;
     const p2Name = document.getElementById('p2-name');
@@ -197,8 +209,6 @@ function initPeerJS() {
         isHost = true;
         setupNetworkHandlers();
         document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
-        
-        // 連線完成後立即同步 P1 資料給對手
         conn.send({ type: 'PLAYER_CONFIG', config: getLocalP1Config() });
     });
 
@@ -221,13 +231,11 @@ function joinPeerRoom(targetId) {
 function setupNetworkHandlers() {
     conn.on('open', () => {
         document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
-        // 連線成功發送自己的 P1 設定給對方
         conn.send({ type: 'PLAYER_CONFIG', config: getLocalP1Config() });
     });
 
     conn.on('data', (data) => {
         if (data.type === 'PLAYER_CONFIG') {
-            // 收到對手的 P1 設定，更新至自己的 P2
             applyRemoteConfigToP2(data.config);
         } else if (data.type === 'LAUNCH') {
             if (data.p2Config) applyRemoteConfigToP2(data.p2Config);
@@ -312,7 +320,7 @@ function runCountdownLaunch(mode, broadcast = true) {
         conn.send({ 
             type: 'LAUNCH', 
             mode,
-            p2Config: getLocalP1Config() // 傳送自己的 P1 給對手當 P2
+            p2Config: getLocalP1Config()
         });
     }
 
@@ -372,7 +380,7 @@ function spawnTopsAndStart(mode) {
 
         const ai = new Beyblade3DPhysics({
             name: randomName, x: 2.5, y: 1.2, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xe11d48,
-            crownKey: 'DRAKE', tipKey: 'BALL'
+            crownKey: 'PHOENIX', tipKey: 'BALL'
         });
         ai.body.velocity.set(-3.2, -1.5, -1.2);
         activeTops.push(ai);
@@ -400,19 +408,19 @@ function spawnTopsAndStart(mode) {
     } else if (mode === 4) {
         const p2Name4 = document.getElementById('p2-name')?.value || dict.p2NameDefault;
         const p2_4 = new Beyblade3DPhysics({
-            name: '🔴 ' + p2Name4, x: 2.5, y: 1.2, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48, crownKey: 'DRAKE', tipKey: 'BALL'
+            name: '🔴 ' + p2Name4, x: 2.5, y: 1.2, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48, crownKey: 'PHOENIX', tipKey: 'RUBBER'
         });
         p2_4.body.velocity.set(-2.8, -1.5, -1.2);
         activeTops.push(p2_4);
 
         const p3 = new Beyblade3DPhysics({
-            name: currentLang === 'zh' ? '🟢 翡翠巨錘' : '🟢 Emerald Hammer', x: 0, y: 1.2, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x10b981, crownKey: 'HEAVY', tipKey: 'NEEDLE'
+            name: currentLang === 'zh' ? '🟢 翡翠巨錘' : '🟢 Emerald Hammer', x: 0, y: 1.2, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x10b981, crownKey: 'HEAVY', tipKey: 'HEXA'
         });
         p3.body.velocity.set(1.5, -1.5, 2.8);
         activeTops.push(p3);
 
         const p4 = new Beyblade3DPhysics({
-            name: currentLang === 'zh' ? '🟣 帝王紫刃' : '🟣 Imperial Edge', x: 0, y: 1.2, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x8b5cf6, crownKey: 'WIZARD', tipKey: 'ACCEL'
+            name: currentLang === 'zh' ? '🟣 帝王紫刃' : '🟣 Imperial Edge', x: 0, y: 1.2, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x8b5cf6, crownKey: 'VIPER', tipKey: 'ACCEL'
         });
         p4.body.velocity.set(-1.5, -1.5, -2.8);
         activeTops.push(p4);
