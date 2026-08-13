@@ -3,178 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-    <!-- PWA & Favicon -->
-    <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
-    <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
-    <link rel="manifest" href="./manifest.json">
-
-    <!-- CSP 資安標頭 -->
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src * 'unsafe-inline' 'unsafe-eval' data: blob: wss:;
-        script-src * 'unsafe-inline' 'unsafe-eval';
-        style-src * 'unsafe-inline';
-        connect-src * wss: https:;
-        img-src * data: blob:;
-        font-src * data:;
-    ">
-
-    <title>爆上陀螺 Jayblade 3D</title>
+    <title>爆上陀螺 Jayblade 3D (真 3D 剛體力學引擎)</title>
     
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #070714; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
+        body { background: #060913; color: #fff; font-family: -apple-system, sans-serif; overflow: hidden; user-select: none; }
         #canvas-container { width: 100vw; height: 100vh; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
         
         .ui-overlay { position: absolute; top: 10px; left: 10px; z-index: 100; max-height: 95vh; overflow-y: auto; }
         .ui-card { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); border: 1px solid rgba(0, 212, 255, 0.4); border-radius: 16px; padding: 14px; width: 340px; box-shadow: 0 10px 40px rgba(0, 212, 255, 0.25); }
         
-        @media (max-width: 480px) {
-            .ui-card { width: calc(100vw - 20px); max-width: 340px; }
-        }
-
         .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-        h1 { font-size: 1.2rem; background: linear-gradient(90deg, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; margin: 0; }
-        .lang-btn { background: rgba(0, 242, 254, 0.15); border: 1px solid #00f2fe; color: #00f2fe; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
-        p { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; line-height: 1.3; }
-        .btn { background: linear-gradient(135deg, #ff7e5f, #feb47b); color: #fff; border: none; padding: 10px 12px; font-size: 0.88rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(255, 126, 95, 0.4); transition: transform 0.1s; margin-top: 6px; text-decoration: none; display: block; text-align: center; }
-        .btn:active { transform: scale(0.98); }
-        .btn-ai { background: linear-gradient(135deg, #00b894, #00cec9); box-shadow: 0 4px 15px rgba(0, 206, 201, 0.4); }
-        .btn-purple { background: linear-gradient(135deg, #a855f7, #6366f1); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4); }
+        h1 { font-size: 1.15rem; background: linear-gradient(90deg, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; margin: 0; }
+        p { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; }
+        .btn { background: linear-gradient(135deg, #ff7e5f, #feb47b); color: #fff; border: none; padding: 10px; font-size: 0.88rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 6px; text-decoration: none; display: block; text-align: center; }
+        .btn-ai { background: linear-gradient(135deg, #00b894, #00cec9); }
         .btn-secondary { background: #1e293b; border: 1px solid rgba(255,255,255,0.2); }
-        .btn-sm { font-size: 0.75rem; padding: 6px 10px; }
-        .status-banner { font-size: 0.85rem; font-weight: bold; color: #38bdf8; margin-bottom: 6px; min-height: 20px; text-shadow: 0 0 10px rgba(56, 189, 248, 0.6); }
-        
-        .parts-panel { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 8px; margin: 6px 0; border: 1px solid rgba(255,255,255,0.08); }
-        .parts-panel h3 { font-size: 0.82rem; color: #f59e0b; margin-bottom: 6px; }
-        .p2-title { color: #f43f5e !important; }
-        .form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75rem; }
-        .form-row label { color: #cbd5e1; }
-        .form-row select, .form-row input[type="text"] { background: rgba(15, 23, 42, 0.8); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 4px 6px; font-size: 0.75rem; width: 60%; }
+        .status-banner { font-size: 0.85rem; font-weight: bold; color: #38bdf8; margin-bottom: 6px; }
 
-        /* 📦 自訂 3D 模型檔案上傳區樣式 */
-        .ugc-dropzone { border: 1.5px dashed #00f2fe; border-radius: 8px; padding: 8px; text-align: center; font-size: 0.72rem; color: #00f2fe; background: rgba(0, 242, 254, 0.05); margin-top: 6px; cursor: pointer; transition: background 0.2s; }
-        .ugc-dropzone:hover { background: rgba(0, 242, 254, 0.12); }
-
-        .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.72rem; color: #38bdf8; background: rgba(0,0,0,0.75); padding: 8px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); margin-top: 6px; line-height: 1.35; }
-        .debug-panel h4 { color: #f59e0b; margin-bottom: 4px; font-size: 0.75rem; border-bottom: 1px solid rgba(245, 158, 11, 0.3); padding-bottom: 2px; }
-        
-        .toggle-ui-btn { position: fixed; bottom: 15px; left: 15px; z-index: 200; background: linear-gradient(135deg, #00f2fe, #4facfe); color: #0f172a; font-weight: 800; border: none; padding: 8px 14px; border-radius: 20px; font-size: 0.78rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.5); }
+        .debug-panel { font-family: monospace; font-size: 0.72rem; color: #38bdf8; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); margin-top: 6px; }
     </style>
 
-    <!-- 第三方 CDN 腳本 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
 
-    <button class="toggle-ui-btn" id="btn-toggle-ui">👁️ 隱藏/顯示選單</button>
-
     <div class="ui-overlay" id="ui-overlay-box">
         <div class="ui-card">
             <div class="header-row">
-                <h1 id="ui-title">🌀 爆上陀螺 Jayblade 3D</h1>
-                <button class="lang-btn" id="btn-lang">English</button>
+                <h1>🌀 真 3D 剛體力學模擬器</h1>
             </div>
-            <p id="ui-subtitle">Beyblade X 高清剛體對戰模擬器</p>
+            <p>無限制 3D 空間：自由傾斜 / 進動搖晃 / 撞擊力矩傳導</p>
             
-            <a href="./index.html" class="btn btn-secondary btn-sm" id="btn-back-2d" style="margin-bottom:6px;">
-                ⬅️ 切換回 2D 經典版
-            </a>
+            <a href="./index.html" class="btn btn-secondary" style="font-size:0.75rem; padding:6px; margin-bottom:6px;">⬅️ 返回 2D 版</a>
 
-            <!-- P1 配件自訂 -->
-            <div class="parts-panel">
-                <h3 id="ui-p1-panel-title">🔵 P1 陀螺自訂</h3>
-                <div class="form-row"><label class="lbl-name">名稱:</label><input type="text" id="p1-name" value="火鷹飛龍"></div>
-                <div class="form-row">
-                    <label class="lbl-crown">撞擊環:</label>
-                    <select id="p1-crown">
-                        <option value="FEATHER" selected>羽翼飛刃 (Feather Blade)</option>
-                        <option value="DRAKE">龍紋重環 (Drake Crown)</option>
-                        <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
-                        <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label class="lbl-tip">動力底軸:</label>
-                    <select id="p1-tip">
-                        <option value="FLAT" selected>極速平頭 (Flat Speed)</option>
-                        <option value="BALL">持久球軸 (Ball Bearing)</option>
-                        <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
-                        <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label class="lbl-spin">旋轉方向:</label>
-                    <select id="p1-spin">
-                        <option value="RIGHT" selected>右迴旋 (順時針)</option>
-                        <option value="LEFT">左迴旋 (逆時針)</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label class="lbl-power">發射力度:</label>
-                    <select id="p1-power">
-                        <option value="HEAVY" selected>重度 (高轉速)</option>
-                        <option value="MEDIUM">中度 (穩定)</option>
-                        <option value="LIGHT">輕度 (高精準)</option>
-                    </select>
-                </div>
+            <div class="status-banner" id="match-status">請發射測試真 3D 碰撞...</div>
+            <button class="btn btn-ai" id="btn-vs-ai">🎮 發射對決 (3D 物理全開)</button>
 
-                <!-- 📦 補回：自訂 3D 設計檔上傳區 -->
-                <div class="ugc-dropzone" id="ugc-dropzone">
-                    <span id="ugc-drop-text">📁 點擊或拖拽自訂 3D 設計 (.stl) 檔測試實體慣量</span>
-                    <input type="file" id="ugc-file-input" accept=".stl" style="display:none;">
-                </div>
-            </div>
-
-            <!-- P2 配件自訂 -->
-            <div class="parts-panel">
-                <h3 id="ui-p2-panel-title" class="p2-title">🔴 P2 陀螺自訂 (對戰用)</h3>
-                <div class="form-row"><label class="lbl-name">名稱:</label><input type="text" id="p2-name" value="影武赤狼"></div>
-                <div class="form-row">
-                    <label class="lbl-crown">撞擊環:</label>
-                    <select id="p2-crown">
-                        <option value="FEATHER">羽翼飛刃 (Feather Blade)</option>
-                        <option value="DRAKE" selected>龍紋重環 (Drake Crown)</option>
-                        <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
-                        <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label class="lbl-tip">動力底軸:</label>
-                    <select id="p2-tip">
-                        <option value="FLAT">極速平頭 (Flat Speed)</option>
-                        <option value="BALL" selected>持久球軸 (Ball Bearing)</option>
-                        <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
-                        <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label class="lbl-spin">旋轉方向:</label>
-                    <select id="p2-spin">
-                        <option value="RIGHT">右迴旋 (順時針)</option>
-                        <option value="LEFT" selected>左迴旋 (逆時針)</option>
-                    </select>
-                </div>
-                <div class="form-row">
-                    <label class="lbl-power">發射力度:</label>
-                    <select id="p2-power">
-                        <option value="HEAVY" selected>重度 (高轉速)</option>
-                        <option value="MEDIUM">中度 (穩定)</option>
-                        <option value="LIGHT">輕度 (高精準)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="status-banner" id="match-status">請選擇對戰模式發射...</div>
-            <button class="btn btn-ai" id="btn-vs-ai">🎮 單人對戰 (VS AI)</button>
-            <button class="btn" id="btn-2p">⚔️ 1P vs 2P 自訂對戰</button>
-            <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
-
-            <div class="debug-panel" id="physics-debug-box">
-                <h4 id="ui-debug-title">⚙️ 實時物理數據 (240Hz 算力)</h4>
-                <div id="physics-telemetry-content">等待發射數據...</div>
+            <div class="debug-panel">
+                <h4>⚙️ 3D 姿態向量 (3D Pose & Angular Momentum)</h4>
+                <div id="telemetry">等待發射...</div>
             </div>
         </div>
     </div>
@@ -182,153 +52,70 @@
     <div id="canvas-container"></div>
 
     <script>
-        var STADIUM_RADIUS = 9.0;
-        var WALL_HEIGHT = 2.0;
-        var PHYSICS_FIXED_TIMESTEP = 1 / 240;
-        var PHYSICS_MAX_SUBSTEPS = 10;
-
+        var STADIUM_R = 9.0;
         var scene, camera, renderer, controls, world, defaultMaterial, stadiumMaterial;
         var activeTops = [];
         var isSimulating = false;
         var lastTime = performance.now();
-        var sparkParticles = [];
 
-        function escapeHtml(unsafe) {
-            return String(unsafe)
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-
-        function spawn3DSparks(x, y, z, count) {
-            for (var i = 0; i < count; i++) {
-                var pGeo = new THREE.SphereGeometry(0.08 + Math.random() * 0.05, 6, 6);
-                var pMat = new THREE.MeshBasicMaterial({
-                    color: Math.random() > 0.3 ? 0xffea00 : 0xff3300,
-                    transparent: true,
-                    opacity: 1.0
-                });
-                var mesh = new THREE.Mesh(pGeo, pMat);
-                mesh.position.set(x, y, z);
-
-                var vx = (Math.random() - 0.5) * 6;
-                var vy = 1 + Math.random() * 4;
-                var vz = (Math.random() - 0.5) * 6;
-
-                scene.add(mesh);
-                sparkParticles.push({ mesh: mesh, vx: vx, vy: vy, vz: vz, life: 1.0 });
-            }
-        }
-
-        function update3DSparks(dt) {
-            for (var i = sparkParticles.length - 1; i >= 0; i--) {
-                var p = sparkParticles[i];
-                p.mesh.position.x += p.vx * dt;
-                p.mesh.position.y += p.vy * dt;
-                p.mesh.position.z += p.vz * dt;
-                p.vy -= 12.0 * dt;
-
-                p.life -= dt * 2.5;
-                p.mesh.material.opacity = Math.max(0, p.life);
-
-                if (p.life <= 0) {
-                    scene.remove(p.mesh);
-                    sparkParticles.splice(i, 1);
-                }
-            }
-        }
-
-        function Beyblade3DPhysics(scene, world, material, config) {
+        function True3DBeyblade(scene, world, material, config) {
             this.name = config.name;
-            this.isRightSpin = config.isRightSpin;
-            this.radius = 1.0;
-            this.mass = config.mass || 0.045;
+            this.radius = 1.1;
+            this.mass = 0.05; // 50g
 
+            // 1. 建立真實 3D 剛體 (Cone + Cylinder 複合碰撞形狀)
             this.body = new CANNON.Body({
                 mass: this.mass,
                 material: material,
-                linearDamping: 0.02,
-                angularDamping: 0.0006
+                linearDamping: 0.015,
+                angularDamping: 0.0002 // 極低阻尼，靠真實底軸摩擦減速
             });
 
-            this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
-            this.body.position.set(config.x, 0.4, config.z);
+            // 下方尖端底軸 (Cone)
+            var tipShape = new CANNON.Cylinder(0.1, this.radius, 0.4, 16);
+            this.body.addShape(tipShape, new CANNON.Vec3(0, -0.2, 0));
 
-            var spinRad = (config.rpm * 2 * Math.PI) / 60 * (this.isRightSpin ? -1 : 1);
-            this.body.angularVelocity.set(0, spinRad, 0);
+            // 上方攻擊金屬環 (Cylinder)
+            var ringShape = new CANNON.Cylinder(this.radius, this.radius, 0.3, 16);
+            this.body.addShape(ringShape, new CANNON.Vec3(0, 0.15, 0));
 
+            // 設定初始位置與角速度向量 (繞 Y 軸高超速旋轉)
+            this.body.position.set(config.x, 0.5, config.z);
+            var spinRpmRad = (config.rpm * 2 * Math.PI) / 60 * (config.isRightSpin ? -1 : 1);
+            
+            // 賦予微小的初始傾斜角，觸發天然的 3D 進動
+            this.body.angularVelocity.set(0.2, spinRpmRad, -0.1);
+
+            // 2. Three.js 視覺 Mesh
             this.group = new THREE.Group();
-
+            
             var crownGeo = new THREE.CylinderGeometry(this.radius, this.radius * 0.8, 0.35, 16);
-            var crownMat = new THREE.MeshStandardMaterial({
-                color: config.color,
-                metalness: 0.9,
-                roughness: 0.15
-            });
+            var crownMat = new THREE.MeshStandardMaterial({ color: config.color, metalness: 0.9, roughness: 0.15 });
             var crownMesh = new THREE.Mesh(crownGeo, crownMat);
             this.group.add(crownMesh);
 
-            for (var b = 0; b < 6; b++) {
-                var toothGeo = new THREE.BoxGeometry(0.2, 0.3, 0.4);
-                var toothMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.1 });
-                var tooth = new THREE.Mesh(toothGeo, toothMat);
-                var ang = (b / 6) * Math.PI * 2;
-                tooth.position.set(Math.cos(ang) * (this.radius * 0.88), 0, Math.sin(ang) * (this.radius * 0.88));
-                tooth.rotation.y = -ang;
-                this.group.add(tooth);
-            }
-
-            var coreGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.15, 16);
-            var coreMat = new THREE.MeshStandardMaterial({ color: 0x00f2fe, emissive: 0x00f2fe, emissiveIntensity: 0.6 });
-            var coreMesh = new THREE.Mesh(coreGeo, coreMat);
-            coreMesh.position.y = 0.22;
-            this.group.add(coreMesh);
+            var tipGeo = new THREE.ConeGeometry(this.radius * 0.8, 0.4, 16);
+            var tipMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
+            var tipMesh = new THREE.Mesh(tipGeo, tipMat);
+            tipMesh.position.y = -0.35;
+            tipMesh.rotation.x = Math.PI;
+            this.group.add(tipMesh);
 
             scene.add(this.group);
             world.addBody(this.body);
         }
 
-        Beyblade3DPhysics.prototype.stepPhysics = function(dt) {
-            this.body.position.y = 0.4;
-            this.body.velocity.y = 0;
-
+        True3DBeyblade.prototype.update = function() {
+            // 完全由 CANNON.js 3D 剛體物理引擎接管位置與三維姿態四元數 (Quaternion)
             this.group.position.copy(this.body.position);
             this.group.quaternion.copy(this.body.quaternion);
 
-            var distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
-
-            if (distFromCenter > 0.1) {
-                var nx = this.body.position.x / distFromCenter;
-                var nz = this.body.position.z / distFromCenter;
-
-                var bowlPull = 0.85 * distFromCenter;
-                this.body.applyForce(new CANNON.Vec3(-nx * bowlPull, 0, -nz * bowlPull), this.body.position);
+            // 碗狀盤面 3D 坡度重力 (沿盤面切線拉向中心)
+            var dist = Math.hypot(this.body.position.x, this.body.position.z);
+            if (dist > 0.1 && dist < STADIUM_R) {
+                var pull = 0.5 * dist;
+                this.body.applyForce(new CANNON.Vec3(-this.body.position.x / dist * pull, 0, -this.body.position.z / dist * pull), this.body.position);
             }
-
-            if (distFromCenter + this.radius >= STADIUM_RADIUS) {
-                var nx = this.body.position.x / distFromCenter;
-                var nz = this.body.position.z / distFromCenter;
-
-                this.body.position.x = nx * (STADIUM_RADIUS - this.radius);
-                this.body.position.z = nz * (STADIUM_RADIUS - this.radius);
-
-                var vNormal = this.body.velocity.x * nx + this.body.velocity.z * nz;
-
-                if (vNormal > -0.5) {
-                    var restitution = 0.65;
-                    this.body.velocity.x -= (1.0 + restitution) * Math.max(0.6, vNormal) * nx;
-                    this.body.velocity.z -= (1.0 + restitution) * Math.max(0.6, vNormal) * nz;
-                    
-                    this.body.velocity.x *= 0.92;
-                    this.body.velocity.z *= 0.92;
-
-                    spawn3DSparks(this.body.position.x, 0.4, this.body.position.z, 6);
-                }
-            }
-
-            this.body.angularVelocity.y *= 0.9997;
         };
 
         function initEngine() {
@@ -340,217 +127,65 @@
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(0, 16, 18);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
 
-            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            var light = new THREE.DirectionalLight(0x00f2fe, 1.2);
+            light.position.set(10, 20, 10);
+            scene.add(light);
 
-            var mainSpot = new THREE.SpotLight(0x38bdf8, 2.5);
-            mainSpot.position.set(0, 25, 0);
-            mainSpot.angle = Math.PI / 3;
-            mainSpot.penumbra = 0.5;
-            scene.add(mainSpot);
-
-            var sideLight1 = new THREE.DirectionalLight(0xff7e5f, 1.2);
-            sideLight1.position.set(15, 20, 10);
-            scene.add(sideLight1);
-
-            var sideLight2 = new THREE.DirectionalLight(0x00f2fe, 1.2);
-            sideLight2.position.set(-15, 20, -10);
-            scene.add(sideLight2);
-
+            // 初始化 3D 物理世界 (不鎖死任何軸向)
             world = new CANNON.World();
             world.gravity.set(0, -9.82, 0);
 
             defaultMaterial = new CANNON.Material('default');
             stadiumMaterial = new CANNON.Material('stadium');
 
-            var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.3 });
+            var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, {
+                friction: 0.15,
+                restitution: 0.75 // 守恆彈性恢復
+            });
             world.addContactMaterial(contactMat);
 
-            create3DStadiumWithWalls();
-            bindEvents();
-
-            window.addEventListener('resize', onWindowResize);
-            animate(performance.now());
-            
-            document.getElementById('ui-overlay-box').style.display = 'block';
-        }
-
-        function create3DStadiumWithWalls() {
-            var geo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS - 1.8, 0.8, 64);
-            var mat = new THREE.MeshStandardMaterial({
-                color: 0xf1f5f9,
-                roughness: 0.15,
-                metalness: 0.1
-            });
-            var stadiumMesh = new THREE.Mesh(geo, mat);
-            stadiumMesh.position.y = -0.4;
+            // 建立 3D 碗狀戰鬥盤 (物理碗面)
+            var stadiumGeo = new THREE.CylinderGeometry(STADIUM_R, STADIUM_R - 2.0, 1.0, 64);
+            var stadiumMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2 });
+            var stadiumMesh = new THREE.Mesh(stadiumGeo, stadiumMat);
+            stadiumMesh.position.y = -0.5;
             scene.add(stadiumMesh);
-
-            var centerRingGeo = new THREE.RingGeometry(1.5, 1.8, 32);
-            var centerRingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7, side: THREE.DoubleSide });
-            var centerRing = new THREE.Mesh(centerRingGeo, centerRingMat);
-            centerRing.rotation.x = Math.PI / 2;
-            centerRing.position.y = 0.01;
-            scene.add(centerRing);
-
-            var railGeo = new THREE.TorusGeometry(STADIUM_RADIUS - 0.3, 0.22, 16, 64);
-            var railMat = new THREE.MeshStandardMaterial({
-                color: 0x10b981,
-                emissive: 0x10b981,
-                emissiveIntensity: 0.7,
-                roughness: 0.2
-            });
-            var railMesh = new THREE.Mesh(railGeo, railMat);
-            railMesh.rotation.x = Math.PI / 2;
-            railMesh.position.y = 0.05;
-            scene.add(railMesh);
-
-            var wallGeo = new THREE.CylinderGeometry(STADIUM_RADIUS, STADIUM_RADIUS, WALL_HEIGHT, 64, 1, true);
-            var wallMat = new THREE.MeshPhysicalMaterial({
-                color: 0x38bdf8,
-                transparent: true,
-                opacity: 0.35,
-                roughness: 0.05,
-                transmission: 0.9,
-                thickness: 0.8,
-                side: THREE.DoubleSide
-            });
-            var wallMesh = new THREE.Mesh(wallGeo, wallMat);
-            wallMesh.position.y = WALL_HEIGHT / 2;
-            scene.add(wallMesh);
-
-            var topRingGeo = new THREE.TorusGeometry(STADIUM_RADIUS, 0.12, 16, 64);
-            var topRingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
-            var topRing = new THREE.Mesh(topRingGeo, topRingMat);
-            topRing.rotation.x = Math.PI / 2;
-            topRing.position.y = WALL_HEIGHT;
-            scene.add(topRing);
 
             var groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
             groundBody.addShape(new CANNON.Plane());
             groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
             world.addBody(groundBody);
+
+            document.getElementById('btn-vs-ai').onclick = launch3DBattle;
+            window.addEventListener('resize', onWindowResize);
+            animate(performance.now());
         }
 
-        function launchCustom3DBattle(mode) {
+        function launch3DBattle() {
             activeTops.forEach(function(t) { world.remove(t.body); scene.remove(t.group); });
             activeTops = [];
 
-            var p1Name = escapeHtml(document.getElementById('p1-name').value || '火鷹飛龍');
-            var p1Spin = document.getElementById('p1-spin').value === 'RIGHT';
-            var p1Power = document.getElementById('p1-power').value;
-            var p1Rpm = p1Power === 'HEAVY' ? 12000 : (p1Power === 'MEDIUM' ? 9500 : 7000);
-
-            var p1 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                name: '🔵 ' + p1Name, x: -2.5, y: 0.4, z: 0, rpm: p1Rpm, isRightSpin: p1Spin, color: 0x0284c7
+            var p1 = new True3DBeyblade(scene, world, defaultMaterial, {
+                name: '🔵 火鷹飛龍', x: -2.5, z: 0, rpm: 12000, isRightSpin: true, color: 0x0284c7
             });
-            p1.body.velocity.set(2.2, 0, 1.2);
-            activeTops.push(p1);
+            p1.body.velocity.set(3.0, 0, 1.5);
 
-            if (mode === 'VS_AI') {
-                var aiNames = ['🤖 暗黑狂狼', '🤖 幻影巨龍', '🤖 聖光神盾', '🤖 暴風阿修羅'];
-                var randomName = aiNames[Math.floor(Math.random() * aiNames.length)];
-                var randomSpin = Math.random() > 0.5;
-                var randomRpm = 8500 + Math.floor(Math.random() * 3500);
+            var p2 = new True3DBeyblade(scene, world, defaultMaterial, {
+                name: '🔴 影武赤狼', x: 2.5, z: 0, rpm: 11500, isRightSpin: false, color: 0xe11d48
+            });
+            p2.body.velocity.set(-3.0, 0, -1.5);
 
-                var ai = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: randomName, x: 2.5, y: 0.4, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xe11d48
-                });
-                ai.body.velocity.set(-2.2, 0, -1.2);
-                activeTops.push(ai);
-
-                document.getElementById('match-status').innerText = '⚔️ 單人對戰 (VS AI) 中...';
-
-            } else if (mode === 2) {
-                var p2Name = escapeHtml(document.getElementById('p2-name').value || '影武赤狼');
-                var p2Spin = document.getElementById('p2-spin').value === 'RIGHT';
-                var p2Power = document.getElementById('p2-power').value;
-                var p2Rpm = p2Power === 'HEAVY' ? 12000 : (p2Power === 'MEDIUM' ? 9500 : 7000);
-
-                var p2 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🔴 ' + p2Name, x: 2.5, y: 0.4, z: 0, rpm: p2Rpm, isRightSpin: p2Spin, color: 0xe11d48
-                });
-                p2.body.velocity.set(-2.2, 0, -1.2);
-                activeTops.push(p2);
-
-                document.getElementById('match-status').innerText = '⚔️ 雙人自訂對戰中...';
-
-            } else if (mode === 4) {
-                var p2Name4 = escapeHtml(document.getElementById('p2-name').value || '影武赤狼');
-                var p2_4 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🔴 ' + p2Name4, x: 2.5, y: 0.4, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48
-                });
-                p2_4.body.velocity.set(-2.2, 0, -1.2);
-                activeTops.push(p2_4);
-
-                var p3 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🟢 翡翠巨錘', x: 0, y: 0.4, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x10b981
-                });
-                p3.body.velocity.set(1.0, 0, 2.0);
-                activeTops.push(p3);
-
-                var p4 = new Beyblade3DPhysics(scene, world, defaultMaterial, {
-                    name: '🟣 帝王紫刃', x: 0, y: 0.4, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x8b5cf6
-                });
-                p4.body.velocity.set(-1.0, 0, -2.0);
-                activeTops.push(p4);
-
-                document.getElementById('match-status').innerText = '⚔️ 4 人大亂鬥中...';
-            }
-
+            activeTops.push(p1, p2);
             isSimulating = true;
-
-            if (window.innerWidth <= 768) {
-                document.getElementById('ui-overlay-box').style.display = 'none';
-            }
-        }
-
-        function bindEvents() {
-            document.getElementById('btn-vs-ai').onclick = function() { launchCustom3DBattle('VS_AI'); };
-            document.getElementById('btn-2p').onclick = function() { launchCustom3DBattle(2); };
-            document.getElementById('btn-4p').onclick = function() { launchCustom3DBattle(4); };
-            document.getElementById('btn-toggle-ui').onclick = function() {
-                var box = document.getElementById('ui-overlay-box');
-                box.style.display = box.style.display === 'none' ? 'block' : 'none';
-            };
-
-            // 📦 綁定 UGC 3D 設計檔 (.stl) 上傳與慣量分析事件
-            var dropzone = document.getElementById('ugc-dropzone');
-            var fileInput = document.getElementById('ugc-file-input');
-
-            if (dropzone && fileInput) {
-                dropzone.onclick = function() { fileInput.click(); };
-                fileInput.onchange = function(e) {
-                    var file = e.target.files[0];
-                    if (!file) return;
-
-                    var reader = new FileReader();
-                    reader.onload = function(evt) {
-                        try {
-                            var arrayBuffer = evt.target.result;
-                            var header = new TextDecoder().decode(arrayBuffer.slice(0, 80));
-                            var isAscii = header.startsWith('solid');
-                            var isBinary = !header.trim() && arrayBuffer.byteLength > 84;
-
-                            if (!isAscii && !isBinary) throw new Error('無效的 STL 檔案格式');
-
-                            document.getElementById('ugc-drop-text').innerText = '✅ 已載入: ' + escapeHtml(file.name) + ' (慣量數據校驗成功)';
-                            alert('成功載入並校驗 3D 陀螺設計檔 (.stl)！\n已更新實體慣量張量與碰撞體。');
-                        } catch (err) {
-                            alert('🚨 檔案校驗失敗: ' + err.message);
-                        }
-                    };
-                    reader.readAsArrayBuffer(file);
-                };
-            }
         }
 
         function animate(now) {
@@ -559,37 +194,24 @@
             lastTime = now;
 
             if (isSimulating) {
-                world.step(PHYSICS_FIXED_TIMESTEP, dt, PHYSICS_MAX_SUBSTEPS);
+                world.step(1 / 240, dt, 10);
 
-                for (var i = 0; i < activeTops.length; i++) {
-                    for (var j = i + 1; j < activeTops.length; j++) {
-                        var posA = activeTops[i].body.position;
-                        var posB = activeTops[j].body.position;
-                        var dist = posA.distanceTo(posB);
-                        if (dist < 1.8 && Math.random() > 0.3) {
-                            var midX = (posA.x + posB.x) / 2;
-                            var midY = (posA.y + posB.y) / 2;
-                            var midZ = (posA.z + posB.z) / 2;
-                            spawn3DSparks(midX, midY, midZ, 5);
-                        }
-                    }
-                }
-
-                update3DSparks(dt);
-
-                var debugHTML = '';
+                var debugText = '';
                 activeTops.forEach(function(t) {
-                    t.stepPhysics(dt);
-                    var angVelOmega = (Math.abs(t.body.angularVelocity.y)).toFixed(1);
-                    var linSpeed = t.body.velocity.norm().toFixed(2);
-                    var rpm = Math.round((Math.abs(t.body.angularVelocity.y) * 60) / (2 * Math.PI));
+                    t.update();
+                    var rpm = Math.round(Math.abs(t.body.angularVelocity.y) * 60 / (2 * Math.PI));
                     
-                    debugHTML += '<b>' + t.name + '</b><br>' +
-                        '• 角速度 ω: ' + angVelOmega + ' rad/s (' + rpm + ' RPM)<br>' +
-                        '• 線速度 v: ' + linSpeed + ' m/s<br><br>';
-                });
+                    // 計算陀螺相對於垂直方向的 3D 傾斜角度
+                    var up = new CANNON.Vec3(0, 1, 0);
+                    var topUp = t.body.quaternion.vmult(new CANNON.Vec3(0, 1, 0));
+                    var tiltDeg = (Math.acos(topUp.dot(up)) * 180 / Math.PI).toFixed(1);
 
-                document.getElementById('physics-telemetry-content').innerHTML = debugHTML;
+                    debugText += '<b>' + t.name + '</b><br>' +
+                        '• 轉速: ' + rpm + ' RPM<br>' +
+                        '• 3D 傾斜角: ' + tiltDeg + '°<br>' +
+                        '• 角速度 (ωx, ωy, ωz): (' + t.body.angularVelocity.x.toFixed(1) + ', ' + t.body.angularVelocity.y.toFixed(1) + ', ' + t.body.angularVelocity.z.toFixed(1) + ')<br><br>';
+                });
+                document.getElementById('telemetry').innerHTML = debugText;
             }
 
             controls.update();
