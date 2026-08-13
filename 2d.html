@@ -1,1 +1,320 @@
-2d.html
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <!-- Google Search Console -->
+    <meta name="google-site-verification" content="JZ5UohX-CcP_fQV0_DI9VadkKY4ZoTTkUifL88-fIcY" />
+
+    <title>爆上陀螺 Jayblade | 2D 經典版</title>
+    <meta name="description" content="純本地 WebGL/Canvas 2D 剛體力學戰鬥陀螺對戰模擬器。">
+    
+    <meta name="author" content="羅子淇 Jacky Law">
+    <meta name="robots" content="index, follow">
+
+    <!-- PWA Icons -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
+    
+    <meta name="theme-color" content="#121218">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+  <div style="text-align: right; max-width: 500px; margin: 0 auto 5px;">
+    <button class="btn btn-sm btn-secondary" id="btn-lang-toggle">🌐 中文 / English</button>
+  </div>
+
+  <h1 id="ui-title">🌀 爆上陀螺 Jayblade (2D 經典版) 🌀</h1>
+  <p class="subtitle" id="ui-subtitle">T0 賽場神機 & 左右雙旋物理模擬器</p>
+
+  <!-- 選單面板 -->
+  <div id="setup-panel" class="card">
+    
+    <!-- 🚀 切換回 3D 主頁按鈕：連至 index.html -->
+    <div style="margin-bottom: 12px; background: rgba(0, 210, 211, 0.2); padding: 12px; border-radius: 8px; border: 1.5px solid #00d2d3; text-align: center;">
+      <a href="./index.html" style="color: #00d2d3; font-weight: bold; text-decoration: none; font-size: 1.05rem; display: block;">
+        🚀 切換至 3D 科研級對戰模擬器 (3D Engine) →
+      </a>
+    </div>
+
+    <div class="mode-buttons">
+      <button class="btn" id="btn-single">🎮 2D 單人對戰 (VS AI)</button>
+      <button class="btn btn-secondary" id="btn-versus">⚔️ 2D 雙人同機 (1P VS 2P)</button>
+      <button class="btn btn-online" id="btn-online">🌐 遠端連線 (WebRTC)</button>
+    </div>
+
+    <hr>
+
+    <div id="online-panel" class="form-group physics-mode-box" style="display:none;">
+      <h4 id="ui-online-title">🌐 WebRTC P2P 連線等候大廳</h4>
+      <p style="font-size:12px; color:#aaa; margin-bottom:6px;"><span id="ui-my-id">你的 ID</span>: <b id="my-peer-id" style="color:#00d2d3;">生成中...</b></p>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="join-peer-id" placeholder="貼上對手的 Host ID">
+        <button class="btn btn-sm btn-secondary" id="btn-join">加入房間</button>
+      </div>
+      <div id="network-status" style="font-size:12px; color:#ffcc00; margin-top:6px;">狀態: 未連線</div>
+      <div id="lobby-ready-status" style="font-size:13px; color:#00d2d3; font-weight:bold; margin-top:4px;"></div>
+    </div>
+
+    <div id="config-section">
+      <div class="form-group physics-mode-box">
+        <label id="ui-phys-mode-label">⚙️ 模擬器物理模式: </label>
+        <select id="physics-engine-mode">
+          <option value="ARCADE" selected id="opt-arcade">🔥 熱血動畫版 (強烈對撞/閃光爆發)</option>
+          <option value="REALISTIC" id="opt-realistic">🔬 真實擬真版 (能量守恆/異旋吸轉)</option>
+        </select>
+      </div>
+
+      <!-- P1 設定 -->
+      <div class="player-box p1-box">
+        <h3 id="ui-p1-title">🔵 P1 陀螺自訂</h3>
+        <div class="form-group"><label id="lbl-p1-name">名稱: </label><input type="text" id="p1-name" value="火鷹飛龍"></div>
+        <div class="form-group"><label id="lbl-p1-color">顏色: </label><input type="color" id="p1-color" value="#1e90ff"></div>
+        
+        <div class="form-group">
+          <label id="lbl-p1-crown">撞擊環 (Crown): </label>
+          <select id="p1-crown">
+            <option value="FEATHER" selected>羽翼飛刃 (Feather Blade)</option>
+            <option value="DRAKE">龍紋重環 (Drake Crown)</option>
+            <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
+            <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p1-tip">動力底軸 (Tip): </label>
+          <select id="p1-tip">
+            <option value="FLAT" selected>極速平頭 - 軌道衝刺 (Flat Speed)</option>
+            <option value="BALL">持久球軸 - 中心防禦 (Ball Bearing)</option>
+            <option value="NEEDLE">防禦針軸 - 反擊幾何 (Needle Guard)</option>
+            <option value="ACCEL">軌道衝刺 - 動能爆發 (Accel Dash)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label id="lbl-p1-spin">🔄 旋轉方向: </label>
+          <select id="p1-spin">
+            <option value="RIGHT" selected id="opt-p1-spin-r">右迴旋 (順時針)</option>
+            <option value="LEFT" id="opt-p1-spin-l">左迴旋 (逆時針/異旋吸轉)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p1-angle">📐 降落角度: </label>
+          <select id="p1-angle">
+            <option value="0" id="opt-p1-angle-0">垂直直射 (0° 平穩居中)</option>
+            <option value="15" selected id="opt-p1-angle-15">斜角傾射 (15° 不規則衝刺)</option>
+            <option value="30" id="opt-p1-angle-30">極限斜射 (30° 極速側攻)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p1-power">發射力度: </label>
+          <select id="p1-power">
+            <option value="MEDIUM" id="opt-p1-power-m">中度 (穩定平衡)</option>
+            <option value="HEAVY" selected id="opt-p1-power-h">重度 (極速衝撞)</option>
+            <option value="LIGHT" id="opt-p1-power-l">輕度 (高精準)</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <button class="btn btn-sm" id="btn-export-p1">📤 複製塗裝碼</button>
+          <button class="btn btn-sm btn-secondary" id="btn-import-p1">📥 匯入塗裝碼</button>
+        </div>
+      </div>
+
+      <!-- P2 設定 -->
+      <div class="player-box p2-box" id="p2-setup-group" style="display:none;">
+        <h3 id="ui-p2-title">🔴 P2 陀螺自訂</h3>
+        <div class="form-group"><label id="lbl-p2-name">名稱: </label><input type="text" id="p2-name" value="影武赤狼"></div>
+        <div class="form-group"><label id="lbl-p2-color">顏色: </label><input type="color" id="p2-color" value="#ff3838"></div>
+        
+        <div class="form-group">
+          <label id="lbl-p2-crown">撞擊環 (Crown): </label>
+          <select id="p2-crown">
+            <option value="FEATHER">羽翼飛刃 (Feather Blade)</option>
+            <option value="DRAKE" selected>龍紋重環 (Drake Crown)</option>
+            <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
+            <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p2-tip">動力底軸 (Tip): </label>
+          <select id="p2-tip">
+            <option value="FLAT">極速平頭 (Flat Speed)</option>
+            <option value="BALL" selected>持久球軸 (Ball Bearing)</option>
+            <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
+            <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label id="lbl-p2-spin">🔄 旋轉方向: </label>
+          <select id="p2-spin">
+            <option value="RIGHT">右迴旋 (順時針)</option>
+            <option value="LEFT" selected id="opt-p2-spin-l">左迴旋 (逆時針)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p2-angle">📐 降落角度: </label>
+          <select id="p2-angle">
+            <option value="0" selected id="opt-p2-angle-0">垂直直射 (0°)</option>
+            <option value="15" id="opt-p2-angle-15">斜角傾射 (15°)</option>
+            <option value="30" id="opt-p2-angle-30">極限斜射 (30°)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label id="lbl-p2-power">發射力度: </label>
+          <select id="p2-power">
+            <option value="MEDIUM" id="opt-p2-power-m">中度 (穩定平衡)</option>
+            <option value="HEAVY" selected id="opt-p2-power-h">重度 (極速衝撞)</option>
+            <option value="LIGHT" id="opt-p2-power-l">輕度 (高精準)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- CPU 難度 -->
+      <div class="form-group" id="cpu-difficulty-group">
+        <label id="lbl-cpu-diff">CPU 對手難度: </label>
+        <select id="cpu-difficulty">
+          <option value="EASY" id="opt-easy">簡單 (輕鬆入門)</option>
+          <option value="MEDIUM" selected id="opt-medium">普通 (戰術相剋)</option>
+          <option value="HARD" id="opt-hard">困難 (行為樹 AI)</option>
+        </select>
+      </div>
+
+      <h4 id="lbl-grid-select">選擇 P1 降落位置 (網格 1-18):</h4>
+      <div id="grid-selector" class="grid-container"></div>
+    </div>
+
+    <div id="swipe-launch-zone" class="swipe-area">
+      <span id="swipe-label">👆 手機手勢：在此區域向上快速滑動進行拉線發射！</span>
+    </div>
+
+    <button class="btn launch-btn" id="btn-launch">3, 2, 1... Go Shoot!</button>
+  </div>
+
+  <!-- 戰鬥畫布 -->
+  <div id="game-panel" class="card" style="display:none;">
+    <div id="status-bar" style="font-size: 1.1rem; font-weight: bold; margin-bottom: 8px;">準備發射...</div>
+    <div id="stats-display">🏆 戰績載入中...</div>
+    <div id="achieve-display">🎖️ 成就數量: 0/3</div>
+    
+    <div class="canvas-controls">
+      <button class="btn btn-sm" id="btn-debug">📊 物理數據面板</button>
+      <button class="btn btn-sm btn-secondary" id="btn-bgm">🎵 BGM 音效</button>
+      <span id="ping-display" style="font-size:12px; color:#00d2d3; margin-left:10px;">Ping: -- ms</span>
+    </div>
+
+    <div id="canvas-container" style="width:100%; text-align:center; margin-top:10px;">
+      <canvas id="battleCanvas" style="background:#070714; border-radius:12px; max-width:100%; box-shadow:0 8px 30px rgba(0,210,211,0.2);"></canvas>
+    </div>
+
+    <div id="debug-panel" class="debug-box" style="display:none;">
+      <h4 id="ui-debug-title">⚙️ 第一性原理數據 (FPS: <span id="fps-counter">60</span>)</h4>
+      <div class="debug-grid">
+        <div id="p1-debug">P1: 載入中...</div>
+        <div id="p2-debug">P2: 載入中...</div>
+      </div>
+    </div>
+
+    <br>
+    <button class="btn" id="btn-reset">🔄 重新設定 / 再次對戰</button>
+  </div>
+
+  <script type="module">
+    import { start2DBattle } from './js/game.js';
+
+    function buildGridSelector() {
+      const container = document.getElementById('grid-selector');
+      if (!container) return;
+      container.innerHTML = '';
+      for (let i = 1; i <= 18; i++) {
+        const btn = document.createElement('div');
+        btn.className = 'grid-item' + (i === 8 ? ' selected' : '');
+        btn.style.cssText = 'padding:10px; background:rgba(255,255,255,0.05); border-radius:6px; text-align:center; cursor:pointer; font-weight:bold; font-size:12px; border:1px solid rgba(255,255,255,0.1);';
+        if (i === 8) btn.style.border = '2px solid #00f2fe';
+        btn.innerText = i;
+        btn.onclick = function() {
+          document.querySelectorAll('.grid-item').forEach(el => el.style.border = '1px solid rgba(255,255,255,0.1)');
+          this.style.border = '2px solid #00f2fe';
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    function triggerLaunch() {
+      const setupPanel = document.getElementById('setup-panel');
+      const gamePanel = document.getElementById('game-panel');
+      
+      if (setupPanel) setupPanel.style.display = 'none';
+      if (gamePanel) gamePanel.style.display = 'block';
+
+      start2DBattle();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      buildGridSelector();
+
+      const launchBtn = document.getElementById('btn-launch');
+      if (launchBtn) {
+        launchBtn.onclick = (e) => {
+          e.preventDefault();
+          triggerLaunch();
+        };
+      }
+
+      const btnSingle = document.getElementById('btn-single');
+      const btnVersus = document.getElementById('btn-versus');
+      const btnOnline = document.getElementById('btn-online');
+      const p2Box = document.getElementById('p2-setup-group');
+      const onlineBox = document.getElementById('online-panel');
+
+      if (btnSingle) {
+        btnSingle.onclick = () => {
+          if (p2Box) p2Box.style.display = 'none';
+          if (onlineBox) onlineBox.style.display = 'none';
+        };
+      }
+      if (btnVersus) {
+        btnVersus.onclick = () => {
+          if (p2Box) p2Box.style.display = 'block';
+          if (onlineBox) onlineBox.style.display = 'none';
+        };
+      }
+      if (btnOnline) {
+        btnOnline.onclick = () => {
+          if (p2Box) p2Box.style.display = 'block';
+          if (onlineBox) onlineBox.style.display = 'block';
+        };
+      }
+
+      const btnReset = document.getElementById('btn-reset');
+      if (btnReset) {
+        btnReset.onclick = () => {
+          const setupPanel = document.getElementById('setup-panel');
+          const gamePanel = document.getElementById('game-panel');
+          if (setupPanel) setupPanel.style.display = 'block';
+          if (gamePanel) gamePanel.style.display = 'none';
+        };
+      }
+    });
+  </script>
+
+  <!-- 註冊 Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
+      });
+    }
+  </script>
+</body>
+</html>
+
