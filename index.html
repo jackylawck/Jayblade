@@ -1,773 +1,423 @@
 <!DOCTYPE html>
+
 <html lang="zh-HK">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    
-    <!-- Google 網站驗證 (Google Site Verification) -->
+
     <meta name="google-site-verification" content="JZ5UohX-CcP_fQV0_DI9VadkKY4ZoTTkUifL88-fIcY" />
 
-    <!-- 基本 SEO Meta 標籤 -->
-    <title>BX Score Keeper | 《爆旋陀螺X》賽事對戰計分器 (亞洲版第 12 版)</title>
-    <meta name="description" content="專為《爆旋陀螺X》亞洲版第 12 版賽事規則設計的免費對戰計分器 Web App / PWA。支援 1v1 標準對戰、3on3 Deck 模式與 KOF 團隊戰，完全支援離線使用與雙語介面。">
-    <meta name="keywords" content="爆旋陀螺X, Beyblade X, 計分器, Score Keeper, Beyblade X Counter, 亞洲版第12版, 3on3對戰, 團隊戰, PWA, 陀螺戰鬥助手">
+
+
+    <title>爆上陀螺 Jayblade 3D | 剛體力學戰鬥模擬器</title>
+
+    <meta name="description" content="純本地 WebGL/3D 剛體力學戰鬥陀螺對戰模擬器。支援自訂 3D 模型 (.stl) 上傳、16款 Combo 戰術配件與 WebRTC 遠端連線對戰。">
+
+    <meta name="keywords" content="爆上陀螺, Jayblade, 戰鬥陀螺, Combo配搭, 3D物理模擬器, 剛體力學, STL上傳, WebRTC連線">
+
     <meta name="author" content="羅子淇 Jacky Law">
+
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://jackylawck.github.io/BX-Score-Keeper/">
 
-    <!-- Open Graph / 社交媒體分享預覽 (Facebook, WhatsApp, Discord) -->
-    <meta property="og:type" content="website">
-    <meta property="og:title" content="BX Score Keeper | 《爆旋陀螺X》賽事對戰計分器">
-    <meta property="og:description" content="依據《爆旋陀螺X規則（亞洲版）》第 12 版製作的賽事助手。支援 1v1、3on3 與 KOF 團隊戰，完全免費無廣告，支援離線使用。">
-    <meta property="og:image" content="https://jackylawck.github.io/BX-Score-Keeper/BXScoreKeepericon-512.png">
-    <meta property="og:url" content="https://jackylawck.github.io/BX-Score-Keeper/">
-    <meta property="og:site_name" content="BX Score Keeper">
+    <link rel="canonical" href="https://jackylawck.github.io/Jayblade/">
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="BX Score Keeper | 《爆旋陀螺X》賽事對戰計分器">
-    <meta name="twitter:description" content="專為《爆旋陀螺X》亞洲版第 12 版賽事規則設計的對戰計分工具。">
-    <meta name="twitter:image" content="https://jackylawck.github.io/BX-Score-Keeper/BXScoreKeepericon-512.png">
 
-    <!-- PWA & Favicon 設定 -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="BXScoreKeepericon-192.png">
-    <link rel="apple-touch-icon" href="BXScoreKeepericon-192.png">
-    <meta name="theme-color" content="#080c14">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <link rel="manifest" href="./manifest.json">
+
+    <link rel="apple-touch-icon" href="./JaybladeICON-512.png">
+
+    <link rel="icon" type="image/png" sizes="192x192" href="./JaybladeICON-192.png">
+
+    <meta name="theme-color" content="#070714">
+
+
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+TC:wght@700;900&display=swap');
 
-        :root {
-            --bg-color: #080c14;
-            --card-bg: #1f293d;
-            --neon-blue: #00f0ff;
-            --neon-red: #ff0055;
-            --neon-orange: #ff7700;
-            --neon-yellow: #ffcc00;
-            --neon-green: #00ff66;
-            --text-main: #ffffff;
-            --text-sub: #8b9bb4;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 50% 20%, rgba(0, 240, 255, 0.15) 0%, transparent 60%),
-                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-            background-size: 100% 100%, 30px 30px, 30px 30px;
-            color: var(--text-main);
-            margin: 0;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
+        body { background: #070714; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; user-select: none; }
 
-        header {
-            width: 100%;
-            max-width: 900px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            border-bottom: 2px solid var(--neon-blue);
-            padding-bottom: 6px;
-            box-shadow: 0 4px 15px rgba(0, 240, 255, 0.2);
-        }
+        #canvas-container { width: 100vw; height: 100vh; display: block; position: absolute; top: 0; left: 0; z-index: 1; }
 
-        h1 {
-            font-family: 'Orbitron', 'Noto Sans TC', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 900;
-            font-style: italic;
-            margin: 0;
-            background: linear-gradient(90deg, #fff, var(--neon-blue));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
-            letter-spacing: 1px;
-        }
+        .ui-overlay { position: absolute; top: 10px; left: 10px; z-index: 100; max-height: 95vh; overflow-y: auto; }
 
-        .subtitle { font-size: 0.75rem; color: var(--text-sub); font-weight: bold; }
+        .ui-card { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(16px); border: 1px solid rgba(0, 212, 255, 0.4); border-radius: 16px; padding: 14px; width: 340px; box-shadow: 0 10px 40px rgba(0, 212, 255, 0.25); }
 
-        .nav-btns { display: flex; gap: 6px; }
+        @media (max-width: 480px) { .ui-card { width: calc(100vw - 20px); max-width: 340px; } }
 
-        .top-btn {
-            background: rgba(0, 240, 255, 0.1);
-            color: var(--neon-blue);
-            border: 1px solid var(--neon-blue);
-            padding: 4px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: bold;
-            clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-            transition: all 0.2s;
-        }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 
-        .top-btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 10px var(--neon-blue); }
+        h1 { font-size: 1.2rem; background: linear-gradient(90deg, #00f2fe, #4facfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; margin: 0; }
 
-        .mode-banner {
-            width: 100%;
-            max-width: 900px;
-            background: rgba(17, 24, 39, 0.8);
-            border: 1px solid rgba(0, 240, 255, 0.3);
-            border-radius: 6px;
-            padding: 6px 10px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-sizing: border-box;
-            backdrop-filter: blur(5px);
-            flex-wrap: wrap;
-            gap: 6px;
-        }
+        .lang-btn { background: rgba(0, 242, 254, 0.15); border: 1px solid #00f2fe; color: #00f2fe; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; font-weight: bold; }
 
-        .mode-toggle { display: flex; gap: 6px; }
+        p { font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; line-height: 1.3; }
 
-        .mode-btn {
-            background: #0f172a;
-            color: var(--text-sub);
-            border: 1px solid #334155;
-            padding: 4px 10px;
-            font-size: 0.75rem;
-            font-weight: 900;
-            cursor: pointer;
-            clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-            transition: all 0.2s;
-        }
+        .btn { background: linear-gradient(135deg, #ff7e5f, #feb47b); color: #fff; border: none; padding: 10px 12px; font-size: 0.88rem; font-weight: bold; border-radius: 8px; cursor: pointer; width: 100%; box-shadow: 0 4px 15px rgba(255, 126, 95, 0.4); transition: transform 0.1s; margin-top: 6px; text-decoration: none; display: block; text-align: center; }
 
-        .mode-btn.active {
-            background: var(--neon-blue);
-            color: #000;
-            border-color: var(--neon-blue);
-            box-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
-        }
+        .btn:active { transform: scale(0.98); }
 
-        .deck-controls { display: flex; align-items: center; gap: 8px; }
+        .btn-ai { background: linear-gradient(135deg, #00b894, #00cec9); box-shadow: 0 4px 15px rgba(0, 206, 201, 0.4); }
 
-        .deck-indicator {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.85rem;
-            font-weight: 900;
-            color: var(--neon-yellow);
-            text-shadow: 0 0 8px var(--neon-yellow);
-        }
+        .btn-online { background: linear-gradient(135deg, #0984e3, #6c5ce7); box-shadow: 0 4px 15px rgba(108, 92, 231, 0.4); }
 
-        .reorder-btn {
-            background: rgba(255, 204, 0, 0.15);
-            color: var(--neon-yellow);
-            border: 1px solid var(--neon-yellow);
-            padding: 2px 8px;
-            font-size: 0.7rem;
-            font-weight: bold;
-            cursor: pointer;
-            border-radius: 4px;
-        }
+        .btn-purple { background: linear-gradient(135deg, #a855f7, #6366f1); box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4); }
 
-        .team-tracker-bar {
-            width: 100%;
-            max-width: 900px;
-            background: rgba(0, 240, 255, 0.05);
-            border: 1px dashed var(--neon-blue);
-            padding: 6px;
-            border-radius: 6px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            box-sizing: border-box;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.85rem;
-            font-weight: bold;
-        }
+        .btn-secondary { background: #1e293b; border: 1px solid rgba(255,255,255,0.2); }
 
-        .scoreboard {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            width: 100%;
-            max-width: 900px;
-        }
+        .btn-sm { font-size: 0.75rem; padding: 6px 10px; }
 
-        .player-card {
-            background: linear-gradient(135deg, rgba(31, 41, 61, 0.95), rgba(17, 24, 39, 0.95));
-            border: 2px solid #2a3852;
-            border-radius: 8px;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            position: relative;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
-            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
-        }
+        .status-banner { font-size: 0.85rem; font-weight: bold; color: #38bdf8; margin-bottom: 6px; min-height: 20px; text-shadow: 0 0 10px rgba(56, 189, 248, 0.6); }
 
-        .player-name-input {
-            font-family: 'Noto Sans TC', sans-serif;
-            font-size: 1rem;
-            font-weight: 900;
-            color: #fff;
-            text-transform: uppercase;
-            background: transparent;
-            border: none;
-            border-bottom: 1px dashed var(--neon-blue);
-            text-align: center;
-            width: 90%;
-            padding: 2px;
-            outline: none;
-        }
+        .parts-panel { background: rgba(255,255,255,0.04); border-radius: 10px; padding: 8px; margin: 6px 0; border: 1px solid rgba(255,255,255,0.08); }
 
-        .score-display {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 4.2rem;
-            font-weight: 900;
-            color: var(--neon-blue);
-            text-shadow: 0 0 15px var(--neon-blue), 0 0 30px var(--neon-blue);
-            margin: 2px 0;
-            line-height: 1;
-        }
+        .parts-panel h3 { font-size: 0.82rem; color: #f59e0b; margin-bottom: 6px; }
 
-        .btn-grid { display: grid; grid-template-columns: 1fr; gap: 8px; width: 100%; }
+        .p2-title { color: #f43f5e !important; }
 
-        button.score-btn {
-            border: none;
-            padding: 10px 12px;
-            font-family: 'Noto Sans TC', sans-serif;
-            font-weight: 900;
-            color: #fff;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-            transition: transform 0.1s, box-shadow 0.2s;
-        }
+        .form-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 0.75rem; }
 
-        button.score-btn:active { transform: scale(0.96); }
+        .form-row label { color: #cbd5e1; }
 
-        .btn-xtreme { background: linear-gradient(90deg, #800020, var(--neon-red)); border-left: 4px solid var(--neon-red); }
-        .btn-over { background: linear-gradient(90deg, #803b00, var(--neon-orange)); border-left: 4px solid var(--neon-orange); }
-        .btn-burst { background: linear-gradient(90deg, #806600, var(--neon-yellow)); color: #000 !important; border-left: 4px solid var(--neon-yellow); }
-        .btn-spin { background: linear-gradient(90deg, #008033, var(--neon-green)); border-left: 4px solid var(--neon-green); }
+        .form-row select, .form-row input[type="text"], .form-row input[type="color"] { background: rgba(15, 23, 42, 0.8); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; padding: 2px 6px; font-size: 0.75rem; width: 60%; }
 
-        .pts-badge { font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 900; }
+        .ugc-dropzone { border: 1.5px dashed #00f2fe; border-radius: 8px; padding: 8px; text-align: center; font-size: 0.72rem; color: #00f2fe; background: rgba(0, 242, 254, 0.05); margin-top: 6px; cursor: pointer; transition: background 0.2s; }
 
-        .controls { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+        .ugc-dropzone:hover { background: rgba(0, 242, 254, 0.12); }
 
-        .ctrl-btn {
-            background: #1e293b;
-            color: #fff;
-            border: 1px solid #475569;
-            padding: 8px 16px;
-            font-weight: bold;
-            font-size: 0.85rem;
-            cursor: pointer;
-            border-radius: 4px;
-        }
+        .debug-panel { font-family: 'Courier New', Courier, monospace; font-size: 0.72rem; color: #38bdf8; background: rgba(0,0,0,0.75); padding: 8px; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.3); margin-top: 6px; line-height: 1.35; }
 
-        .ctrl-btn.reset { background: rgba(255, 0, 85, 0.15); color: var(--neon-red); border-color: var(--neon-red); }
+        .debug-panel h4 { color: #f59e0b; margin-bottom: 4px; font-size: 0.75rem; border-bottom: 1px solid rgba(245, 158, 11, 0.3); padding-bottom: 2px; }
 
-        .log-panel {
-            width: 100%;
-            max-width: 900px;
-            background: rgba(17, 24, 39, 0.85);
-            border-radius: 6px;
-            margin-top: 12px;
-            padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid #2a3852;
-        }
+        .toggle-ui-btn { position: fixed; bottom: 15px; left: 15px; z-index: 200; background: linear-gradient(135deg, #00f2fe, #4facfe); color: #0f172a; font-weight: 800; border: none; padding: 8px 14px; border-radius: 20px; font-size: 0.78rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.5); }
 
-        .log-title { font-size: 0.8rem; font-weight: 900; color: var(--neon-blue); letter-spacing: 1px; margin-bottom: 6px; }
-        .log-list { list-style: none; padding: 0; margin: 0; max-height: 80px; overflow-y: auto; font-size: 0.75rem; }
-        .log-item { padding: 3px 0; border-bottom: 1px dashed #2a3852; color: #cbd5e1; }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        .modal-content {
-            background: #111827;
-            border: 2px solid var(--neon-blue);
-            box-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
-            border-radius: 8px;
-            padding: 20px;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            color: var(--text-main);
-        }
-
-        .winner-title {
-            font-family: 'Orbitron', 'Noto Sans TC', sans-serif;
-            font-size: 2rem;
-            color: var(--neon-blue);
-            text-shadow: 0 0 20px var(--neon-blue);
-            margin: 10px 0;
-            font-weight: 900;
-        }
-
-        footer { margin-top: auto; padding-top: 12px; font-size: 0.65rem; color: var(--text-sub); text-align: center; }
-
-        @media (orientation: landscape) and (max-height: 500px) {
-            body { padding: 6px 12px; }
-            header { margin-bottom: 4px; padding-bottom: 2px; }
-            h1 { font-size: 1rem; }
-            .subtitle { font-size: 0.65rem; }
-
-            .mode-banner { margin-bottom: 6px; padding: 4px 8px; }
-            .mode-btn { font-size: 0.7rem; padding: 2px 6px; }
-
-            .team-tracker-bar { padding: 4px; margin-bottom: 4px; font-size: 0.75rem; }
-
-            .scoreboard { gap: 10px; }
-            .player-card { padding: 6px 10px; }
-            .player-name-input { font-size: 0.85rem; }
-            .score-display { font-size: 2.8rem; margin: 0; }
-
-            .btn-grid { gap: 5px; }
-            button.score-btn { padding: 6px 8px; font-size: 0.75rem; }
-            .pts-badge { font-size: 0.85rem; }
-
-            .controls { margin-top: 6px; gap: 6px; }
-            .ctrl-btn { padding: 4px 12px; font-size: 0.75rem; }
-
-            .log-panel { margin-top: 6px; padding: 6px; }
-            .log-list { max-height: 50px; }
-
-            footer { padding-top: 6px; font-size: 0.6rem; }
-        }
     </style>
+
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
 </head>
+
 <body>
 
-    <header>
-        <div>
-            <h1>BX SCORE KEEPER</h1>
-            <div class="subtitle" id="rules-tag">BEYBLADE X Regulations (Asia Version) 12th Ed</div>
-        </div>
-        <div class="nav-btns">
-            <button class="top-btn" onclick="openRules()">📖 <span id="btn-rules-txt">規則</span></button>
-            <button class="top-btn" onclick="toggleLanguage()" id="lang-btn">EN</button>
-        </div>
-    </header>
 
-    <div class="mode-banner">
-        <div class="mode-toggle">
-            <button class="mode-btn active" id="mode-std-btn" onclick="setMatchMode('std')">1v1 Standard</button>
-            <button class="mode-btn" id="mode-3v3-btn" onclick="setMatchMode('3v3')">3on3 Battle</button>
-            <button class="mode-btn" id="mode-team-btn" onclick="setMatchMode('team')">Team Battle</button>
-        </div>
-        <div class="deck-controls" id="deck-box" style="display: none;">
-            <span class="deck-indicator" id="deck-status">ITEM #1</span>
-            <button class="reorder-btn" onclick="resetBattleCounter()" id="reorder-btn">重置順序</button>
-        </div>
-    </div>
 
-    <!-- Team Battle Tracker Bar -->
-    <div class="team-tracker-bar" id="team-tracker-bar" style="display: none;">
-        <span>TEAM WINS:</span>
-        <span style="color: var(--neon-blue);" id="team-wins-p1">Team A: 0</span>
-        <span>vs</span>
-        <span style="color: var(--neon-red);" id="team-wins-p2">Team B: 0</span>
-    </div>
+    <button class="toggle-ui-btn" id="btn-toggle-ui">👁️ 隱藏/顯示選單</button>
 
-    <div class="scoreboard">
-        <!-- Player 1 -->
-        <div class="player-card">
-            <input type="text" class="player-name-input" id="p1-title" value="PLAYER 1" onchange="saveState()">
-            <div class="score-display" id="score-p1">0</div>
-            <div class="btn-grid">
-                <button class="score-btn btn-xtreme" onclick="addScore(1, 3, 'Xtreme')">
-                    <span class="txt-xtreme">Xtreme Finish</span><span class="pts-badge">+3</span>
-                </button>
-                <button class="score-btn btn-over" onclick="addScore(1, 2, 'Over')">
-                    <span class="txt-over">Over Finish</span><span class="pts-badge">+2</span>
-                </button>
-                <button class="score-btn btn-burst" onclick="addScore(1, 2, 'Burst')">
-                    <span class="txt-burst">Burst Finish</span><span class="pts-badge">+2</span>
-                </button>
-                <button class="score-btn btn-spin" onclick="addScore(1, 1, 'Spin')">
-                    <span class="txt-spin">Spin Finish</span><span class="pts-badge">+1</span>
-                </button>
+
+
+    <div class="ui-overlay" id="ui-overlay-box">
+
+        <div class="ui-card">
+
+            <div class="header-row">
+
+                <h1 id="ui-title">🌀 爆上陀螺 Jayblade 3D</h1>
+
+                <button class="lang-btn" id="btn-lang">English</button>
+
             </div>
-        </div>
 
-        <!-- Player 2 -->
-        <div class="player-card">
-            <input type="text" class="player-name-input" id="p2-title" value="PLAYER 2" onchange="saveState()">
-            <div class="score-display" id="score-p2">0</div>
-            <div class="btn-grid">
-                <button class="score-btn btn-xtreme" onclick="addScore(2, 3, 'Xtreme')">
-                    <span class="txt-xtreme">Xtreme Finish</span><span class="pts-badge">+3</span>
-                </button>
-                <button class="score-btn btn-over" onclick="addScore(2, 2, 'Over')">
-                    <span class="txt-over">Over Finish</span><span class="pts-badge">+2</span>
-                </button>
-                <button class="score-btn btn-burst" onclick="addScore(2, 2, 'Burst')">
-                    <span class="txt-burst">Burst Finish</span><span class="pts-badge">+2</span>
-                </button>
-                <button class="score-btn btn-spin" onclick="addScore(2, 1, 'Spin')">
-                    <span class="txt-spin">Spin Finish</span><span class="pts-badge">+1</span>
-                </button>
+            <p id="ui-subtitle">3D 剛體對戰模擬器</p>
+
+            
+
+            <a href="./2d.html" class="btn btn-secondary btn-sm" id="btn-back-2d" style="margin-bottom:6px;">
+
+                ⚡ 切換至 2D 經典/省電版 (2D Classic) →
+
+            </a>
+
+
+
+            <!-- WebRTC 大廳 -->
+
+            <div class="parts-panel" id="online-lobby-panel" style="border:1px solid #6c5ce7; background:rgba(108,92,231,0.1);">
+
+                <h3 id="ui-online-title" style="color:#a29bfe;">🌐 3D WebRTC 遠端連線大廳</h3>
+
+                <div class="form-row">
+
+                    <label id="ui-lbl-myid">7位數字房間 ID:</label>
+
+                    <b id="my-peer-id" style="color:#00f2fe; font-size:0.75rem;">生成中...</b>
+
+                </div>
+
+                <div style="display:flex; gap:4px; margin-top:4px;">
+
+                    <input type="text" id="join-peer-id" placeholder="貼上對手的 7位數 Room ID" style="background:rgba(15,23,42,0.8); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); border-radius:6px; padding:2px 6px; font-size:0.75rem; width:65%;">
+
+                    <button class="btn btn-sm btn-secondary" id="btn-join-room" style="margin-top:0; width:35%;">加入房間</button>
+
+                </div>
+
+                <div id="net-status" style="font-size:0.7rem; color:#f59e0b; margin-top:4px;">狀態: 單機模式</div>
+
             </div>
-        </div>
-    </div>
 
-    <div class="controls">
-        <button class="ctrl-btn" onclick="undo()" id="btn-undo">Undo / 上一步</button>
-        <button class="ctrl-btn" id="next-kof-btn" onclick="nextKOFRound()" style="display: none; background: var(--neon-blue); color: #000;">下一局 (KOF 換人)</button>
-        <button class="ctrl-btn reset" onclick="resetMatch()" id="btn-reset">Reset / 重置賽事</button>
-    </div>
 
-    <div class="log-panel">
-        <div class="log-title" id="log-title">⚡ 對局紀錄 (BATTLE LOG)</div>
-        <ul class="log-list" id="log-list"></ul>
-    </div>
 
-    <!-- Rules Modal -->
-    <div class="modal" id="rules-modal">
-        <div class="modal-content">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a3852; padding-bottom: 10px;">
-                <h2 style="margin:0; font-size:1.1rem; color:var(--neon-blue);" id="modal-title">《爆旋陀螺X規則（亞洲版）》第 12 版摘要</h2>
-                <button style="background:transparent; border:none; color:var(--text-sub); font-size:1.5rem; cursor:pointer;" onclick="closeRules()">&times;</button>
+            <!-- P1 自訂 (含 8 Blade + 8 Bit) -->
+
+            <div class="parts-panel">
+
+                <h3 id="ui-p1-panel-title">🔵 P1 陀螺自訂 (玩家)</h3>
+
+                <div class="form-row"><label>名稱:</label><input type="text" id="p1-name" value="火鷹飛龍"></div>
+
+                <div class="form-row"><label>顏色:</label><input type="color" id="p1-color" value="#0284c7"></div>
+
+                <div class="form-row">
+
+                    <label>撞擊環:</label>
+
+                    <select id="p1-crown">
+
+                        <option value="FEATHER" selected>羽翼飛刃 (Feather Blade)</option>
+
+                        <option value="DRAKE">龍紋重環 (Drake Crown)</option>
+
+                        <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
+
+                        <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
+
+                        <option value="PHOENIX">朱雀翼刃 (Phoenix Wing)</option>
+
+                        <option value="SCYTHE">死神鐮刀 (Scythe Incendio)</option>
+
+                        <option value="RHINO">犀牛角盾 (Rhino Horn)</option>
+
+                        <option value="VIPER">毒蛇交鋒 (Viper Tail)</option>
+
+                    </select>
+
+                </div>
+
+                <div class="form-row">
+
+                    <label>動力底軸:</label>
+
+                    <select id="p1-tip">
+
+                        <option value="FLAT" selected>極速平頭 (Flat Speed)</option>
+
+                        <option value="BALL">持久球軸 (Ball Bearing)</option>
+
+                        <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
+
+                        <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
+
+                        <option value="HEXA">六角防禦 (Hexa Shield)</option>
+
+                        <option value="POINT">半球尖軸 (Point Dual)</option>
+
+                        <option value="TAPER">漸銳平軸 (Taper Counter)</option>
+
+                        <option value="RUBBER">橡膠平軸 (Rubber Recoil)</option>
+
+                    </select>
+
+                </div>
+
+                <div class="form-row">
+
+                    <label>旋轉方向:</label>
+
+                    <select id="p1-spin">
+
+                        <option value="RIGHT" selected>右迴旋 (順時針)</option>
+
+                        <option value="LEFT">左迴旋 (逆時針)</option>
+
+                    </select>
+
+                </div>
+
+                <div class="form-row">
+
+                    <label>發射力度:</label>
+
+                    <select id="p1-power">
+
+                        <option value="HEAVY" selected>重度 (高轉速)</option>
+
+                        <option value="MEDIUM">中度 (穩定)</option>
+
+                        <option value="LIGHT">輕度 (高精準)</option>
+
+                    </select>
+
+                </div>
+
+
+
+                <div class="ugc-dropzone" id="ugc-dropzone">
+
+                    <span id="ugc-drop-text">📁 點擊或拖拽自訂 3D 設計 (.stl) 檔測試實體慣量</span>
+
+                    <input type="file" id="ugc-file-input" accept=".stl" style="display:none;">
+
+                </div>
+
             </div>
-            <div id="modal-body"></div>
+
+
+
+            <!-- P2 自訂 (含 8 Blade + 8 Bit) -->
+
+            <div class="parts-panel">
+
+                <h3 id="ui-p2-panel-title" class="p2-title">🔴 P2 陀螺自訂 (對手)</h3>
+
+                <div class="form-row"><label>名稱:</label><input type="text" id="p2-name" value="影武赤狼"></div>
+
+                <div class="form-row"><label>顏色:</label><input type="color" id="p2-color" value="#e11d48"></div>
+
+                <div class="form-row">
+
+                    <label>撞擊環:</label>
+
+                    <select id="p2-crown">
+
+                        <option value="FEATHER">羽翼飛刃 (Feather Blade)</option>
+
+                        <option value="DRAKE" selected>龍紋重環 (Drake Crown)</option>
+
+                        <option value="HEAVY">裝甲重錘 (Heavy Armor)</option>
+
+                        <option value="WIZARD">魔導圓盾 (Wizard Ring)</option>
+
+                        <option value="PHOENIX">朱雀翼刃 (Phoenix Wing)</option>
+
+                        <option value="SCYTHE">死神鐮刀 (Scythe Incendio)</option>
+
+                        <option value="RHINO">犀牛角盾 (Rhino Horn)</option>
+
+                        <option value="VIPER">毒蛇交鋒 (Viper Tail)</option>
+
+                    </select>
+
+                </div>
+
+                <div class="form-row">
+
+                    <label>動力底軸:</label>
+
+                    <select id="p2-tip">
+
+                        <option value="FLAT">極速平頭 (Flat Speed)</option>
+
+                        <option value="BALL" selected>持久球軸 (Ball Bearing)</option>
+
+                        <option value="NEEDLE">防禦針軸 (Needle Guard)</option>
+
+                        <option value="ACCEL">軌道衝刺 (Accel Dash)</option>
+
+                        <option value="HEXA">六角防禦 (Hexa Shield)</option>
+
+                        <option value="POINT">半球尖軸 (Point Dual)</option>
+
+                        <option value="TAPER">漸銳平軸 (Taper Counter)</option>
+
+                        <option value="RUBBER">橡膠平軸 (Rubber Recoil)</option>
+
+                    </select>
+
+                </div>
+
+                <div class="form-row">
+
+                    <label>旋轉方向:</label>
+
+                    <select id="p2-spin">
+
+                        <option value="RIGHT">右迴旋 (順時針)</option>
+
+                        <option value="LEFT" selected>左迴旋 (逆時針)</option>
+
+                    </select>
+
+                </div>
+
+                <div class="form-row">
+
+                    <label>發射力度:</label>
+
+                    <select id="p2-power">
+
+                        <option value="HEAVY" selected>重度 (高轉速)</option>
+
+                        <option value="MEDIUM">中度 (穩定)</option>
+
+                        <option value="LIGHT">輕度 (高精準)</option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="status-banner" id="match-status">請選擇對戰模式發射...</div>
+
+            <button class="btn btn-ai" id="btn-vs-ai">🎮 單人對戰 (VS AI)</button>
+
+            <button class="btn" id="btn-2p">⚔️ 1P vs 2P 同機對戰</button>
+
+            <button class="btn btn-online" id="btn-p2p-launch">🌐 3D 遠端對決 (WebRTC P2P)</button>
+
+            <button class="btn btn-purple" id="btn-4p">🔥 4人障礙大亂鬥</button>
+
+
+
+            <div class="debug-panel" id="physics-debug-box">
+
+                <h4 id="ui-debug-title">⚙️ 實時物理數據 (240Hz 算力)</h4>
+
+                <div id="physics-telemetry-content">等待發射數據...</div>
+
+            </div>
+
         </div>
+
     </div>
 
-    <!-- Win Modal -->
-    <div class="modal" id="win-modal">
-        <div class="modal-content" style="text-align: center;">
-            <div style="font-size: 3rem;">🏆</div>
-            <div class="winner-title" id="winner-name">PLAYER 1</div>
-            <p style="font-size: 1.1rem; color: #fff; font-weight: bold;" id="win-msg">MATCH WINNER!</p>
-            <button class="ctrl-btn" onclick="closeWinModal()" style="margin-top: 15px; background: var(--neon-blue); color: #000; font-weight: bold;">OK</button>
-        </div>
-    </div>
 
-    <footer>
-        <p id="disclaimer">Unofficial fan-made tool for scoring purposes only, based on BEYBLADE X Regulations (Asia Version) 12th Edition.</p>
-    </footer>
+
+    <div id="canvas-container"></div>
+
+
+
+    <script type="module" src="js/game3d.js"></script>
 
     <script>
-        let scoreP1 = 0, scoreP2 = 0;
-        let teamWinsP1 = 0, teamWinsP2 = 0;
-        let battleCount = 1;
-        let matchMode = 'std';
-        let targetScore = 4;
-        let history = [], logs = [];
-        let currentLang = 'zh';
 
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playBeep(freq = 440, type = 'sine', duration = 0.1) {
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.value = freq;
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
-                osc.stop(audioCtx.currentTime + duration);
-            } catch(e) {}
-        }
+      if ('serviceWorker' in navigator) {
 
-        const i18n = {
-            zh: {
-                rulesTag: "《爆旋陀螺X規則（亞洲版）》第 12 版",
-                rulesBtn: "規則",
-                modalTitle: "《爆旋陀螺X規則（亞洲版）》第 12 版要點",
-                xtreme: "極致收尾 (Xtreme)",
-                over: "完工 / 超區 (Over)",
-                burst: "爆裂終結 (Burst)",
-                spin: "旋轉收尾 (Spin)",
-                undo: "復原 (Undo)",
-                reset: "重置賽事",
-                reorderBtn: "重置順序",
-                p1: "選手 / 隊伍 A",
-                p2: "選手 / 隊伍 B",
-                winMsg: "率先達到目標分數，獲得本局勝利！",
-                teamWinMsg: "拿下本局！敗方請更換下一位隊員登場（比分重置為 0-0）。",
-                reorderMsg: "已打完 3 戰未滿 4 分！請雙方重新排列組合順序，從 1 號開始繼續比賽。",
-                disclaimer: "本工具為非官方社群對戰計分器，依據《爆旋陀螺X規則（亞洲版）》第 12 版製作。",
-                rulesBody: `
-                    <div style="margin-bottom:12px;">
-                        <h3 style="color:var(--neon-blue); margin-bottom:4px;">1. 得分機制 (Points)</h3>
-                        <ul style="padding-left:20px; font-size:0.85rem; color:#cbd5e1;">
-                            <li><b>極致收尾 (Xtreme Finish) - 3分</b>：完全進入極限區且無法返回。</li>
-                            <li><b>完工 (Over Finish) - 2分</b>：完全進入超區且無法返回。</li>
-                            <li><b>爆裂終結 (Burst Finish) - 2分</b>：部件先行分離。</li>
-                            <li><b>旋轉收尾 (Spin Finish) - 1分</b>：先行停止旋轉。</li>
-                        </ul>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <h3 style="color:var(--neon-blue); margin-bottom:4px;">2. 3對3賽制 (3on3 Battle)</h3>
-                        <ul style="padding-left:20px; font-size:0.85rem; color:#cbd5e1;">
-                            <li>預先決定 3 個順序，不得使用重複部件。</li>
-                            <li>打完 3 場未滿 4 分，<b>得分保留，重新排列順序（由 1 號重新開始）</b>。</li>
-                        </ul>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <h3 style="color:var(--neon-blue); margin-bottom:4px;">3. 團隊戰 KOF 機制 (Team Battle)</h3>
-                        <ul style="padding-left:20px; font-size:0.85rem; color:#cbd5e1;">
-                            <li>每局採<b>先得 2 分制</b>，勝方留場，敗方換下一位隊員。</li>
-                            <li>換人時當前局比分重置為 0-0，累積團隊總勝場。</li>
-                        </ul>
-                    </div>
-                `
-            },
-            en: {
-                rulesTag: "BEYBLADE X Regulations (Asia Version) 12th Ed",
-                rulesBtn: "Rules",
-                modalTitle: "BEYBLADE X Regulations (Asia Version) 12th Ed Summary",
-                xtreme: "Xtreme Finish", over: "Over Finish", burst: "Burst Finish", spin: "Spin Finish",
-                undo: "Undo", reset: "Reset Match", reorderBtn: "Reset Order",
-                p1: "Player / Team A", p2: "Player / Team B",
-                winMsg: "Reached target score and wins the match!",
-                teamWinMsg: "Round won! Losing side replaces player (Score resets to 0-0).",
-                reorderMsg: "3 battles completed without reaching 4 pts. Rearrange order and restart from item #1!",
-                disclaimer: "Unofficial fan-made score keeper tool based on BEYBLADE X Regulations (Asia Version) 12th Edition.",
-                rulesBody: `
-                    <div style="margin-bottom:12px;">
-                        <h3 style="color:var(--neon-blue); margin-bottom:4px;">1. Scoring Systems</h3>
-                        <ul style="padding-left:20px; font-size:0.85rem; color:#cbd5e1;">
-                            <li><b>Xtreme Finish (3 pts)</b>: Bey completely enters Xtreme Zone and cannot return.</li>
-                            <li><b>Over Finish (2 pts)</b>: Bey completely enters Over Zone and cannot return.</li>
-                            <li><b>Burst Finish (2 pts)</b>: Opponent's Bey parts detach and separate first.</li>
-                            <li><b>Spin Finish (1 pt)</b>: Opponent's Bey stops spinning first in Battle Zone.</li>
-                        </ul>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <h3 style="color:var(--neon-blue); margin-bottom:4px;">2. 3on3 Battle Rules</h3>
-                        <ul style="padding-left:20px; font-size:0.85rem; color:#cbd5e1;">
-                            <li>Set 3 Beys in order. No duplicate parts allowed.</li>
-                            <li>If no one reaches 4 pts after 3 battles, <b>scores stay, rearrange order and restart from item #1</b>.</li>
-                        </ul>
-                    </div>
-                    <div style="margin-bottom:12px;">
-                        <h3 style="color:var(--neon-blue); margin-bottom:4px;">3. Team Battle Outcomes (KOF)</h3>
-                        <ul style="padding-left:20px; font-size:0.85rem; color:#cbd5e1;">
-                            <li>Each individual battle follows a <b>first-to-2-points rule</b>.</li>
-                            <li>Winning Blader stays, losing Blader replaced by next team member.</li>
-                            <li>Points reset to 0-0 when a new opponent steps in, team win counter is tracked.</li>
-                        </ul>
-                    </div>
-                `
-            }
-        };
+        window.addEventListener('load', () => {
 
-        function setMatchMode(mode) {
-            matchMode = mode;
-            targetScore = (mode === 'team') ? 2 : 4;
+          navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
 
-            document.getElementById('mode-std-btn').classList.toggle('active', mode === 'std');
-            document.getElementById('mode-3v3-btn').classList.toggle('active', mode === '3v3');
-            document.getElementById('mode-team-btn').classList.toggle('active', mode === 'team');
-            document.getElementById('deck-box').style.display = mode === '3v3' ? 'flex' : 'none';
-            document.getElementById('team-tracker-bar').style.display = mode === 'team' ? 'flex' : 'none';
-            document.getElementById('next-kof-btn').style.display = mode === 'team' ? 'inline-block' : 'none';
+        });
 
-            resetMatch(false);
-        }
+      }
 
-        function addScore(player, pts, typeName) {
-            if (scoreP1 >= targetScore || scoreP2 >= targetScore) return;
-
-            playBeep(600, 'square', 0.08);
-
-            history.push({
-                p1: scoreP1, p2: scoreP2, teamP1: teamWinsP1, teamP2: teamWinsP2,
-                battle: battleCount, logs: [...logs]
-            });
-
-            let name1 = document.getElementById('p1-title').value;
-            let name2 = document.getElementById('p2-title').value;
-            let pName = player === 1 ? name1 : name2;
-            logs.unshift(`Round ${battleCount}: ${pName} +${pts} (${typeName})`);
-
-            if (player === 1) scoreP1 += pts;
-            else scoreP2 += pts;
-
-            battleCount++;
-            updateDisplay();
-            saveState();
-
-            if (checkWinner()) return;
-
-            if (matchMode === '3v3' && (battleCount - 1) % 3 === 0) {
-                if (scoreP1 < 4 && scoreP2 < 4) {
-                    setTimeout(() => {
-                        alert(i18n[currentLang].reorderMsg);
-                        battleCount = 1;
-                        updateDisplay();
-                    }, 100);
-                }
-            }
-        }
-
-        function nextKOFRound() {
-            scoreP1 = 0; scoreP2 = 0; battleCount = 1;
-            updateDisplay();
-            saveState();
-        }
-
-        function resetBattleCounter() {
-            if (matchMode === '3v3') {
-                battleCount = 1;
-                updateDisplay();
-                saveState();
-            }
-        }
-
-        function undo() {
-            if (history.length > 0) {
-                playBeep(300, 'sine', 0.1);
-                const last = history.pop();
-                scoreP1 = last.p1; scoreP2 = last.p2;
-                teamWinsP1 = last.teamP1; teamWinsP2 = last.teamP2;
-                battleCount = last.battle; logs = last.logs;
-                updateDisplay();
-                saveState();
-            }
-        }
-
-        function resetMatch(askConfirm = true) {
-            if (!askConfirm || confirm("Reset entire match/scores? / 確定重置賽事？")) {
-                scoreP1 = 0; scoreP2 = 0;
-                teamWinsP1 = 0; teamWinsP2 = 0;
-                battleCount = 1;
-                history = []; logs = [];
-                updateDisplay();
-                saveState();
-            }
-        }
-
-        function updateDisplay() {
-            document.getElementById('score-p1').innerText = scoreP1;
-            document.getElementById('score-p2').innerText = scoreP2;
-
-            if (matchMode === '3v3') {
-                let currentBeyNum = ((battleCount - 1) % 3) + 1;
-                document.getElementById('deck-status').innerText = `ITEM #${currentBeyNum}`;
-            }
-
-            if (matchMode === 'team') {
-                let name1 = document.getElementById('p1-title').value;
-                let name2 = document.getElementById('p2-title').value;
-                document.getElementById('team-wins-p1').innerText = `${name1}: ${teamWinsP1}`;
-                document.getElementById('team-wins-p2').innerText = `${name2}: ${teamWinsP2}`;
-            }
-
-            const logList = document.getElementById('log-list');
-            logList.innerHTML = logs.map(l => `<li class="log-item">${l}</li>`).join('');
-        }
-
-        function checkWinner() {
-            let name1 = document.getElementById('p1-title').value;
-            let name2 = document.getElementById('p2-title').value;
-
-            if (scoreP1 >= targetScore) {
-                if (matchMode === 'team') teamWinsP1++;
-                playBeep(880, 'triangle', 0.3);
-                showWinModal(name1);
-                return true;
-            } else if (scoreP2 >= targetScore) {
-                if (matchMode === 'team') teamWinsP2++;
-                playBeep(880, 'triangle', 0.3);
-                showWinModal(name2);
-                return true;
-            }
-            return false;
-        }
-
-        function showWinModal(winner) {
-            document.getElementById('winner-name').innerText = winner;
-            document.getElementById('win-msg').innerText = matchMode === 'team' ? i18n[currentLang].teamWinMsg : i18n[currentLang].winMsg;
-            document.getElementById('win-modal').style.display = 'flex';
-        }
-
-        function closeWinModal() {
-            document.getElementById('win-modal').style.display = 'none';
-            if (matchMode === 'team') nextKOFRound();
-        }
-
-        function openRules() { document.getElementById('rules-modal').style.display = 'flex'; }
-        function closeRules() { document.getElementById('rules-modal').style.display = 'none'; }
-
-        function toggleLanguage() {
-            currentLang = currentLang === 'zh' ? 'en' : 'zh';
-            const lang = i18n[currentLang];
-
-            document.getElementById('rules-tag').innerText = lang.rulesTag;
-            document.getElementById('btn-rules-txt').innerText = lang.rulesBtn;
-            document.getElementById('lang-btn').innerText = currentLang === 'zh' ? 'EN' : '中文';
-            document.getElementById('btn-undo').innerText = lang.undo;
-            document.getElementById('btn-reset').innerText = lang.reset;
-            document.getElementById('reorder-btn').innerText = lang.reorderBtn;
-            document.getElementById('disclaimer').innerText = lang.disclaimer;
-            document.getElementById('modal-title').innerText = lang.modalTitle;
-            document.getElementById('modal-body').innerHTML = lang.rulesBody;
-
-            document.querySelectorAll('.txt-xtreme').forEach(el => el.innerText = lang.xtreme);
-            document.querySelectorAll('.txt-over').forEach(el => el.innerText = lang.over);
-            document.querySelectorAll('.txt-burst').forEach(el => el.innerText = lang.burst);
-            document.querySelectorAll('.txt-spin').forEach(el => el.innerText = lang.spin);
-        }
-
-        function saveState() {
-            const state = {
-                scoreP1, scoreP2, teamWinsP1, teamWinsP2, battleCount, matchMode,
-                p1Name: document.getElementById('p1-title').value,
-                p2Name: document.getElementById('p2-title').value,
-                logs, currentLang
-            };
-            localStorage.setItem('bx_score_state', JSON.stringify(state));
-        }
-
-        function loadState() {
-            const saved = localStorage.getItem('bx_score_state');
-            if (saved) {
-                try {
-                    const state = JSON.parse(saved);
-                    scoreP1 = state.scoreP1 || 0; scoreP2 = state.scoreP2 || 0;
-                    teamWinsP1 = state.teamWinsP1 || 0; teamWinsP2 = state.teamWinsP2 || 0;
-                    battleCount = state.battleCount || 1; matchMode = state.matchMode || 'std';
-                    logs = state.logs || [];
-                    if (state.p1Name) document.getElementById('p1-title').value = state.p1Name;
-                    if (state.p2Name) document.getElementById('p2-title').value = state.p2Name;
-                    setMatchMode(matchMode);
-                } catch(e) {}
-            }
-        }
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(() => {});
-            });
-        }
-
-        loadState();
     </script>
+
 </body>
+
 </html>
