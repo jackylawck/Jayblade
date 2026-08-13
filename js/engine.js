@@ -1,9 +1,10 @@
-// js/engine.js - 《爆上陀螺 Jayblade》全狀態剛體碰撞力學引擎
+// js/engine.js - 《爆上陀螺 Jayblade》賽場爽快版物理引擎 (含 X-Dash 軌道衝刺與金屬重擊彈開)
 
 export let STADIUM_CX = 400;
 export let STADIUM_CY = 300;
 export let STADIUM_R = 220;
 
+// Beyblade X 三大擊飛口袋
 export const STADIUM_POCKETS = [
     {
         id: "EXTREME",
@@ -45,10 +46,6 @@ export class Top2D {
         this.vy = config.vy || 0;
         this.rotation = Math.random() * Math.PI * 2;
         
-        // 🌀 剛體進動與傾斜狀態
-        this.wobbleAngle = 0;       // 傾斜角 (弧度)
-        this.wobblePhase = Math.random() * Math.PI * 2; // 搖晃相位
-        
         this.isRightSpin = config.isRightSpin ?? true;
         const initialRpm = config.rpm || 12000;
         this.angularVelocity = (initialRpm * 2 * Math.PI) / 60 * (this.isRightSpin ? 1 : -1);
@@ -56,10 +53,6 @@ export class Top2D {
         this.radius = config.radius || 24;
         this.mass = config.mass || 0.048;
         this.burstResist = config.burstResist || 0.85;
-        this.friction = config.friction || 0.22;
-
-        const rMeters = this.radius * 0.00125;
-        this.inertia = 0.5 * this.mass * Math.pow(rMeters, 2);
 
         this.hp = 100;
         this.isKnockedOut = false;
@@ -78,7 +71,7 @@ export class Top2D {
     getKineticEnergy() {
         const v = this.getLinearSpeed();
         const w = Math.abs(this.angularVelocity);
-        return 0.5 * this.mass * Math.pow(v, 2) + 0.5 * this.inertia * Math.pow(w, 2);
+        return 0.5 * this.mass * Math.pow(v, 2) + 0.00005 * Math.pow(w, 2);
     }
 }
 
@@ -88,18 +81,18 @@ export function updateStadiumCenter(width, height) {
     STADIUM_R = Math.min(width, height) * 0.38;
 }
 
-export function createSparks(x, y, count = 14) {
+export function createSparks(x, y, count = 16) {
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = 2 + Math.random() * 7;
+        const speed = 3 + Math.random() * 8;
         sparks.push({
             x: x,
             y: y,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed,
             life: 1.0,
-            decay: 0.035 + Math.random() * 0.03,
-            size: 2 + Math.random() * 3.5,
+            decay: 0.04 + Math.random() * 0.03,
+            size: 2.5 + Math.random() * 3.5,
             color: Math.random() > 0.3 ? "#ffea00" : "#ff3300"
         });
     }
@@ -115,6 +108,9 @@ export function updateSparks() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// 護牆碰撞與口袋擊飛 (Wall Bounce & Pocket Knockout)
+// ---------------------------------------------------------------------------
 export function check2DStadiumBoundary(top, onEventCallback) {
     if (top.isKnockedOut || top.isBurst) return;
 
@@ -137,22 +133,20 @@ export function check2DStadiumBoundary(top, onEventCallback) {
             return;
         }
 
+        // 強力牆面法向向內彈回
         const nx = dx / dist;
         const ny = dy / dist;
 
-        top.x = STADIUM_CX + nx * (STADIUM_R - top.radius);
-        top.y = STADIUM_CY + ny * (STADIUM_R - top.radius);
+        top.x = STADIUM_CX + nx * (STADIUM_R - top.radius - 1);
+        top.y = STADIUM_CY + ny * (STADIUM_R - top.radius - 1);
 
         const dot = top.vx * nx + top.vy * ny;
         if (dot > 0) {
-            const restitution = 0.75;
+            const restitution = 0.85; // 高彈性牆面
             top.vx -= (1 + restitution) * dot * nx;
             top.vy -= (1 + restitution) * dot * ny;
 
-            // 撞牆同時消耗自轉轉速並引發微幅搖晃
             top.angularVelocity *= 0.985;
-            top.wobbleAngle = Math.min(0.4, top.wobbleAngle + 0.05);
-
             createSparks(top.x, top.y, 8);
 
             if (onEventCallback) onEventCallback("WALL_HIT", { top, x: top.x, y: top.y });
@@ -161,7 +155,7 @@ export function check2DStadiumBoundary(top, onEventCallback) {
 }
 
 // ---------------------------------------------------------------------------
-// 💥 碰撞瞬間全狀態力學變換 (包含平彈、角動量損耗、傾斜力矩、血量扣減)
+// ⚡ 核心修復：清脆重擊彈開與衝量計算 (爽快打擊感)
 // ---------------------------------------------------------------------------
 export function handleTopCollision(topA, topB, onEventCallback) {
     if (topA.isKnockedOut || topB.isKnockedOut || topA.isBurst || topB.isBurst) return;
@@ -175,41 +169,36 @@ export function handleTopCollision(topA, topB, onEventCallback) {
         const nx = dx / dist;
         const ny = dy / dist;
 
-        // 1. 位置硬隔離
-        const overlap = (minDist - dist) / 2 + 0.8;
+        // 1. 硬性物理隔離 (強制分離 2.5px，徹底消除黏連)
+        const overlap = (minDist - dist) / 2 + 2.5;
         topA.x -= nx * overlap;
         topA.y -= ny * overlap;
         topB.x += nx * overlap;
         topB.y += ny * overlap;
 
-        // 2. 計算轉速反衝速度 (Recoil Speed)
+        // 2. 轉速轉化為暴發性彈開衝力
         const rpmA = Math.abs(topA.getRPM());
         const rpmB = Math.abs(topB.getRPM());
         const avgRpm = (rpmA + rpmB) / 2;
 
-        const recoilSpeed = avgRpm > 100 ? (2.0 + (avgRpm / 12000) * 3.0) : 1.0;
+        // 基礎重擊彈開速度 (強勁的 3.8 ~ 7.5 衝刺彈飛)
+        const recoilPower = 3.8 + (avgRpm / 12000) * 3.7;
 
-        // 3. 平動速度彈開
-        topA.vx = -nx * recoilSpeed - topA.vx * 0.2;
-        topA.vy = -ny * recoilSpeed - topA.vy * 0.2;
-        topB.vx = nx * recoilSpeed - topB.vx * 0.2;
-        topB.vy = ny * recoilSpeed - topB.vy * 0.2;
+        // 3. 直接給予向外強烈反彈速度向量
+        topA.vx = -nx * recoilPower + (Math.random() - 0.5) * 1.5;
+        topA.vy = -ny * recoilPower + (Math.random() - 0.5) * 1.5;
+        topB.vx = nx * recoilPower + (Math.random() - 0.5) * 1.5;
+        topB.vy = ny * recoilPower + (Math.random() - 0.5) * 1.5;
 
-        // 4. 🌀 碰撞引發陀螺傾斜力矩 (Tilt Torque)
-        const tiltImpact = Math.min(0.25, recoilSpeed * 0.05);
-        topA.wobbleAngle = Math.min(0.45, topA.wobbleAngle + tiltImpact);
-        topB.wobbleAngle = Math.min(0.45, topB.wobbleAngle + tiltImpact);
-
-        // 5. 旋轉力學 (同旋扣速與血量 vs 異旋吸轉)
+        // 4. 同旋 vs 異旋戰術計算
         const isSameSpin = topA.isRightSpin === topB.isRightSpin;
 
         if (isSameSpin) {
-            // 同旋對撞：急劇消耗角動量，扣減爆裂血量
-            const rpmLossRate = 0.06 / Math.min(topA.burstResist, topB.burstResist);
-            topA.angularVelocity *= (1 - rpmLossRate);
-            topB.angularVelocity *= (1 - rpmLossRate);
+            // 同旋硬碰撞：大量消耗轉速與扣血
+            topA.angularVelocity *= (1 - 0.06 / topA.burstResist);
+            topB.angularVelocity *= (1 - 0.06 / topB.burstResist);
 
-            const damage = recoilSpeed * 4.0;
+            const damage = recoilPower * 4.2;
             topA.hp -= damage / topA.burstResist;
             topB.hp -= damage / topB.burstResist;
 
@@ -224,9 +213,9 @@ export function handleTopCollision(topA, topB, onEventCallback) {
                 if (onEventCallback) onEventCallback("BURST", { winner: topA, loser: topB });
             }
         } else {
-            // 異旋吸轉 (Spin Steal)：根據相對切向表面速度進行角動量轉移
-            const transferRate = 0.14;
+            // 異旋吸轉 (Spin Steal)
             const avgSpin = (Math.abs(topA.angularVelocity) + Math.abs(topB.angularVelocity)) / 2;
+            const transferRate = 0.14;
 
             if (Math.abs(topA.angularVelocity) > Math.abs(topB.angularVelocity)) {
                 topA.angularVelocity *= (1 - transferRate);
@@ -237,18 +226,19 @@ export function handleTopCollision(topA, topB, onEventCallback) {
             }
         }
 
+        // 撞擊火花
         const midX = (topA.x + topB.x) / 2;
         const midY = (topA.y + topB.y) / 2;
-        createSparks(midX, midY, 18);
+        createSparks(midX, midY, 20);
 
         if (onEventCallback) {
-            onEventCallback("CLASH", { topA, topB, impulse: recoilSpeed, x: midX, y: midY });
+            onEventCallback("CLASH", { topA, topB, impulse: recoilPower, x: midX, y: midY });
         }
     }
 }
 
 // ---------------------------------------------------------------------------
-// 物理主循環 (含傾斜、拖地摩擦與動能衰減)
+// 物理主循環 (含 X-Dash 軌道加速與全時動能連動)
 // ---------------------------------------------------------------------------
 export function updatePhysics2D(tops, dt, onEventCallback) {
     const subSteps = 4;
@@ -259,35 +249,43 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
             const top = tops[i];
             if (top.isKnockedOut || top.isBurst) continue;
 
-            const currentRpm = Math.abs(top.getRPM());
-
-            // 轉速降至 3800 RPM 以下開始自然進動搖晃
-            if (currentRpm < 3800 && currentRpm > 0) {
-                const ratio = (3800 - currentRpm) / 3800;
-                top.wobbleAngle = Math.max(top.wobbleAngle, 0.38 * Math.pow(ratio, 1.8));
-                top.wobblePhase += (16 + (3800 - currentRpm) * 0.01) * subDt;
-            }
-
+            // 1. 位置與自轉更新
             top.x += top.vx * subDt * 60;
             top.y += top.vy * subDt * 60;
             top.rotation += (top.angularVelocity * subDt);
 
-            // 深碗坡度向心力
             const dx = top.x - STADIUM_CX;
             const dy = top.y - STADIUM_CY;
             const dist = Math.hypot(dx, dy);
 
-            if (dist > 5 && dist < STADIUM_R) {
-                const bowlPull = 0.22 * (dist / STADIUM_R);
+            // 2. ⚡【Beyblade X 核心特徵】X-Dash 綠色軌道極速衝刺！
+            const railDistMin = STADIUM_R - 22;
+            const railDistMax = STADIUM_R - 6;
+
+            if (dist >= railDistMin && dist <= railDistMax && Math.abs(top.angularVelocity) > 500) {
+                // 沿切線方向給予暴發性 X-Dash 加速
+                const tangentX = -dy / dist;
+                const tangentY = dx / dist;
+                const dashDirection = top.isRightSpin ? 1 : -1;
+
+                const dashAccel = 0.45; // X-Dash 衝刺加速度
+                top.vx += tangentX * dashAccel * dashDirection;
+                top.vy += tangentY * dashAccel * dashDirection;
+
+                if (Math.random() > 0.6) {
+                    createSparks(top.x, top.y, 2); // 軌道火花
+                }
+            } else if (dist > 5 && dist < railDistMin) {
+                // 盤心深碗向心引力 (拉回中央進行對撞)
+                const bowlPull = 0.25 * (dist / STADIUM_R);
                 top.vx -= (dx / dist) * bowlPull;
                 top.vy -= (dy / dist) * bowlPull;
             }
 
-            // 傾斜拖地時，平動與轉速衰減速度成倍增加
-            const dragFactor = 1.0 + (top.wobbleAngle * 2.5);
-            top.vx *= Math.max(0.92, 0.994 / dragFactor);
-            top.vy *= Math.max(0.92, 0.994 / dragFactor);
-            top.angularVelocity *= Math.max(0.90, 0.9996 / dragFactor);
+            // 3. 平滑動能衰減 (維持約 18-25 秒熱血對戰)
+            top.vx *= 0.993;
+            top.vy *= 0.993;
+            top.angularVelocity *= 0.9995;
 
             if (Math.abs(top.angularVelocity) < 2) {
                 top.angularVelocity = 0;
@@ -296,6 +294,7 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
             check2DStadiumBoundary(top, onEventCallback);
         }
 
+        // 4. 雙陀螺對撞檢測
         for (let i = 0; i < tops.length; i++) {
             for (let j = i + 1; j < tops.length; j++) {
                 handleTopCollision(tops[i], tops[j], onEventCallback);
@@ -306,11 +305,15 @@ export function updatePhysics2D(tops, dt, onEventCallback) {
     updateSparks();
 }
 
+// ---------------------------------------------------------------------------
+// 繪製賽場級瓷白美化盤面
+// ---------------------------------------------------------------------------
 export function draw2DStadiumLayout(ctx, width, height) {
     updateStadiumCenter(width, height);
 
     ctx.save();
 
+    // 1. 瓷白光澤底盤
     const stadiumGrad = ctx.createRadialGradient(
         STADIUM_CX, STADIUM_CY, 10,
         STADIUM_CX, STADIUM_CY, STADIUM_R
@@ -324,14 +327,16 @@ export function draw2DStadiumLayout(ctx, width, height) {
     ctx.fillStyle = stadiumGrad;
     ctx.fill();
 
+    // 2. 盤心藍色幾何環
     ctx.beginPath();
     ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R * 0.25, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(2, 132, 199, 0.45)";
     ctx.lineWidth = 4;
     ctx.stroke();
 
+    // 3. 螢光綠 X-Dash 衝刺軌道齒輪環
     ctx.beginPath();
-    ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R - 10, 0, Math.PI * 2);
+    ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R - 12, 0, Math.PI * 2);
     ctx.strokeStyle = "#10b981";
     ctx.lineWidth = 8;
     ctx.shadowColor = "#10b981";
@@ -339,6 +344,7 @@ export function draw2DStadiumLayout(ctx, width, height) {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
+    // 4. 三大擊飛口袋
     STADIUM_POCKETS.forEach(p => {
         ctx.beginPath();
         ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R + 2, p.minAngle, p.maxAngle);
@@ -350,12 +356,14 @@ export function draw2DStadiumLayout(ctx, width, height) {
         ctx.shadowBlur = 0;
     });
 
+    // 5. 外圍霓虹護牆
     ctx.beginPath();
     ctx.arc(STADIUM_CX, STADIUM_CY, STADIUM_R + 6, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(56, 189, 248, 0.85)";
     ctx.lineWidth = 4;
     ctx.stroke();
 
+    // 6. 繪製火花
     sparks.forEach(p => {
         ctx.save();
         ctx.globalAlpha = p.life;
@@ -371,20 +379,17 @@ export function draw2DStadiumLayout(ctx, width, height) {
     ctx.restore();
 }
 
+// ---------------------------------------------------------------------------
+// 繪製金屬質感 2D 陀螺
+// ---------------------------------------------------------------------------
 export function draw2DTop(ctx, top) {
     if (top.isKnockedOut || top.isBurst) return;
 
     ctx.save();
-
-    const wobbleOffsetX = Math.cos(top.wobblePhase) * (top.wobbleAngle * 22);
-    const wobbleOffsetY = Math.sin(top.wobblePhase) * (top.wobbleAngle * 22);
-
-    ctx.translate(top.x + wobbleOffsetX, top.y + wobbleOffsetY);
+    ctx.translate(top.x, top.y);
     ctx.rotate(top.rotation);
 
-    const tiltScaleY = 1.0 - (top.wobbleAngle * 0.4);
-    ctx.scale(1.0, Math.max(0.6, tiltScaleY));
-
+    // 1. 金屬外環 Crown (玩家自訂顏色)
     ctx.beginPath();
     ctx.arc(0, 0, top.radius, 0, Math.PI * 2);
     ctx.fillStyle = top.color;
@@ -393,6 +398,7 @@ export function draw2DTop(ctx, top) {
     ctx.fill();
     ctx.shadowBlur = 0;
 
+    // 2. 鋸齒金屬細節 (6 刃)
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 2;
     for (let i = 0; i < 6; i++) {
@@ -403,6 +409,7 @@ export function draw2DTop(ctx, top) {
         ctx.stroke();
     }
 
+    // 3. 發光核心
     ctx.beginPath();
     ctx.arc(0, 0, top.radius * 0.35, 0, Math.PI * 2);
     ctx.fillStyle = "#00f2fe";
