@@ -1,12 +1,12 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、3D 剛體爆發性彈开與勝負主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、流程與勝負判定主控
 
 import { 
     init3DEngine, 
     Beyblade3DPhysics, 
+    handle3DTopCollisions,
     activeTops, 
     world, 
     scene, 
-    spawn3DSparks, 
     update3DSparks, 
     controls, 
     renderer, 
@@ -102,14 +102,18 @@ function runCountdownLaunch(mode) {
 }
 
 function spawnTopsAndStart(mode) {
+    // P1 配件讀取
     const p1Name = document.getElementById('p1-name')?.value || '火鷹飛龍';
     const p1Color = hexToNum(document.getElementById('p1-color')?.value);
+    const p1Crown = document.getElementById('p1-crown')?.value || 'FEATHER';
+    const p1Tip = document.getElementById('p1-tip')?.value || 'FLAT';
     const p1Spin = document.getElementById('p1-spin')?.value === 'RIGHT';
     const p1Power = document.getElementById('p1-power')?.value;
     const p1Rpm = p1Power === 'HEAVY' ? 12000 : (p1Power === 'MEDIUM' ? 9500 : 7000);
 
     const p1 = new Beyblade3DPhysics({
-        name: '🔵 ' + p1Name, x: -2.5, y: 1.2, z: 0, rpm: p1Rpm, isRightSpin: p1Spin, color: p1Color
+        name: '🔵 ' + p1Name, x: -2.5, y: 1.2, z: 0, rpm: p1Rpm, isRightSpin: p1Spin, color: p1Color,
+        crownKey: p1Crown, tipKey: p1Tip
     });
     p1.body.velocity.set(3.2, -1.5, 1.2);
     activeTops.push(p1);
@@ -121,7 +125,8 @@ function spawnTopsAndStart(mode) {
         const randomRpm = 8500 + Math.floor(Math.random() * 3500);
 
         const ai = new Beyblade3DPhysics({
-            name: randomName, x: 2.5, y: 1.2, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xe11d48
+            name: randomName, x: 2.5, y: 1.2, z: 0, rpm: randomRpm, isRightSpin: randomSpin, color: 0xe11d48,
+            crownKey: 'DRAKE', tipKey: 'BALL'
         });
         ai.body.velocity.set(-3.2, -1.5, -1.2);
         activeTops.push(ai);
@@ -131,12 +136,15 @@ function spawnTopsAndStart(mode) {
     } else if (mode === 2) {
         const p2Name = document.getElementById('p2-name')?.value || '影武赤狼';
         const p2Color = hexToNum(document.getElementById('p2-color')?.value);
+        const p2Crown = document.getElementById('p2-crown')?.value || 'DRAKE';
+        const p2Tip = document.getElementById('p2-tip')?.value || 'BALL';
         const p2Spin = document.getElementById('p2-spin')?.value === 'RIGHT';
         const p2Power = document.getElementById('p2-power')?.value;
         const p2Rpm = p2Power === 'HEAVY' ? 12000 : (p2Power === 'MEDIUM' ? 9500 : 7000);
 
         const p2 = new Beyblade3DPhysics({
-            name: '🔴 ' + p2Name, x: 2.5, y: 1.2, z: 0, rpm: p2Rpm, isRightSpin: p2Spin, color: p2Color
+            name: '🔴 ' + p2Name, x: 2.5, y: 1.2, z: 0, rpm: p2Rpm, isRightSpin: p2Spin, color: p2Color,
+            crownKey: p2Crown, tipKey: p2Tip
         });
         p2.body.velocity.set(-3.2, -1.5, -1.2);
         activeTops.push(p2);
@@ -146,19 +154,19 @@ function spawnTopsAndStart(mode) {
     } else if (mode === 4) {
         const p2Name4 = document.getElementById('p2-name')?.value || '影武赤狼';
         const p2_4 = new Beyblade3DPhysics({
-            name: '🔴 ' + p2Name4, x: 2.5, y: 1.2, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48
+            name: '🔴 ' + p2Name4, x: 2.5, y: 1.2, z: 0, rpm: 11000, isRightSpin: false, color: 0xe11d48, crownKey: 'DRAKE', tipKey: 'BALL'
         });
         p2_4.body.velocity.set(-2.8, -1.5, -1.2);
         activeTops.push(p2_4);
 
         const p3 = new Beyblade3DPhysics({
-            name: '🟢 翡翠巨錘', x: 0, y: 1.2, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x10b981
+            name: '🟢 翡翠巨錘', x: 0, y: 1.2, z: -2.5, rpm: 9500, isRightSpin: true, color: 0x10b981, crownKey: 'HEAVY', tipKey: 'NEEDLE'
         });
         p3.body.velocity.set(1.5, -1.5, 2.8);
         activeTops.push(p3);
 
         const p4 = new Beyblade3DPhysics({
-            name: '🟣 帝王紫刃', x: 0, y: 1.2, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x8b5cf6
+            name: '🟣 帝王紫刃', x: 0, y: 1.2, z: 2.5, rpm: 11500, isRightSpin: false, color: 0x8b5cf6, crownKey: 'WIZARD', tipKey: 'ACCEL'
         });
         p4.body.velocity.set(-1.5, -1.5, -2.8);
         activeTops.push(p4);
@@ -167,62 +175,6 @@ function spawnTopsAndStart(mode) {
     }
 
     isSimulating = true;
-}
-
-// 💥 3D 剛體碰撞與齒輪咬合彈開物理
-function handle3DTopCollisions() {
-    for (let i = 0; i < activeTops.length; i++) {
-        for (let j = i + 1; j < activeTops.length; j++) {
-            const topA = activeTops[i];
-            const topB = activeTops[j];
-            if (topA.isKnockedOut || topB.isKnockedOut || topA.isBurst || topB.isBurst) continue;
-
-            const posA = topA.body.position;
-            const posB = topB.body.position;
-            
-            const dx = posB.x - posA.x;
-            const dz = posB.z - posA.z;
-            const dist = Math.hypot(dx, dz);
-            const minDist = topA.radius + topB.radius;
-
-            // 只要接觸，100% 強制施加爆發性 3D 反衝力！
-            if (dist < minDist && dist > 0) {
-                const nx = dx / dist;
-                const nz = dz / dist;
-
-                // 1. 位置強制硬性推開 (避免重疊)
-                const overlap = (minDist - dist) / 2 + 0.15;
-                posA.x -= nx * overlap;
-                posA.z -= nz * overlap;
-                posB.x += nx * overlap;
-                posB.z += nz * overlap;
-
-                // 2. 根據轉速計算反衝推力 (Recoil Impulse)
-                const rpmA = topA.getRPM();
-                const rpmB = topB.getRPM();
-                const avgRpm = (rpmA + rpmB) / 2;
-
-                const recoilImpulse = avgRpm > 100 ? (0.15 + (avgRpm / 12000) * 0.25) : 0.08;
-
-                // 3. 直接施加 3D 剛體衝力 (Impulse)，將雙方猛烈撞開！
-                topA.body.applyImpulse(new CANNON.Vec3(-nx * recoilImpulse, 0.05, -nz * recoilImpulse), posA);
-                topB.body.applyImpulse(new CANNON.Vec3(nx * recoilImpulse, 0.05, nz * recoilImpulse), posB);
-
-                // 4. 對撞角動量與血量扣減
-                topA.body.angularVelocity.y *= 0.94;
-                topB.body.angularVelocity.y *= 0.94;
-
-                topA.hp -= recoilImpulse * 35;
-                topB.hp -= recoilImpulse * 35;
-
-                if (topA.hp <= 0) topA.isBurst = true;
-                if (topB.hp <= 0) topB.isBurst = true;
-
-                // 噴發火花
-                spawn3DSparks((posA.x + posB.x) / 2, 0.4, (posA.z + posB.z) / 2, 12);
-            }
-        }
-    }
 }
 
 function bindUI() {
@@ -273,7 +225,7 @@ function gameLoop(now) {
     if (isSimulating) {
         world.step(1 / 240, dt, 10);
 
-        // 觸發 3D 剛體碰撞與彈動
+        // 調用 engine3d 封裝的剛體碰撞力學
         handle3DTopCollisions();
 
         update3DSparks(dt);
