@@ -1,4 +1,4 @@
-// js/engine3d.js - 爆上陀螺 3D 剛體力學物理與繪製引擎 (真實停轉節奏版)
+// js/engine3d.js - 爆上陀螺 3D 剛體力學物理與繪製引擎 (含勝負判定與倒地煞停)
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -78,13 +78,6 @@ function create3DStadiumLayout() {
     wallMesh.position.y = WALL_HEIGHT / 2;
     scene.add(wallMesh);
 
-    var topRingGeo = new THREE.TorusGeometry(STADIUM_RADIUS, 0.12, 16, 64);
-    var topRingMat = new THREE.MeshBasicMaterial({ color: 0x0284c7 });
-    var topRing = new THREE.Mesh(topRingGeo, topRingMat);
-    topRing.rotation.x = Math.PI / 2;
-    topRing.position.y = WALL_HEIGHT;
-    scene.add(topRing);
-
     var groundBody = new CANNON.Body({ mass: 0, material: stadiumMaterial });
     groundBody.addShape(new CANNON.Plane());
     groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
@@ -98,12 +91,15 @@ export class Beyblade3DPhysics {
         this.radius = 1.0;
         this.mass = config.mass || 0.045;
 
-        // 🛠️ 已調整物理阻尼：將 angularDamping 提高至 0.0035，還原現實 15-25 秒對戰節奏
+        this.hp = 120;
+        this.isKnockedOut = false;
+        this.isBurst = false;
+
         this.body = new CANNON.Body({
             mass: this.mass,
             material: defaultMaterial,
-            linearDamping: 0.04,
-            angularDamping: 0.0035
+            linearDamping: 0.05,
+            angularDamping: 0.005
         });
 
         this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
@@ -143,25 +139,36 @@ export class Beyblade3DPhysics {
         world.addBody(this.body);
     }
 
+    getRPM() {
+        return Math.round((Math.abs(this.body.angularVelocity.y) * 60) / (2 * Math.PI));
+    }
+
     stepPhysics(dt) {
-        this.body.position.y = 0.4;
-        this.body.velocity.y = 0;
+        if (this.isKnockedOut || this.isBurst) return;
 
         this.group.position.copy(this.body.position);
         this.group.quaternion.copy(this.body.quaternion);
 
         var distFromCenter = Math.hypot(this.body.position.x, this.body.position.z);
 
-        if (distFromCenter > 0.1) {
+        // 碗狀坡度向心引力
+        if (distFromCenter > 0.1 && distFromCenter < STADIUM_RADIUS) {
             var nx = this.body.position.x / distFromCenter;
             var nz = this.body.position.z / distFromCenter;
-            var bowlPull = 0.85 * distFromCenter;
+            var bowlPull = 0.75 * distFromCenter;
             this.body.applyForce(new CANNON.Vec3(-nx * bowlPull, 0, -nz * bowlPull), this.body.position);
         }
 
+        // 觸牆彈回與擊飛判定
         if (distFromCenter + this.radius >= STADIUM_RADIUS) {
             var nx = this.body.position.x / distFromCenter;
             var nz = this.body.position.z / distFromCenter;
+
+            // 越過護牆判定為擊飛 (KO)
+            if (this.body.position.y > WALL_HEIGHT || distFromCenter > STADIUM_RADIUS + 1.5) {
+                this.isKnockedOut = true;
+                return;
+            }
 
             this.body.position.x = nx * (STADIUM_RADIUS - this.radius);
             this.body.position.z = nz * (STADIUM_RADIUS - this.radius);
@@ -173,15 +180,28 @@ export class Beyblade3DPhysics {
                 this.body.velocity.x -= (1.0 + restitution) * Math.max(0.6, vNormal) * nx;
                 this.body.velocity.z -= (1.0 + restitution) * Math.max(0.6, vNormal) * nz;
                 
-                this.body.velocity.x *= 0.92;
-                this.body.velocity.z *= 0.92;
+                this.body.velocity.x *= 0.90;
+                this.body.velocity.z *= 0.90;
 
                 spawn3DSparks(this.body.position.x, 0.4, this.body.position.z, 6);
             }
         }
 
-        // 🛠️ 角速度衰減調整：從 0.9997 改為 0.998，確保真實停轉
-        this.body.angularVelocity.y *= 0.998;
+        // 💡 側躺倒地檢查：陀螺 Y 軸傾斜過大時快速煞停，防止無休止摩擦
+        var up = new CANNON.Vec3(0, 1, 0);
+        var topUp = this.body.quaternion.vmult(new CANNON.Vec3(0, 1, 0));
+        var dotUp = topUp.dot(up);
+
+        if (dotUp < 0.5) { // 傾斜大於 60 度，視為倒地磨地
+            this.body.angularVelocity.scale(0.92, this.body.angularVelocity);
+            this.body.velocity.scale(0.90, this.body.velocity);
+        } else {
+            this.body.angularVelocity.y *= 0.995;
+        }
+
+        if (this.getRPM() < 30) {
+            this.body.angularVelocity.set(0, 0, 0);
+        }
     }
 }
 
