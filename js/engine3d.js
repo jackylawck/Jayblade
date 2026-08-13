@@ -1,4 +1,4 @@
-// js/engine3d.js - 爆上陀螺 3D 剛體力學物理與繪製引擎
+// js/engine3d.js - 爆上陀螺 3D 剛體力學物理與繪製引擎 (真實停轉節奏版)
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -45,7 +45,7 @@ export function init3DEngine(containerEl) {
     defaultMaterial = new CANNON.Material('default');
     stadiumMaterial = new CANNON.Material('stadium');
 
-    var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.3 });
+    var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.25, restitution: 0.3 });
     world.addContactMaterial(contactMat);
 
     create3DStadiumLayout();
@@ -98,11 +98,12 @@ export class Beyblade3DPhysics {
         this.radius = 1.0;
         this.mass = config.mass || 0.045;
 
+        // 🛠️ 已調整物理阻尼：將 angularDamping 提高至 0.0035，還原現實 15-25 秒對戰節奏
         this.body = new CANNON.Body({
             mass: this.mass,
             material: defaultMaterial,
-            linearDamping: 0.02,
-            angularDamping: 0.0006
+            linearDamping: 0.04,
+            angularDamping: 0.0035
         });
 
         this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
@@ -179,7 +180,8 @@ export class Beyblade3DPhysics {
             }
         }
 
-        this.body.angularVelocity.y *= 0.9997;
+        // 🛠️ 角速度衰減調整：從 0.9997 改為 0.998，確保真實停轉
+        this.body.angularVelocity.y *= 0.998;
     }
 }
 
