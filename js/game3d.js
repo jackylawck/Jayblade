@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、WebRTC 網絡平滑插值 (Lerp) 與對戰主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、100% 純淨全英/全中切換與對戰主控
 
 import { 
     init3DEngine, 
@@ -16,7 +16,7 @@ import {
 let isSimulating = false;
 let isMatchEnded = false;
 let isCountdownRunning = false;
-let currentLang = 'zh';
+let currentLang = 'zh'; // 'zh' | 'en'
 let lastTime = performance.now();
 
 let peer = null;
@@ -24,6 +24,7 @@ let conn = null;
 let isHost = true;
 let peerId = '';
 
+// 🌐 100% 全中/全英無死角字典 (Full I18N Dictionary)
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
@@ -51,6 +52,7 @@ const I18N = {
         onlineTitle: "🌐 3D WebRTC 遠端連線大廳",
         myId: "7位數字房間 ID:",
         joinBtn: "加入房間",
+        placeholderRoom: "貼上對手的 7位數 Room ID",
         netStatusOffline: "狀態: 單機模式",
         netStatusConnected: "狀態: 🟢 已連線！",
         netStatusConnecting: "狀態: 🟡 連線中...",
@@ -90,6 +92,7 @@ const I18N = {
         vsAi: "🎮 Single Player (VS AI)", vs2p: "⚔️ 1P vs 2P Local Battle", p2pLaunch: "🌐 3D Remote Match (WebRTC P2P)", vs4p: "🔥 4-Player Battle Royale",
         debugTitle: "⚙️ Real-time Telemetry (240Hz Physics)", readyStatus: "Select a battle mode to launch...", toggleUi: "👁️ Toggle UI Panel",
         onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "7-Digit Room ID:", joinBtn: "Join Room",
+        placeholderRoom: "Paste Opponent's 7-Digit Room ID",
         netStatusOffline: "Status: Offline", netStatusConnected: "Status: 🟢 Connected!", netStatusConnecting: "Status: 🟡 Connecting...",
         crowns: { 
             FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring",
@@ -139,6 +142,14 @@ function applyLanguageUI() {
     setTxt('ui-lbl-myid', t.myId);
     setTxt('btn-join-room', t.joinBtn);
 
+    // 💡 1. 翻譯 WebRTC 輸入框 Placeholder 與狀態列
+    const joinInput = document.getElementById('join-peer-id');
+    if (joinInput) joinInput.placeholder = t.placeholderRoom;
+
+    const netStatus = document.getElementById('net-status');
+    if (netStatus && (!conn || !conn.open)) netStatus.innerText = t.netStatusOffline;
+
+    // 💡 2. 翻譯所有 Form Label 標籤
     const labels = document.querySelectorAll('.form-row label');
     labels.forEach(lbl => {
         const text = lbl.innerText.trim();
@@ -150,6 +161,19 @@ function applyLanguageUI() {
         else if (text.includes('發射力度') || text.includes('Launch Power')) lbl.innerText = t.lblPowers;
     });
 
+    // 💡 3. 翻譯預設陀螺名稱 (Input Values)
+    const p1Input = document.getElementById('p1-name');
+    if (p1Input && (p1Input.value === '火鷹飛龍' || p1Input.value === 'Feather Dragon' || p1Input.value === 'Fire Bird Dragon')) {
+        p1Input.value = t.p1NameDefault;
+    }
+    const p2Input = document.getElementById('p2-name');
+    if (p2Input && (p2Input.value === '影武赤狼' || p2Input.value === 'Red Wolf')) {
+        p2Input.value = t.p2NameDefault;
+    }
+
+    if (!isSimulating && !isCountdownRunning) update3DStatus(t.readyStatus);
+
+    // 💡 4. 翻譯下拉選單
     const updateSelect = (selectId, dict) => {
         const sel = document.getElementById(selectId);
         if (!sel) return;
@@ -161,7 +185,17 @@ function applyLanguageUI() {
     updateSelect('p1-spin', t.spins); updateSelect('p2-spin', t.spins);
     updateSelect('p1-power', t.powers); updateSelect('p2-power', t.powers);
 
-    if (activeTops.length > 0) { buildTelemetryDOM(); updateTelemetryValues(); }
+    // 💡 5. 若已生成 3D 陀螺，同步更新名稱與 Telemetry 面板英文
+    if (activeTops.length > 0) {
+        if (activeTops[0] && (activeTops[0].name.includes('火鷹飛龍') || activeTops[0].name.includes('Fire Bird Dragon'))) {
+            activeTops[0].name = '🔵 ' + t.p1NameDefault;
+        }
+        if (activeTops[1] && (activeTops[1].name.includes('影武赤狼') || activeTops[1].name.includes('Red Wolf'))) {
+            activeTops[1].name = '🔴 ' + t.p2NameDefault;
+        }
+        buildTelemetryDOM();
+        updateTelemetryValues();
+    }
 }
 
 function getLocalP1Config() {
@@ -238,7 +272,6 @@ function setupNetworkHandlers() {
             if (data.p2Config) applyRemoteConfigToP2(data.p2Config);
             runCountdownLaunch(data.mode, false);
         } else if (data.type === 'POSE_SYNC' && !isHost) {
-            // 💡 2. Client 接收姿態數據，實作網絡線性插值 (Lerp) 防止位移突跳
             data.poses.forEach((p, idx) => {
                 if (activeTops[idx]) {
                     const body = activeTops[idx].body;
