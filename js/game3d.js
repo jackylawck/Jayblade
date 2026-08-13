@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、100% 全中/全英多語言切換與科研物理面板主控
+// js/game3d.js - 修正 4 人混戰誤判停頓 Bug
 
 import { 
     init3DEngine, 
@@ -16,10 +16,9 @@ import {
 let isSimulating = false;
 let isMatchEnded = false;
 let isCountdownRunning = false;
-let currentLang = 'zh'; // 'zh' | 'en'
+let currentLang = 'zh';
 let lastTime = performance.now();
 
-// 🌐 100% 全中/全英無死角字典 (Full I18N Dictionary)
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
@@ -43,161 +42,73 @@ const I18N = {
         debugTitle: "⚙️ 實時物理數據 (240Hz 算力)",
         readyStatus: "請選擇對戰模式發射...",
         toggleUi: "👁️ 隱藏/顯示選單",
-        crowns: {
-            FEATHER: "羽翼飛刃 (Feather Blade)",
-            DRAKE: "龍紋重環 (Drake Crown)",
-            HEAVY: "裝甲重錘 (Heavy Armor)",
-            WIZARD: "魔導圓盾 (Wizard Ring)"
-        },
-        tips: {
-            FLAT: "極速平頭 (Flat Speed)",
-            BALL: "持久球軸 (Ball Bearing)",
-            NEEDLE: "防禦針軸 (Needle Guard)",
-            ACCEL: "軌道衝刺 (Accel Dash)"
-        },
-        spins: {
-            RIGHT: "右迴旋 (順時針)",
-            LEFT: "左迴旋 (逆時針)"
-        },
-        powers: {
-            HEAVY: "重度 (高轉速)",
-            MEDIUM: "中度 (穩定)",
-            LIGHT: "輕度 (高精準)"
-        },
-        rpm: "🌀 轉速",
-        hp: "❤️ 爆裂血量",
-        speed: "⚡ 線速度 v",
+        crowns: { FEATHER: "羽翼飛刃 (Feather Blade)", DRAKE: "龍紋重環 (Drake Crown)", HEAVY: "裝甲重錘 (Heavy Armor)", WIZARD: "魔導圓盾 (Wizard Ring)" },
+        tips: { FLAT: "極速平頭 (Flat Speed)", BALL: "持久球軸 (Ball Bearing)", NEEDLE: "防禦針軸 (Needle Guard)", ACCEL: "軌道衝刺 (Accel Dash)" },
+        spins: { RIGHT: "右迴旋 (順時針)", LEFT: "左迴旋 (逆時針)" },
+        powers: { HEAVY: "重度 (高轉速)", MEDIUM: "中度 (穩定)", LIGHT: "輕度 (高精準)" },
+        rpm: "🌀 轉速", hp: "❤️ 爆裂血量", speed: "⚡ 線速度 v",
         tensorTitle: "🔬 展開科研級 3D 物理張量 (Rigid-body Physics)",
-        sec1: "1. 剛體角動量與轉矩",
-        sec2: "2. 能量解析系統",
-        sec3: "3. 陀螺儀姿態與進動",
-        sec4: "4. 接觸面與外力場",
-        omega: "角速度 ω",
-        Lvec: "角動量向量 L",
-        impulseJ: "上次對撞衝量 J",
-        totalEk: "系統總動能 E_k",
-        rotE: "轉動動能 E_rot",
-        transE: "平動動能 E_trans",
-        tilt: "3D 姿態傾斜角 θ",
-        precFreq: "進動頻率 f_precession",
-        Fn: "法向支持力 N",
-        Ff: "切向滑動摩擦力 F_f",
-        Fc: "盤面向心拉力 F_c",
-        vsAiProgress: "⚔️ 對戰進行中... 兩車對撞！",
-        vs2pProgress: "⚔️ 雙人對戰進行中...",
-        vs4pProgress: "⚔️ 4 人大亂鬥進行中...",
+        sec1: "1. 剛體角動量與轉矩", sec2: "2. 能量解析系統", sec3: "3. 陀螺儀姿態與進動", sec4: "4. 接觸面與外力場",
+        omega: "角速度 ω", Lvec: "角動量向量 L", impulseJ: "上次對撞衝量 J",
+        totalEk: "系統總動能 E_k", rotE: "轉動動能 E_rot", transE: "平動動能 E_trans",
+        tilt: "3D 姿態傾斜角 θ", precFreq: "進動頻率 f_precession",
+        Fn: "法向支持力 N", Ff: "切向滑動摩擦力 F_f", Fc: "盤面向心拉力 F_c",
+        vsAiProgress: "⚔️ 對戰進行中... 兩車對撞！", vs2pProgress: "⚔️ 雙人對戰進行中...", vs4pProgress: "⚔️ 4 人大亂鬥進行中...",
         burstFinish: (winner, loser) => `💥【爆裂 Finish】${winner} 擊碎了 ${loser}！`,
         koFinish: (loser) => `⚠️【擊飛 Finish】${loser} 被鏟飛出場外！`,
         spinFinish: (winner) => `🏆【Spin Finish】${winner} 旋轉持久勝出！`,
-        drawFinish: "⚖️【雙方停轉】本局平手 (Draw)！"
+        drawFinish: "⚖️【雙方停轉】本局平手 (Draw)！",
+        tagWinner: "🏆 勝出 (Winner)", tagBurst: "💥 爆裂 (Burst)", tagSpinOut: "💤 停轉 (Stopped)"
     },
     en: {
         title: "🌀 Jayblade 3D Simulator",
         subtitle: "Beyblade X HD 3D Rigid-Body Physics Simulator",
         back2d: "⚡ Switch to 2D Classic Version →",
         langBtn: "中文 (繁體)",
-        p1Title: "🔵 P1 Top Customization",
-        p2Title: "🔴 P2 Top Customization",
-        p1NameDefault: "Fire Bird Dragon",
-        p2NameDefault: "Red Wolf",
-        lblNames: "Name:",
-        lblColors: "Color:",
-        lblCrowns: "Blade Ring:",
-        lblTips: "Bit Tip:",
-        lblSpins: "Spin Direction:",
-        lblPowers: "Launch Power:",
+        p1Title: "🔵 P1 Top Customization", p2Title: "🔴 P2 Top Customization",
+        p1NameDefault: "Fire Bird Dragon", p2NameDefault: "Red Wolf",
+        lblNames: "Name:", lblColors: "Color:", lblCrowns: "Blade Ring:", lblTips: "Bit Tip:", lblSpins: "Spin Direction:", lblPowers: "Launch Power:",
         ugcDrop: "📁 Click or drag custom 3D (.stl) design to test inertia",
-        vsAi: "🎮 Single Player (VS AI)",
-        vs2p: "⚔️ 1P vs 2P Battle",
-        vs4p: "🔥 4-Player Battle Royale",
-        debugTitle: "⚙️ Real-time Telemetry (240Hz Physics)",
-        readyStatus: "Select a battle mode to launch...",
-        toggleUi: "👁️ Toggle UI Panel",
-        crowns: {
-            FEATHER: "Feather Blade",
-            DRAKE: "Drake Crown",
-            HEAVY: "Heavy Armor",
-            WIZARD: "Wizard Ring"
-        },
-        tips: {
-            FLAT: "Flat Speed",
-            BALL: "Ball Bearing",
-            NEEDLE: "Needle Guard",
-            ACCEL: "Accel Dash"
-        },
-        spins: {
-            RIGHT: "Right Spin (CW)",
-            LEFT: "Left Spin (CCW)"
-        },
-        powers: {
-            HEAVY: "Heavy (Max RPM)",
-            MEDIUM: "Medium (Balanced)",
-            LIGHT: "Light (Precision)"
-        },
-        rpm: "🌀 Spin Rate",
-        hp: "❤️ Burst Health",
-        speed: "⚡ Linear Speed v",
+        vsAi: "🎮 Single Player (VS AI)", vs2p: "⚔️ 1P vs 2P Battle", vs4p: "🔥 4-Player Battle Royale",
+        debugTitle: "⚙️ Real-time Telemetry (240Hz Physics)", readyStatus: "Select a battle mode to launch...", toggleUi: "👁️ Toggle UI Panel",
+        crowns: { FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring" },
+        tips: { FLAT: "Flat Speed", BALL: "Ball Bearing", NEEDLE: "Needle Guard", ACCEL: "Accel Dash" },
+        spins: { RIGHT: "Right Spin (CW)", LEFT: "Left Spin (CCW)" },
+        powers: { HEAVY: "Heavy (Max RPM)", MEDIUM: "Balanced", LIGHT: "Precision" },
+        rpm: "🌀 Spin Rate", hp: "❤️ Burst Health", speed: "⚡ Linear Speed v",
         tensorTitle: "🔬 Expand 3D Rigid-Body Physics Tensors",
-        sec1: "1. Angular Dynamics & Torque",
-        sec2: "2. Energy Breakdown System",
-        sec3: "3. Gyroscopic State & Precession",
-        sec4: "4. Surface & Force Field",
-        omega: "Angular Velocity ω",
-        Lvec: "Angular Momentum L",
-        impulseJ: "Impact Impulse J",
-        totalEk: "Total Kinetic Energy E_k",
-        rotE: "Rotational Energy E_rot",
-        transE: "Translational Energy E_trans",
-        tilt: "3D Tilt Angle θ",
-        precFreq: "Precession Freq f",
-        Fn: "Normal Force N",
-        Ff: "Friction Force F_f",
-        Fc: "Centripetal Pull F_c",
-        vsAiProgress: "⚔️ Battle in progress... Clash!",
-        vs2pProgress: "⚔️ 2P Battle in progress...",
-        vs4pProgress: "⚔️ 4-Player Royal Rumble...",
+        sec1: "1. Angular Dynamics & Torque", sec2: "2. Energy Breakdown System", sec3: "3. Gyroscopic State & Precession", sec4: "4. Surface & Force Field",
+        omega: "Angular Velocity ω", Lvec: "Angular Momentum L", impulseJ: "Impact Impulse J",
+        totalEk: "Total Kinetic Energy E_k", rotE: "Rotational Energy E_rot", transE: "Translational Energy E_trans",
+        tilt: "3D Tilt Angle θ", precFreq: "Precession Freq f",
+        Fn: "Normal Force N", Ff: "Friction Force F_f", Fc: "Centripetal Pull F_c",
+        vsAiProgress: "⚔️ Battle in progress... Clash!", vs2pProgress: "⚔️ 2P Battle in progress...", vs4pProgress: "⚔️ 4-Player Royal Rumble...",
         burstFinish: (winner, loser) => `💥【Burst Finish】${winner} burst ${loser}!`,
         koFinish: (loser) => `⚠️【Over Finish】${loser} was knocked out!`,
         spinFinish: (winner) => `🏆【Spin Finish】${winner} won by endurance!`,
-        drawFinish: "⚖️【Draw】Both tops stopped spinning!"
+        drawFinish: "⚖️【Draw】Both tops stopped spinning!",
+        tagWinner: "🏆 Winner", tagBurst: "💥 Burst Out", tagSpinOut: "💤 Stopped"
     }
 };
 
-function hexToNum(hexStr) {
-    if (!hexStr) return 0x0284c7;
-    return parseInt(hexStr.replace('#', ''), 16);
-}
+function hexToNum(hexStr) { return hexStr ? parseInt(hexStr.replace('#', ''), 16) : 0x0284c7; }
 
 function update3DStatus(text, color = "#38bdf8") {
     const banner = document.getElementById('match-status');
-    if (banner) {
-        banner.innerText = text;
-        banner.style.color = color;
-    }
+    if (banner) { banner.innerText = text; banner.style.color = color; }
 }
 
-// 🌐 100% 無死角套用語言 (全中/全英切換)
 function applyLanguageUI() {
     const t = I18N[currentLang];
-
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
 
-    setTxt('ui-title', t.title);
-    setTxt('ui-subtitle', t.subtitle);
-    setTxt('btn-back-2d', t.back2d);
-    setTxt('btn-lang', t.langBtn);
+    setTxt('ui-title', t.title); setTxt('ui-subtitle', t.subtitle);
+    setTxt('btn-back-2d', t.back2d); setTxt('btn-lang', t.langBtn);
+    setTxt('ui-p1-panel-title', t.p1Title); setTxt('ui-p2-panel-title', t.p2Title);
+    setTxt('ugc-drop-text', t.ugcDrop); setTxt('btn-vs-ai', t.vsAi);
+    setTxt('btn-2p', t.vs2p); setTxt('btn-4p', t.vs4p);
+    setTxt('ui-debug-title', t.debugTitle); setTxt('btn-toggle-ui', t.toggleUi);
 
-    setTxt('ui-p1-panel-title', t.p1Title);
-    setTxt('ui-p2-panel-title', t.p2Title);
-
-    setTxt('ugc-drop-text', t.ugcDrop);
-    setTxt('btn-vs-ai', t.vsAi);
-    setTxt('btn-2p', t.vs2p);
-    setTxt('btn-4p', t.vs4p);
-    setTxt('ui-debug-title', t.debugTitle);
-    setTxt('btn-toggle-ui', t.toggleUi);
-
-    // 1. 翻譯所有 Label 標籤
     const labels = document.querySelectorAll('.form-row label');
     labels.forEach(lbl => {
         const text = lbl.innerText.trim();
@@ -209,7 +120,6 @@ function applyLanguageUI() {
         else if (text.includes('發射力度') || text.includes('Launch Power')) lbl.innerText = t.lblPowers;
     });
 
-    // 2. 翻譯預設名稱輸入框（精準對應 Fire Bird Dragon）
     const p1Input = document.getElementById('p1-name');
     if (p1Input && (p1Input.value === '火鷹飛龍' || p1Input.value === 'Feather Dragon' || p1Input.value === 'Fire Bird Dragon')) {
         p1Input.value = t.p1NameDefault;
@@ -219,36 +129,23 @@ function applyLanguageUI() {
         p2Input.value = t.p2NameDefault;
     }
 
-    if (!isSimulating && !isCountdownRunning) {
-        update3DStatus(t.readyStatus);
-    }
+    if (!isSimulating && !isCountdownRunning) update3DStatus(t.readyStatus);
 
-    // 3. 翻譯下拉選單
     const updateSelect = (selectId, dict) => {
         const sel = document.getElementById(selectId);
         if (!sel) return;
-        Array.from(sel.options).forEach(opt => {
-            if (dict[opt.value]) opt.text = dict[opt.value];
-        });
+        Array.from(sel.options).forEach(opt => { if (dict[opt.value]) opt.text = dict[opt.value]; });
     };
 
-    updateSelect('p1-crown', t.crowns);
-    updateSelect('p2-crown', t.crowns);
-    updateSelect('p1-tip', t.tips);
-    updateSelect('p2-tip', t.tips);
-    updateSelect('p1-spin', t.spins);
-    updateSelect('p2-spin', t.spins);
-    updateSelect('p1-power', t.powers);
-    updateSelect('p2-power', t.powers);
+    updateSelect('p1-crown', t.crowns); updateSelect('p2-crown', t.crowns);
+    updateSelect('p1-tip', t.tips); updateSelect('p2-tip', t.tips);
+    updateSelect('p1-spin', t.spins); updateSelect('p2-spin', t.spins);
+    updateSelect('p1-power', t.powers); updateSelect('p2-power', t.powers);
 
-    // 4. 若畫面上已有數據面板，刷新面板英文
-    if (activeTops.length > 0) {
-        buildTelemetryDOM();
-        updateTelemetryValues();
-    }
+    if (activeTops.length > 0) { buildTelemetryDOM(); updateTelemetryValues(); }
 }
 
-function handleMatchEnd(resultText, color) {
+function handleMatchEnd(resultText, color, winnerTop) {
     if (isMatchEnded) return;
     isMatchEnded = true;
     update3DStatus(resultText, color);
@@ -256,40 +153,45 @@ function handleMatchEnd(resultText, color) {
     activeTops.forEach(t => {
         t.body.velocity.set(0, 0, 0);
         t.body.angularVelocity.set(0, 0, 0);
+        t.isWinner = (t === winnerTop);
     });
 
     const box = document.getElementById('ui-overlay-box');
     if (box) box.style.display = 'block';
 }
 
+// 🛠️ 關鍵修正：嚴謹的 4 人大亂鬥淘汰與結算邏輯
 function check3DMatchResult() {
     if (isMatchEnded || !isSimulating || isCountdownRunning || activeTops.length < 2) return;
 
     const dict = I18N[currentLang];
-    const aliveTops = activeTops.filter(t => !t.isKnockedOut && !t.isBurst && t.getRPM() > 40);
-    const burstTop = activeTops.find(t => t.isBurst);
-    const koTop = activeTops.find(t => t.isKnockedOut);
+    
+    // 仍在運轉中的陀螺（未擊飛、未爆裂、RPM > 30）
+    const aliveTops = activeTops.filter(t => !t.isKnockedOut && !t.isBurst && t.getRPM() > 30);
 
-    if (burstTop) {
-        const winner = activeTops.find(t => t !== burstTop);
-        handleMatchEnd(dict.burstFinish(winner ? winner.name : 'Opponent', burstTop.name), "#ff3838");
-        return;
-    }
+    // 剛觸發爆裂或擊飛的最新目標
+    const newBurstTop = activeTops.find(t => t.isBurst && !t.hasBeenProcessed);
+    const newKoTop = activeTops.find(t => t.isKnockedOut && !t.hasBeenProcessed);
 
-    if (koTop) {
-        const winner = activeTops.find(t => t !== koTop);
-        handleMatchEnd(dict.koFinish(koTop.name), "#ff9f43");
-        return;
-    }
+    // 只有當全場只剩 1 隻或 0 隻存活時，才正式宣告比賽結束！
+    if (aliveTops.length <= 1) {
+        // 如果只剩 1 隻活著，且其他陀螺全部停止旋轉或出局
+        const allOthersStopped = activeTops.every(t => t === aliveTops[0] || t.isBurst || t.isKnockedOut || t.getRPM() <= 30);
 
-    if (aliveTops.length === 1 && activeTops.some(t => t.getRPM() <= 40)) {
-        const winner = aliveTops[0];
-        handleMatchEnd(dict.spinFinish(winner.name), "#00ff66");
-        return;
-    }
-
-    if (aliveTops.length === 0) {
-        handleMatchEnd(dict.drawFinish, "#aaa");
+        if (allOthersStopped) {
+            if (aliveTops.length === 1) {
+                const winner = aliveTops[0];
+                handleMatchEnd(dict.spinFinish(winner.name), "#00ff66", winner);
+            } else if (newBurstTop) {
+                const winner = activeTops.find(t => t !== newBurstTop && !t.isBurst && !t.isKnockedOut);
+                handleMatchEnd(dict.burstFinish(winner ? winner.name : 'Opponent', newBurstTop.name), "#ff3838", winner);
+            } else if (newKoTop) {
+                const winner = activeTops.find(t => t !== newKoTop && !t.isBurst && !t.isKnockedOut);
+                handleMatchEnd(dict.koFinish(newKoTop.name), "#ff9f43", winner);
+            } else {
+                handleMatchEnd(dict.drawFinish, "#aaa", null);
+            }
+        }
     }
 }
 
@@ -419,7 +321,10 @@ function buildTelemetryDOM() {
         card.style.cssText = "background: rgba(255,255,255,0.03); border: 1px solid rgba(0, 242, 254, 0.25); border-radius: 8px; padding: 8px; margin-bottom: 8px;";
 
         card.innerHTML = `
-            <div style="font-weight: bold; font-size: 0.8rem; color: #38bdf8; margin-bottom: 4px;">${top.name}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+                <div style="font-weight: bold; font-size: 0.8rem; color: #38bdf8;">${top.name}</div>
+                <div id="status-tag-${idx}" style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight:bold; display:none;"></div>
+            </div>
             
             <div style="display:flex; justify-content:space-between; font-size: 0.7rem; color: #cbd5e1; margin-bottom: 2px;">
                 <span>${t.rpm}: <b id="rpm-val-${idx}">0 RPM</b></span>
@@ -471,6 +376,8 @@ function buildTelemetryDOM() {
 }
 
 function updateTelemetryValues() {
+    const tDict = I18N[currentLang];
+
     activeTops.forEach((t, idx) => {
         if (!isMatchEnded) {
             t.stepPhysics(0.016);
@@ -487,6 +394,27 @@ function updateTelemetryValues() {
 
         const rpmValEl = document.getElementById(`rpm-val-${idx}`);
         if (!rpmValEl) return;
+
+        const tagEl = document.getElementById(`status-tag-${idx}`);
+        if (tagEl && isMatchEnded) {
+            tagEl.style.display = 'inline-block';
+            if (t.isWinner) {
+                tagEl.innerText = tDict.tagWinner;
+                tagEl.style.background = 'rgba(16, 185, 129, 0.2)';
+                tagEl.style.color = '#10b981';
+                tagEl.style.border = '1px solid #10b981';
+            } else if (t.isBurst) {
+                tagEl.innerText = tDict.tagBurst;
+                tagEl.style.background = 'rgba(239, 68, 68, 0.2)';
+                tagEl.style.color = '#ef4444';
+                tagEl.style.border = '1px solid #ef4444';
+            } else {
+                tagEl.innerText = tDict.tagSpinOut;
+                tagEl.style.background = 'rgba(148, 163, 184, 0.2)';
+                tagEl.style.color = '#94a3b8';
+                tagEl.style.border = '1px solid #94a3b8';
+            }
+        }
 
         rpmValEl.innerText = `${rpm} RPM`;
         document.getElementById(`rpm-pct-${idx}`).innerText = `${rpmPct}%`;
