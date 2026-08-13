@@ -1,4 +1,4 @@
-// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (精準對撞與物理張量版)
+// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (16種 Combo 戰術配件資料庫)
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -7,18 +7,27 @@ export var scene, camera, renderer, controls, world, defaultMaterial, stadiumMat
 export var activeTops = [];
 export var sparkParticles = [];
 
+// 🔬 科研級 16 種戰術 Combo 物理屬性庫
 export const PARTS_PHYSICS = {
     CROWN: {
-        FEATHER: { mass: 0.042, radius: 1.05 },
-        DRAKE:   { mass: 0.048, radius: 1.00 },
-        HEAVY:   { mass: 0.056, radius: 0.98 },
-        WIZARD:  { mass: 0.045, radius: 1.02 }
+        FEATHER: { mass: 0.040, radius: 1.05, drag: 0.002, burstResist: 110 },
+        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.005, burstResist: 120 },
+        HEAVY:   { mass: 0.058, radius: 0.98, drag: 0.008, burstResist: 130 },
+        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.003, burstResist: 115 },
+        PHOENIX: { mass: 0.052, radius: 1.08, drag: 0.004, burstResist: 125 }, // 朱雀翼刃 (大轉動慣量)
+        SCYTHE:  { mass: 0.046, radius: 1.01, drag: 0.005, burstResist: 118 }, // 死神鐮刀 (上鏟力)
+        RHINO:   { mass: 0.050, radius: 0.92, drag: 0.006, burstResist: 140 }, // 犀牛角盾 (高抗爆)
+        VIPER:   { mass: 0.044, radius: 1.03, drag: 0.004, burstResist: 112 }  // 毒蛇交鋒 (多齒削速)
     },
     TIP: {
-        FLAT:   { friction: 0.08, angularDamping: 0.006 },
-        BALL:   { friction: 0.02, angularDamping: 0.0025 },
-        NEEDLE: { friction: 0.04, angularDamping: 0.004 },
-        ACCEL:  { friction: 0.09, angularDamping: 0.007 }
+        FLAT:   { friction: 0.08, angularDamping: 0.006, grip: 1.8 },
+        BALL:   { friction: 0.02, angularDamping: 0.002, grip: 0.5 },
+        NEEDLE: { friction: 0.04, angularDamping: 0.004, grip: 1.2 },
+        ACCEL:  { friction: 0.09, angularDamping: 0.007, grip: 2.2 },
+        HEXA:   { friction: 0.03, angularDamping: 0.003, grip: 1.5 }, // 六角防禦 (姿態穩定)
+        POINT:  { friction: 0.05, angularDamping: 0.0035, grip: 1.1 },// 半球尖軸 (雙重動態)
+        TAPER:  { friction: 0.07, angularDamping: 0.005, grip: 1.6 }, // 漸銳平軸 (姿態反擊)
+        RUBBER: { friction: 0.12, angularDamping: 0.009, grip: 2.8 }  // 橡膠平軸 (超高彈開力)
     }
 };
 
@@ -119,8 +128,8 @@ export class Beyblade3DPhysics {
         this.mass = crownData.mass;
         this.tipFriction = tipData.friction;
 
-        this.hp = 120;
-        this.maxHp = 120;
+        this.hp = crownData.burstResist;
+        this.maxHp = crownData.burstResist;
         this.isKnockedOut = false;
         this.isBurst = false;
 
@@ -293,7 +302,6 @@ export class Beyblade3DPhysics {
     }
 }
 
-// 💥 修正：放寬 3D 對撞半徑，確保每次對撞能精準扣減 HP
 export function handle3DTopCollisions() {
     for (let i = 0; i < activeTops.length; i++) {
         for (let j = i + 1; j < activeTops.length; j++) {
@@ -315,7 +323,7 @@ export function handle3DTopCollisions() {
             
             const distHorizontal = Math.hypot(dx, dz);
             const heightDiff = Math.abs(dy);
-            const minDist = topA.radius + topB.radius + 0.3; // 放寬碰撞觸發半徑
+            const minDist = topA.radius + topB.radius + 0.3;
 
             if (distHorizontal < minDist && distHorizontal > 0 && heightDiff < 1.2) {
                 const nx = dx / (distHorizontal || 1);
@@ -339,7 +347,6 @@ export function handle3DTopCollisions() {
                 topA.body.angularVelocity.y *= 0.93;
                 topB.body.angularVelocity.y *= 0.93;
 
-                // 💥 實質扣減 HP (爆裂卡扣傷害)
                 const dmg = recoilImpulse * 45;
                 topA.hp -= dmg;
                 topB.hp -= dmg;
