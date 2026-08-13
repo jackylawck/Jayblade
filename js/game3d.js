@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、100% 純淨全英/全中切換與對戰主控
+// js/game3d.js - 爆上陀螺 3D UI 互動、WebRTC 健壯錯誤處理、Lerp 插值與對戰主控
 
 import { 
     init3DEngine, 
@@ -16,7 +16,7 @@ import {
 let isSimulating = false;
 let isMatchEnded = false;
 let isCountdownRunning = false;
-let currentLang = 'zh'; // 'zh' | 'en'
+let currentLang = 'zh';
 let lastTime = performance.now();
 
 let peer = null;
@@ -24,11 +24,10 @@ let conn = null;
 let isHost = true;
 let peerId = '';
 
-// 🌐 100% 全中/全英無死角字典 (Full I18N Dictionary)
 const I18N = {
     zh: {
         title: "🌀 爆上陀螺 Jayblade 3D",
-        subtitle: "3D 剛體對戰模擬器",
+        subtitle: "Beyblade X 高清 3D 剛體對戰模擬器",
         back2d: "⚡ 切換至 2D 經典/省電版 (2D Classic) →",
         langBtn: "English",
         p1Title: "🔵 P1 陀螺自訂",
@@ -56,6 +55,7 @@ const I18N = {
         netStatusOffline: "狀態: 單機模式",
         netStatusConnected: "狀態: 🟢 已連線！",
         netStatusConnecting: "狀態: 🟡 連線中...",
+        netStatusError: "狀態: ⚠️ 連線失敗/房間號無效",
         crowns: { 
             FEATHER: "羽翼飛刃 (Feather Blade)", DRAKE: "龍紋重環 (Drake Crown)", HEAVY: "裝甲重錘 (Heavy Armor)", WIZARD: "魔導圓盾 (Wizard Ring)",
             PHOENIX: "朱雀翼刃 (Phoenix Wing)", SCYTHE: "死神鐮刀 (Scythe Incendio)", RHINO: "犀牛角盾 (Rhino Horn)", VIPER: "毒蛇交鋒 (Viper Tail)"
@@ -82,7 +82,7 @@ const I18N = {
     },
     en: {
         title: "🌀 Jayblade 3D Simulator",
-        subtitle: "3D Rigid-Body Physics Simulator",
+        subtitle: "Beyblade X HD 3D Rigid-Body Physics Simulator",
         back2d: "⚡ Switch to 2D Classic Version →",
         langBtn: "中文 (繁體)",
         p1Title: "🔵 P1 Top Customization", p2Title: "🔴 P2 Top Customization",
@@ -94,6 +94,7 @@ const I18N = {
         onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "7-Digit Room ID:", joinBtn: "Join Room",
         placeholderRoom: "Paste Opponent's 7-Digit Room ID",
         netStatusOffline: "Status: Offline", netStatusConnected: "Status: 🟢 Connected!", netStatusConnecting: "Status: 🟡 Connecting...",
+        netStatusError: "Status: ⚠️ Connection Failed / Invalid Room ID",
         crowns: { 
             FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring",
             PHOENIX: "Phoenix Wing", SCYTHE: "Scythe Incendio", RHINO: "Rhino Horn", VIPER: "Viper Tail"
@@ -142,14 +143,12 @@ function applyLanguageUI() {
     setTxt('ui-lbl-myid', t.myId);
     setTxt('btn-join-room', t.joinBtn);
 
-    // 💡 1. 翻譯 WebRTC 輸入框 Placeholder 與狀態列
     const joinInput = document.getElementById('join-peer-id');
     if (joinInput) joinInput.placeholder = t.placeholderRoom;
 
     const netStatus = document.getElementById('net-status');
     if (netStatus && (!conn || !conn.open)) netStatus.innerText = t.netStatusOffline;
 
-    // 💡 2. 翻譯所有 Form Label 標籤
     const labels = document.querySelectorAll('.form-row label');
     labels.forEach(lbl => {
         const text = lbl.innerText.trim();
@@ -161,19 +160,13 @@ function applyLanguageUI() {
         else if (text.includes('發射力度') || text.includes('Launch Power')) lbl.innerText = t.lblPowers;
     });
 
-    // 💡 3. 翻譯預設陀螺名稱 (Input Values)
     const p1Input = document.getElementById('p1-name');
-    if (p1Input && (p1Input.value === '火鷹飛龍' || p1Input.value === 'Feather Dragon' || p1Input.value === 'Fire Bird Dragon')) {
-        p1Input.value = t.p1NameDefault;
-    }
+    if (p1Input && (p1Input.value === '火鷹飛龍' || p1Input.value === 'Fire Bird Dragon')) p1Input.value = t.p1NameDefault;
     const p2Input = document.getElementById('p2-name');
-    if (p2Input && (p2Input.value === '影武赤狼' || p2Input.value === 'Red Wolf')) {
-        p2Input.value = t.p2NameDefault;
-    }
+    if (p2Input && (p2Input.value === '影武赤狼' || p2Input.value === 'Red Wolf')) p2Input.value = t.p2NameDefault;
 
     if (!isSimulating && !isCountdownRunning) update3DStatus(t.readyStatus);
 
-    // 💡 4. 翻譯下拉選單
     const updateSelect = (selectId, dict) => {
         const sel = document.getElementById(selectId);
         if (!sel) return;
@@ -185,14 +178,9 @@ function applyLanguageUI() {
     updateSelect('p1-spin', t.spins); updateSelect('p2-spin', t.spins);
     updateSelect('p1-power', t.powers); updateSelect('p2-power', t.powers);
 
-    // 💡 5. 若已生成 3D 陀螺，同步更新名稱與 Telemetry 面板英文
     if (activeTops.length > 0) {
-        if (activeTops[0] && (activeTops[0].name.includes('火鷹飛龍') || activeTops[0].name.includes('Fire Bird Dragon'))) {
-            activeTops[0].name = '🔵 ' + t.p1NameDefault;
-        }
-        if (activeTops[1] && (activeTops[1].name.includes('影武赤狼') || activeTops[1].name.includes('Red Wolf'))) {
-            activeTops[1].name = '🔴 ' + t.p2NameDefault;
-        }
+        if (activeTops[0] && (activeTops[0].name.includes('火鷹飛龍') || activeTops[0].name.includes('Fire Bird Dragon'))) activeTops[0].name = '🔵 ' + t.p1NameDefault;
+        if (activeTops[1] && (activeTops[1].name.includes('影武赤狼') || activeTops[1].name.includes('Red Wolf'))) activeTops[1].name = '🔴 ' + t.p2NameDefault;
         buildTelemetryDOM();
         updateTelemetryValues();
     }
@@ -226,43 +214,61 @@ function applyRemoteConfigToP2(config) {
 }
 
 function initPeerJS() {
-    const random7Digits = Math.floor(1000000 + Math.random() * 9000000).toString();
-    peer = new Peer(random7Digits);
+    try {
+        const random7Digits = Math.floor(1000000 + Math.random() * 9000000).toString();
+        peer = new Peer(random7Digits);
 
-    peer.on('open', (id) => {
-        peerId = id;
-        const myIdEl = document.getElementById('my-peer-id');
-        if (myIdEl) myIdEl.innerText = id;
-    });
+        peer.on('open', (id) => {
+            peerId = id;
+            const myIdEl = document.getElementById('my-peer-id');
+            if (myIdEl) myIdEl.innerText = id;
+        });
 
-    peer.on('connection', (c) => {
-        conn = c;
-        isHost = true;
-        setupNetworkHandlers();
-        document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
-        conn.send({ type: 'PLAYER_CONFIG', config: getLocalP1Config() });
-    });
+        peer.on('connection', (c) => {
+            conn = c;
+            isHost = true;
+            setupNetworkHandlers();
+            document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
+            conn.send({ type: 'PLAYER_CONFIG', config: getLocalP1Config() });
+        });
 
-    peer.on('error', (err) => {
-        if (err.type === 'unavailable-id') {
-            const retry7Digits = Math.floor(1000000 + Math.random() * 9000000).toString();
-            peer = new Peer(retry7Digits);
-        }
-    });
+        peer.on('error', (err) => {
+            console.warn("⚠️ WebRTC Peer Error:", err);
+            document.getElementById('net-status').innerText = I18N[currentLang].netStatusError;
+            if (err.type === 'unavailable-id') {
+                const retry7Digits = Math.floor(1000000 + Math.random() * 9000000).toString();
+                peer = new Peer(retry7Digits);
+            }
+        });
+    } catch (err) {
+        console.error("🚨 PeerJS Initialization Error:", err);
+    }
 }
 
 function joinPeerRoom(targetId) {
     if (!targetId) return;
     document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnecting;
-    conn = peer.connect(targetId);
-    isHost = false;
-    setupNetworkHandlers();
+    try {
+        conn = peer.connect(targetId);
+        isHost = false;
+        setupNetworkHandlers();
+    } catch (err) {
+        document.getElementById('net-status').innerText = I18N[currentLang].netStatusError;
+    }
 }
 
 function setupNetworkHandlers() {
     conn.on('open', () => {
         document.getElementById('net-status').innerText = I18N[currentLang].netStatusConnected;
         conn.send({ type: 'PLAYER_CONFIG', config: getLocalP1Config() });
+    });
+
+    conn.on('close', () => {
+        document.getElementById('net-status').innerText = I18N[currentLang].netStatusOffline;
+    });
+
+    conn.on('error', () => {
+        document.getElementById('net-status').innerText = I18N[currentLang].netStatusError;
     });
 
     conn.on('data', (data) => {
