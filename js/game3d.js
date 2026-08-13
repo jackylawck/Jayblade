@@ -1,4 +1,4 @@
-// js/game3d.js - 爆上陀螺 3D UI 互動、無流失 DOM 數據面板與對戰邏輯
+// js/game3d.js - 爆上陀螺 3D UI 互動、勝負同步凍結物理數據主控
 
 import { 
     init3DEngine, 
@@ -31,10 +31,17 @@ function update3DStatus(text, color = "#38bdf8") {
     }
 }
 
+// 💡 比賽結束時：徹底凍結所有剛體動能與速度
 function handleMatchEnd(resultText, color) {
     if (isMatchEnded) return;
     isMatchEnded = true;
     update3DStatus(resultText, color);
+
+    // 強制凍結所有陀螺嘅物理剛體，防止背景繼續算數據
+    activeTops.forEach(t => {
+        t.body.velocity.set(0, 0, 0);
+        t.body.angularVelocity.set(0, 0, 0);
+    });
 
     const box = document.getElementById('ui-overlay-box');
     if (box) box.style.display = 'block';
@@ -78,7 +85,6 @@ function runCountdownLaunch(mode) {
     activeTops.forEach(t => { world.remove(t.body); scene.remove(t.group); });
     activeTops.length = 0;
 
-    // 清空 DOM 結構以便重新構建
     const telemetry = document.getElementById('physics-telemetry-content');
     if (telemetry) telemetry.innerHTML = '';
 
@@ -178,15 +184,14 @@ function spawnTopsAndStart(mode) {
     }
 
     isSimulating = true;
-    buildTelemetryDOM(); // 建立不毀壞的固定 DOM 節點
+    buildTelemetryDOM();
 }
 
-// 💡 建立固定 DOM 結構 (僅執行一次，保證 <details> 點擊完全正常)
 function buildTelemetryDOM() {
     const telemetry = document.getElementById('physics-telemetry-content');
     if (!telemetry) return;
 
-    telemetry.innerHTML = ''; // 清空舊內容
+    telemetry.innerHTML = '';
 
     activeTops.forEach((t, idx) => {
         const card = document.createElement('div');
@@ -245,18 +250,26 @@ function buildTelemetryDOM() {
     });
 }
 
-// 💡 僅做純數據更新（Direct Value Assignment），極度流暢且 DOM 節點完全不被重構
+// 💡 實時數據更新（比賽結束時全部歸零凍結）
 function updateTelemetryValues() {
     activeTops.forEach((t, idx) => {
-        t.stepPhysics(0.016);
-        const rpm = t.getRPM();
-        const rpmPct = Math.min(100, Math.round((rpm / 12000) * 100));
+        // 只有喺未結束對戰時，才繼續步進 stepPhysics
+        if (!isMatchEnded) {
+            t.stepPhysics(0.016);
+        } else {
+            // 結算後強制速度與角速度歸零，防止背景微小計算
+            t.body.velocity.set(0, 0, 0);
+            t.body.angularVelocity.set(0, 0, 0);
+        }
+
+        const rpm = isMatchEnded ? 0 : t.getRPM();
+        const rpmPct = isMatchEnded ? 0 : Math.min(100, Math.round((rpm / 12000) * 100));
         const hpPct = Math.max(0, Math.round((t.hp / t.maxHp) * 100));
-        const speed = t.getLinearSpeed().toFixed(2);
-        const L = t.getAngularMomentumVector();
+        const speed = isMatchEnded ? "0.00" : t.getLinearSpeed().toFixed(2);
+        const L = isMatchEnded ? { Lx: "0.00000", Ly: "0.00000", Lz: "0.00000" } : t.getAngularMomentumVector();
 
         const rpmValEl = document.getElementById(`rpm-val-${idx}`);
-        if (!rpmValEl) return; // 尚未初始化
+        if (!rpmValEl) return;
 
         rpmValEl.innerText = `${rpm} RPM`;
         document.getElementById(`rpm-pct-${idx}`).innerText = `${rpmPct}%`;
@@ -268,20 +281,20 @@ function updateTelemetryValues() {
 
         document.getElementById(`speed-val-${idx}`).innerText = `${speed} m/s`;
 
-        document.getElementById(`omega-val-${idx}`).innerText = `${Math.abs(t.body.angularVelocity.y).toFixed(1)} rad/s`;
+        document.getElementById(`omega-val-${idx}`).innerText = `${isMatchEnded ? "0.0" : Math.abs(t.body.angularVelocity.y).toFixed(1)} rad/s`;
         document.getElementById(`L-val-${idx}`).innerText = `(${L.Lx}, ${L.Ly}, ${L.Lz}) kg·m²/s`;
         document.getElementById(`J-val-${idx}`).innerText = `${t.lastImpulseMag || "0.000"} N·s`;
 
-        document.getElementById(`E-val-${idx}`).innerText = `${t.getTotalKE()} J`;
-        document.getElementById(`Erot-val-${idx}`).innerText = `${t.getRotationalKE().toFixed(4)} J`;
-        document.getElementById(`Etrans-val-${idx}`).innerText = `${t.getTranslationalKE().toFixed(4)} J`;
+        document.getElementById(`E-val-${idx}`).innerText = `${isMatchEnded ? "0.0000" : t.getTotalKE()} J`;
+        document.getElementById(`Erot-val-${idx}`).innerText = `${isMatchEnded ? "0.0000" : t.getRotationalKE().toFixed(4)} J`;
+        document.getElementById(`Etrans-val-${idx}`).innerText = `${isMatchEnded ? "0.0000" : t.getTranslationalKE().toFixed(4)} J`;
 
         document.getElementById(`tilt-val-${idx}`).innerText = `${t.getTiltAngle()}°`;
-        document.getElementById(`prec-val-${idx}`).innerText = `${t.getPrecessionFrequency()} Hz`;
+        document.getElementById(`prec-val-${idx}`).innerText = `${isMatchEnded ? "0.00" : t.getPrecessionFrequency()} Hz`;
 
-        document.getElementById(`Fn-val-${idx}`).innerText = `${t.getNormalForce()} N`;
-        document.getElementById(`Ff-val-${idx}`).innerText = `${t.getFrictionForce()} N`;
-        document.getElementById(`Fc-val-${idx}`).innerText = `${t.getCentripetalForce()} N`;
+        document.getElementById(`Fn-val-${idx}`).innerText = `${isMatchEnded ? "0.000" : t.getNormalForce()} N`;
+        document.getElementById(`Ff-val-${idx}`).innerText = `${isMatchEnded ? "0.000" : t.getFrictionForce()} N`;
+        document.getElementById(`Fc-val-${idx}`).innerText = `${isMatchEnded ? "0.000" : t.getCentripetalForce()} N`;
     });
 }
 
@@ -331,12 +344,14 @@ function gameLoop(now) {
     lastTime = now;
 
     if (isSimulating) {
-        world.step(1 / 240, dt, 10);
-
-        handle3DTopCollisions();
-        update3DSparks(dt);
-        check3DMatchResult();
-        updateTelemetryValues(); // 使用純數值賦值更新，絕不銷毀 DOM 節點
+        if (!isMatchEnded) {
+            world.step(1 / 240, dt, 10);
+            handle3DTopCollisions();
+            update3DSparks(dt);
+            check3DMatchResult();
+        }
+        
+        updateTelemetryValues();
     }
 
     controls.update();
