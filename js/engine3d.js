@@ -1,4 +1,10 @@
-// js/engine3d.js - 爆上陀螺 3D 剛體力學物理引擎 (含 Combo 8+8 戰術配件與流體空氣阻力)
+/**
+ * @file engine3d.js
+ * @description HD 3D Rigid-body Physics Engine for Jayblade 3D Simulator.
+ * Powered by Three.js & Cannon.js with 240Hz Sub-stepping, Aerodynamic Drag, and 16 Tactical Combos.
+ * @author Jacky Law
+ * @license MIT
+ */
 
 export var STADIUM_RADIUS = 9.0;
 export var WALL_HEIGHT = 2.0;
@@ -7,17 +13,19 @@ export var scene, camera, renderer, controls, world, defaultMaterial, stadiumMat
 export var activeTops = [];
 export var sparkParticles = [];
 
-// 🔬 科研級 16 種戰術 Combo 物理屬性庫
+/**
+ * 🔬 Physics attributes database for 16 Tactical Combos (8 Blades + 8 Bits).
+ */
 export const PARTS_PHYSICS = {
     CROWN: {
-        FEATHER: { mass: 0.040, radius: 1.05, drag: 0.002, burstResist: 110 }, // 高速風阻低
-        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.005, burstResist: 120 }, // 標準配重
-        HEAVY:   { mass: 0.058, radius: 0.98, drag: 0.008, burstResist: 130 }, // 超重衝量大
-        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.003, burstResist: 115 }, // 圓滑防禦
-        PHOENIX: { mass: 0.052, radius: 1.08, drag: 0.004, burstResist: 125 }, // 朱雀翼刃 (大轉動慣量)
-        SCYTHE:  { mass: 0.046, radius: 1.01, drag: 0.005, burstResist: 118 }, // 死神鐮刀 (上鏟力)
-        RHINO:   { mass: 0.050, radius: 0.92, drag: 0.006, burstResist: 140 }, // 犀牛角盾 (高抗爆)
-        VIPER:   { mass: 0.044, radius: 1.03, drag: 0.004, burstResist: 112 }  // 毒蛇交鋒 (多齒削速)
+        FEATHER: { mass: 0.040, radius: 1.05, drag: 0.002, burstResist: 110 },
+        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.005, burstResist: 120 },
+        HEAVY:   { mass: 0.058, radius: 0.98, drag: 0.008, burstResist: 130 },
+        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.003, burstResist: 115 },
+        PHOENIX: { mass: 0.052, radius: 1.08, drag: 0.004, burstResist: 125 },
+        SCYTHE:  { mass: 0.046, radius: 1.01, drag: 0.005, burstResist: 118 },
+        RHINO:   { mass: 0.050, radius: 0.92, drag: 0.006, burstResist: 140 },
+        VIPER:   { mass: 0.044, radius: 1.03, drag: 0.004, burstResist: 112 }
     },
     TIP: {
         FLAT:   { friction: 0.08, angularDamping: 0.006, grip: 1.8 },
@@ -31,53 +39,61 @@ export const PARTS_PHYSICS = {
     }
 };
 
+/**
+ * Initializes the Three.js WebGL Renderer, Cannon.js World, and Stadium environment.
+ * @param {HTMLElement} containerEl - The DOM element to append WebGL canvas.
+ */
 export function init3DEngine(containerEl) {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060913);
+    try {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x060913);
 
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 16, 18);
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 16, 18);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    containerEl.appendChild(renderer.domElement);
+        renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        containerEl.appendChild(renderer.domElement);
 
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
-    var mainSpot = new THREE.SpotLight(0xffffff, 2.0);
-    mainSpot.position.set(0, 20, 5);
-    mainSpot.angle = Math.PI / 3;
-    mainSpot.penumbra = 0.4;
-    mainSpot.castShadow = true;
-    mainSpot.shadow.mapSize.width = 1024;
-    mainSpot.shadow.mapSize.height = 1024;
-    scene.add(mainSpot);
+        var mainSpot = new THREE.SpotLight(0xffffff, 2.0);
+        mainSpot.position.set(0, 20, 5);
+        mainSpot.angle = Math.PI / 3;
+        mainSpot.penumbra = 0.4;
+        mainSpot.castShadow = true;
+        mainSpot.shadow.mapSize.width = 1024;
+        mainSpot.shadow.mapSize.height = 1024;
+        scene.add(mainSpot);
 
-    var sideLight1 = new THREE.DirectionalLight(0xff7e5f, 0.8);
-    sideLight1.position.set(15, 15, 10);
-    scene.add(sideLight1);
+        var sideLight1 = new THREE.DirectionalLight(0xff7e5f, 0.8);
+        sideLight1.position.set(15, 15, 10);
+        scene.add(sideLight1);
 
-    var sideLight2 = new THREE.DirectionalLight(0x00f2fe, 0.8);
-    sideLight2.position.set(-15, 15, -10);
-    scene.add(sideLight2);
+        var sideLight2 = new THREE.DirectionalLight(0x00f2fe, 0.8);
+        sideLight2.position.set(-15, 15, -10);
+        scene.add(sideLight2);
 
-    world = new CANNON.World();
-    world.gravity.set(0, -9.82, 0);
+        world = new CANNON.World();
+        world.gravity.set(0, -9.82, 0);
 
-    defaultMaterial = new CANNON.Material('default');
-    stadiumMaterial = new CANNON.Material('stadium');
+        defaultMaterial = new CANNON.Material('default');
+        stadiumMaterial = new CANNON.Material('stadium');
 
-    var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.3 });
-    world.addContactMaterial(contactMat);
+        var contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.3 });
+        world.addContactMaterial(contactMat);
 
-    create3DStadiumLayout();
+        create3DStadiumLayout();
+    } catch (err) {
+        console.error("🚨 3D Engine Initialization Failed:", err);
+    }
 }
 
 function create3DStadiumLayout() {
@@ -114,6 +130,9 @@ function create3DStadiumLayout() {
     world.addBody(groundBody);
 }
 
+/**
+ * Beyblade 3D Rigid-body Physics Entity.
+ */
 export class Beyblade3DPhysics {
     constructor(config) {
         this.name = config.name;
@@ -126,7 +145,7 @@ export class Beyblade3DPhysics {
 
         this.radius = crownData.radius;
         this.mass = crownData.mass;
-        this.dragCoef = crownData.drag; // 💡 流體空氣阻力係數
+        this.dragCoef = crownData.drag;
         this.tipFriction = tipData.friction;
 
         this.hp = crownData.burstResist;
@@ -187,42 +206,27 @@ export class Beyblade3DPhysics {
         world.addBody(this.body);
     }
 
-    getRPM() {
-        return Math.round((Math.abs(this.body.angularVelocity.y) * 60) / (2 * Math.PI));
-    }
-
-    getLinearSpeed() {
-        return this.body.velocity.norm();
-    }
-
-    getTranslationalKE() {
-        return 0.5 * this.mass * Math.pow(this.getLinearSpeed(), 2);
-    }
-
+    getRPM() { return Math.round((Math.abs(this.body.angularVelocity.y) * 60) / (2 * Math.PI)); }
+    getLinearSpeed() { return this.body.velocity.norm(); }
+    getTranslationalKE() { return 0.5 * this.mass * Math.pow(this.getLinearSpeed(), 2); }
     getRotationalKE() {
         const wy = this.body.angularVelocity.y;
         const wx = this.body.angularVelocity.x;
         const wz = this.body.angularVelocity.z;
         return 0.5 * (this.I_yy * Math.pow(wy, 2) + this.I_xx * Math.pow(wx, 2) + this.I_zz * Math.pow(wz, 2));
     }
-
-    getTotalKE() {
-        return (this.getTranslationalKE() + this.getRotationalKE()).toFixed(4);
-    }
-
+    getTotalKE() { return (this.getTranslationalKE() + this.getRotationalKE()).toFixed(4); }
     getAngularMomentumVector() {
         const Lx = (this.I_xx * this.body.angularVelocity.x).toFixed(5);
         const Ly = (this.I_yy * this.body.angularVelocity.y).toFixed(5);
         const Lz = (this.I_zz * this.body.angularVelocity.z).toFixed(5);
         return { Lx, Ly, Lz };
     }
-
     getTiltAngle() {
         var up = new CANNON.Vec3(0, 1, 0);
         var topUp = this.body.quaternion.vmult(new CANNON.Vec3(0, 1, 0));
         return (Math.acos(Math.min(1.0, Math.max(-1.0, topUp.dot(up)))) * 180 / Math.PI).toFixed(1);
     }
-
     getPrecessionFrequency() {
         const tiltRad = parseFloat(this.getTiltAngle()) * (Math.PI / 180);
         const wy = Math.abs(this.body.angularVelocity.y);
@@ -230,20 +234,15 @@ export class Beyblade3DPhysics {
         const Omega_p = (this.mass * 9.81 * 0.01) / (this.I_yy * wy);
         return (Omega_p / (2 * Math.PI)).toFixed(2);
     }
-
     getCentripetalForce() {
         var dist = Math.hypot(this.body.position.x, this.body.position.z);
         return (0.75 * dist * this.mass).toFixed(2);
     }
-
     getNormalForce() {
         const verticalAccel = Math.abs(this.body.velocity.y);
         return (this.mass * 9.81 + this.mass * verticalAccel).toFixed(3);
     }
-
-    getFrictionForce() {
-        return (parseFloat(this.getNormalForce()) * this.tipFriction).toFixed(3);
-    }
+    getFrictionForce() { return (parseFloat(this.getNormalForce()) * this.tipFriction).toFixed(3); }
 
     stepPhysics(dt) {
         if (this.isKnockedOut || this.isBurst) return;
@@ -251,7 +250,7 @@ export class Beyblade3DPhysics {
         this.group.position.copy(this.body.position);
         this.group.quaternion.copy(this.body.quaternion);
 
-        // 💡 1. 帶入流體空氣阻力計算 F_drag = -1/2 * C_d * v * v_dir
+        // Fluid Aerodynamic Drag Calculation: F_drag = -1/2 * C_d * v * v_dir
         const speed = this.getLinearSpeed();
         if (speed > 0.05) {
             const dragMag = 0.5 * this.dragCoef * Math.pow(speed, 2);
@@ -373,7 +372,13 @@ export function handle3DTopCollisions() {
     }
 }
 
+/**
+ * Dynamic Spark Particle Spawner with Low-end Device Throttling Protection.
+ */
 export function spawn3DSparks(x, y, z, count) {
+    // Throttling protection: Cap active spark particles to 60 max to protect low-end GPUs
+    if (sparkParticles.length > 60) return;
+
     for (var i = 0; i < count; i++) {
         var pGeo = new THREE.SphereGeometry(0.08 + Math.random() * 0.05, 6, 6);
         var pMat = new THREE.MeshBasicMaterial({
