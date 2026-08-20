@@ -1,4 +1,4 @@
-// js/game3d.js - 職業巔峰版：RPM階梯觸覺、時間軸碰撞標記點、致命一擊時間戳與戰術複盤
+// js/game3d.js - 終極穩定版：100% 完整雙語切換、落盤保護、重播時間軸與戰術遙測
 
 import { 
     init3DEngine, 
@@ -27,12 +27,10 @@ let conn = null;
 let isHost = true;
 let peerId = '';
 
-// 🎞️ 關鍵幀環形緩衝區與碰撞事件清單
 const replayBuffer = [];
 const MAX_REPLAY_FRAMES = 300;
-const collisionEvents = []; // 記錄所有碰撞發生的 frameIndex 與時間戳
+const collisionEvents = [];
 
-// 📊 賽後戰報深度遙測數據
 let matchStats = {
     p1MaxImpulse: 0, p2MaxImpulse: 0,
     p1MaxSpeed: 0, p2MaxSpeed: 0,
@@ -43,17 +41,37 @@ let matchStats = {
 
 const I18N = {
     zh: {
-        title: "🌀 JAYBLADE 3D",
-        subtitle: "Beyblade X 職業選手級戰術訓練模擬器",
+        title: "🌀 爆上陀螺 Jayblade 3D",
+        subtitle: "Beyblade X 高清 3D 剛體對戰模擬器",
+        back2d: "⚡ 切換至 2D 經典版 →",
         langBtn: "English",
         p1Title: "🔵 P1 陀螺自訂", p2Title: "🔴 P2 陀螺自訂",
         p1NameDefault: "火鷹飛龍", p2NameDefault: "影武赤狼",
-        ugcDrop: "📁 點擊或拖拽 3D 設計 (.stl) 檔測試實體慣量",
+        lblNames: "名稱:", lblColors: "顏色:", lblCrowns: "撞擊環:", lblTips: "動力底軸:", lblSpins: "旋轉方向:", lblPowers: "發射力度:",
+        ugcDrop: "📁 點擊或拖拽自訂 3D 設計 (.stl) 檔測試實體慣量",
         vsAi: "🎮 單人對戰 (VS AI)", vs2p: "⚔️ 1P vs 2P 同機對戰", p2pLaunch: "🌐 3D 遠端對決 (P2P)", vs4p: "🔥 4人障礙大亂鬥",
-        debugTitle: "⚙️ 實時物理數據 (240Hz 算力)", readyStatus: "請按住發射按鈕蓄力發射...", toggleUi: "👁️ 隱藏/顯示控制台",
-        onlineTitle: "🌐 3D WebRTC 遠端連線", myId: "房間 ID:", joinBtn: "加入",
+        debugTitle: "⚙️ 實時物理數據 (240Hz 算力)", readyStatus: "請按住發射按鈕蓄力發射...", toggleUi: "👁️ 隱藏/顯示選單",
+        onlineTitle: "🌐 3D WebRTC 遠端連線大廳", myId: "7位數字房間 ID:", joinBtn: "加入房間",
         placeholderRoom: "貼上 7 位數 Room ID",
         netStatusOffline: "狀態: 單機模式", netStatusConnected: "狀態: 🟢 已連線！", netStatusConnecting: "狀態: 🟡 連線中...", netStatusError: "狀態: ⚠️ 連線失敗/房間無效",
+        crowns: { 
+            FEATHER: "羽翼飛刃", DRAKE: "龍紋重環", HEAVY: "裝甲重錘", WIZARD: "魔導圓盾",
+            PHOENIX: "朱雀翼刃", SCYTHE: "死神鐮刀", RHINO: "犀牛角盾", VIPER: "毒蛇交鋒"
+        },
+        tips: { 
+            FLAT: "極速平頭", BALL: "持久球軸", NEEDLE: "防禦針軸", ACCEL: "軌道衝刺",
+            HEXA: "六角防禦", POINT: "半球尖軸", TAPER: "漸銳平軸", RUBBER: "橡膠平軸"
+        },
+        spins: { RIGHT: "右迴旋", LEFT: "左迴旋" },
+        powers: { HEAVY: "重度 (高轉速)", MEDIUM: "中度 (穩定)", LIGHT: "輕度 (高精準)" },
+        rpm: "🌀 轉速", hp: "❤️ 爆裂血量", speed: "⚡ 線速度 v",
+        tensorTitle: "🔬 展開科研級 3D 物理張量 (Rigid-body Physics)",
+        sec1: "1. 剛體角動量與轉矩", sec2: "2. 能量解析系統", sec3: "3. 陀螺儀姿態與進動", sec4: "4. 接觸面與外力場",
+        omega: "角速度 ω", Lvec: "角動量向量 L", impulseJ: "上次對撞衝量 J",
+        totalEk: "系統總動能 E_k", rotE: "轉動動能 E_rot", transE: "平動動能 E_trans",
+        tilt: "3D 姿態傾斜角 θ", precFreq: "進動頻率 f_precession",
+        Fn: "法向支持力 N", Ff: "切向滑動摩擦力 F_f", Fc: "盤面向心拉力 F_c",
+        vsAiProgress: "⚔️ 對戰進行中... 兩車對撞！", vs2pProgress: "⚔️ 雙人對戰進行中...", vs4pProgress: "⚔️ 4 人大亂鬥進行中...",
         burstFinish: (winner, loser) => `💥【BURST FINISH】\n${winner} 擊碎了 ${loser}！`,
         koFinish: (loser) => `⚠️【OVER FINISH】\n${loser} 被擊飛出場外！`,
         spinFinish: (winner) => `🏆【SPIN FINISH】\n${winner} 旋轉持久勝出！`,
@@ -61,17 +79,37 @@ const I18N = {
         tagWinner: "🏆 WINNER", tagBurst: "💥 BURST", tagSpinOut: "💤 STOPPED"
     },
     en: {
-        title: "🌀 JAYBLADE 3D",
-        subtitle: "Beyblade X Pro Tactical Training Simulator",
+        title: "🌀 Jayblade 3D",
+        subtitle: "Beyblade X HD 3D Rigid-Body Simulator",
+        back2d: "⚡ Switch to 2D Classic →",
         langBtn: "中文 (繁體)",
         p1Title: "🔵 P1 Customization", p2Title: "🔴 P2 Customization",
         p1NameDefault: "Fire Bird Dragon", p2NameDefault: "Red Wolf",
-        ugcDrop: "📁 Click or drag custom 3D (.stl) design to test inertia",
+        lblNames: "Name:", lblColors: "Color:", lblCrowns: "Blade Ring:", lblTips: "Bit Tip:", lblSpins: "Spin Direction:", lblPowers: "Launch Power:",
+        ugcDrop: "📁 Click or drag custom 3D design (.stl) to test inertia",
         vsAi: "🎮 Single Player (VS AI)", vs2p: "⚔️ 1P vs 2P Local Battle", p2pLaunch: "🌐 3D Remote Match (P2P)", vs4p: "🔥 4-Player Battle Royale",
         debugTitle: "⚙️ Real-time Telemetry (240Hz Physics)", readyStatus: "Hold launch button to charge RPM...", toggleUi: "👁️ Toggle Panel",
-        onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "Room ID:", joinBtn: "Join",
+        onlineTitle: "🌐 3D WebRTC Remote Lobby", myId: "7-Digit Room ID:", joinBtn: "Join Room",
         placeholderRoom: "Paste 7-Digit Room ID",
         netStatusOffline: "Status: Offline", netStatusConnected: "Status: 🟢 Connected!", netStatusConnecting: "Status: 🟡 Connecting...", netStatusError: "Status: ⚠️ Connection Failed",
+        crowns: { 
+            FEATHER: "Feather Blade", DRAKE: "Drake Crown", HEAVY: "Heavy Armor", WIZARD: "Wizard Ring",
+            PHOENIX: "Phoenix Wing", SCYTHE: "Scythe Incendio", RHINO: "Rhino Horn", VIPER: "Viper Tail"
+        },
+        tips: { 
+            FLAT: "Flat Speed", BALL: "Ball Bearing", NEEDLE: "Needle Guard", ACCEL: "Accel Dash",
+            HEXA: "Hexa Shield", POINT: "Point Dual", TAPER: "Taper Counter", RUBBER: "Rubber Recoil"
+        },
+        spins: { RIGHT: "Right Spin (CW)", LEFT: "Left Spin (CCW)" },
+        powers: { HEAVY: "Heavy (Max RPM)", MEDIUM: "Balanced", LIGHT: "Precision" },
+        rpm: "🌀 Spin Rate", hp: "❤️ Burst Health", speed: "⚡ Linear Speed v",
+        tensorTitle: "🔬 Expand 3D Rigid-Body Physics Tensors",
+        sec1: "1. Angular Dynamics & Torque", sec2: "2. Energy Breakdown System", sec3: "3. Gyroscopic State & Precession", sec4: "4. Surface & Force Field",
+        omega: "Angular Velocity ω", Lvec: "Angular Momentum L", impulseJ: "Impact Impulse J",
+        totalEk: "Total Kinetic Energy E_k", rotE: "Rotational Energy E_rot", transE: "Translational Energy E_trans",
+        tilt: "3D Tilt Angle θ", precFreq: "Precession Freq f",
+        Fn: "Normal Force N", Ff: "Friction Force F_f", Fc: "Centripetal Pull F_c",
+        vsAiProgress: "⚔️ Battle in progress... Clash!", vs2pProgress: "⚔️ 2P Battle in progress...", vs4pProgress: "⚔️ 4-Player Royal Rumble...",
         burstFinish: (winner, loser) => `💥【BURST FINISH】\n${winner} burst ${loser}!`,
         koFinish: (loser) => `⚠️【OVER FINISH】\n${loser} was knocked out!`,
         spinFinish: (winner) => `🏆【SPIN FINISH】\n${winner} won by endurance!`,
@@ -87,16 +125,13 @@ function update3DStatus(text, color = "#38bdf8") {
     if (banner) { banner.innerText = text; banner.style.color = color; }
 }
 
-/**
- * 📳 階梯式觸覺震動系統
- */
 function triggerHaptic(type = "light") {
     if (!navigator.vibrate) return;
     try {
         if (type === "light") navigator.vibrate(15);
         else if (type === "medium") navigator.vibrate([25, 10, 25]);
         else if (type === "heavy") navigator.vibrate([45, 15, 45]);
-        else if (type === "burst") navigator.vibrate([120, 30, 80]); // 鬆手發射爆裂震感
+        else if (type === "burst") navigator.vibrate([120, 30, 80]);
     } catch (_) {}
 }
 
@@ -105,7 +140,7 @@ function applyLanguageUI() {
     const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
 
     setTxt('ui-title', t.title); setTxt('ui-subtitle', t.subtitle);
-    setTxt('btn-lang', t.langBtn);
+    setTxt('btn-lang', t.langBtn); setTxt('btn-back-2d', t.back2d);
     setTxt('ui-p1-panel-title', t.p1Title); setTxt('ui-p2-panel-title', t.p2Title);
     setTxt('ugc-drop-text', t.ugcDrop); setTxt('btn-vs-ai', t.vsAi);
     setTxt('btn-2p', t.vs2p); setTxt('btn-p2p-launch', t.p2pLaunch); setTxt('btn-4p', t.vs4p);
@@ -113,6 +148,27 @@ function applyLanguageUI() {
     setTxt('ui-online-title', t.onlineTitle);
     setTxt('ui-lbl-myid', t.myId);
     setTxt('btn-join-room', t.joinBtn);
+
+    const updateClassTxt = (cls, txt) => {
+        document.querySelectorAll('.' + cls).forEach(el => el.innerText = txt);
+    };
+    updateClassTxt('lbl-name', t.lblNames);
+    updateClassTxt('lbl-color', t.lblColors);
+    updateClassTxt('lbl-crown', t.lblCrowns);
+    updateClassTxt('lbl-tip', t.lblTips);
+    updateClassTxt('lbl-spin', t.lblSpins);
+    updateClassTxt('lbl-power', t.lblPowers);
+
+    const updateSelect = (selectId, dict) => {
+        const sel = document.getElementById(selectId);
+        if (!sel) return;
+        Array.from(sel.options).forEach(opt => { if (dict[opt.value]) opt.text = dict[opt.value]; });
+    };
+
+    updateSelect('p1-crown', t.crowns); updateSelect('p2-crown', t.crowns);
+    updateSelect('p1-tip', t.tips); updateSelect('p2-tip', t.tips);
+    updateSelect('p1-spin', t.spins); updateSelect('p2-spin', t.spins);
+    updateSelect('p1-power', t.powers); updateSelect('p2-power', t.powers);
 
     const joinInput = document.getElementById('join-peer-id');
     if (joinInput) joinInput.placeholder = t.placeholderRoom;
@@ -143,7 +199,7 @@ function initPeerJS() {
             document.getElementById('net-status').innerText = I18N[currentLang].netStatusError;
         });
     } catch (err) {
-        console.error("🚨 PeerJS Initialization Error:", err);
+        console.error("🚨 PeerJS Init Error:", err);
     }
 }
 
@@ -163,9 +219,7 @@ function setupNetworkHandlers() {
                     const body = activeTops[idx].body;
                     const dx = p.x - body.position.x;
                     const dz = p.z - body.position.z;
-                    const driftDist = Math.hypot(dx, dz);
-
-                    if (driftDist > 0.15) {
+                    if (Math.hypot(dx, dz) > 0.15) {
                         body.position.x += dx * 0.35;
                         body.position.z += dz * 0.35;
                         body.position.y += (p.y - body.position.y) * 0.35;
@@ -189,16 +243,11 @@ function broadcast3DPoses() {
     }
 }
 
-/**
- * 🎞️ 記錄關鍵幀與碰撞標記
- */
 function recordReplayKeyframe() {
     if (!isSimulating || isMatchEnded || isReplaying || activeTops.length === 0) return;
 
     const currentFrameIdx = replayBuffer.length;
     const timeNow = performance.now();
-
-    // 檢查本幀是否有碰撞衝量產生
     let hasCollisionThisFrame = false;
     let maxFrameImpulse = 0;
 
@@ -220,7 +269,6 @@ function recordReplayKeyframe() {
 
     replayBuffer.push({
         time: timeNow,
-        hasCollision: hasCollisionThisFrame,
         tops: activeTops.map(t => ({
             x: t.body.position.x, y: t.body.position.y, z: t.body.position.z,
             qx: t.body.quaternion.x, qy: t.body.quaternion.y, qz: t.body.quaternion.z, qw: t.body.quaternion.w,
@@ -230,7 +278,6 @@ function recordReplayKeyframe() {
 
     if (replayBuffer.length > MAX_REPLAY_FRAMES) {
         replayBuffer.shift();
-        // 修正碰撞事件索引偏移
         collisionEvents.forEach(e => e.frameIndex = Math.max(0, e.frameIndex - 1));
     }
 }
@@ -257,9 +304,6 @@ function run3ACountdownLaunch(mode, broadcast = true, customRpm = 12000) {
 
     activeTops.forEach(t => { world.remove(t.body); scene.remove(t.group); });
     activeTops.length = 0;
-
-    const telemetry = document.getElementById('physics-telemetry-content');
-    if (telemetry) telemetry.innerHTML = '';
 
     const countdownEl = document.createElement('div');
     countdownEl.style.cssText = `
@@ -306,9 +350,6 @@ function run3ACountdownLaunch(mode, broadcast = true, customRpm = 12000) {
     showStep();
 }
 
-/**
- * 📊 賽後戰報（含致命一擊時間戳與跳轉）
- */
 function handleMatchEnd(resultText, color, winnerTop) {
     if (isMatchEnded) return;
     isMatchEnded = true;
@@ -396,9 +437,6 @@ function handleMatchEnd(resultText, color, winnerTop) {
     };
 }
 
-/**
- * 🎛️ 職業重播控制台 (含進度條碰撞紅點標記)
- */
 function showReplayControlHUD() {
     if (replayBuffer.length === 0) return;
     isReplaying = true;
@@ -428,7 +466,6 @@ function showReplayControlHUD() {
     `;
     document.body.appendChild(hud);
 
-    // 🔴 在時間軸背景渲染碰撞紅色標記點
     const markersContainer = document.getElementById('timeline-markers');
     const totalFrames = replayBuffer.length - 1 || 1;
     collisionEvents.forEach(ev => {
@@ -459,7 +496,6 @@ function showReplayControlHUD() {
         applyReplayFrame(replayFrameIndex);
     };
 
-    // ⚡ 點擊一鍵跳轉至致命一擊瞬間
     jumpBtn.onclick = () => {
         const criticalEvent = collisionEvents.reduce((prev, curr) => (curr.impulse > prev.impulse) ? curr : prev, collisionEvents[0]);
         if (criticalEvent) {
@@ -507,10 +543,14 @@ function applyReplayFrame(index) {
 }
 
 function check3DMatchResult() {
+    // 🛡️ 發射前 1.5 秒為落盤保護期，不結算勝負
+    const elapsedSinceStart = (performance.now() - matchStats.startTime) / 1000;
+    if (elapsedSinceStart < 1.5) return;
+
     if (isMatchEnded || !isSimulating || isCountdownRunning || isReplaying || activeTops.length < 2) return;
 
     const dict = I18N[currentLang];
-    const aliveTops = activeTops.filter(t => !t.isKnockedOut && !t.isBurst && t.getRPM() > 30);
+    const aliveTops = activeTops.filter(t => !t.isKnockedOut && !t.isBurst && t.getRPM() > 20);
     const newBurstTop = activeTops.find(t => t.isBurst);
     const newKoTop = activeTops.find(t => t.isKnockedOut);
 
@@ -597,14 +637,14 @@ function buildTelemetryDOM() {
                 <div id="status-tag-${idx}" style="font-family:'Orbitron', sans-serif; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight:bold; display:none;"></div>
             </div>
             <div style="display:flex; justify-content:space-between; font-size: 0.72rem; color: #cbd5e1; margin-bottom: 2px;">
-                <span>${t.rpm || "RPM"}: <b id="rpm-val-${idx}">0 RPM</b></span>
+                <span>${t.rpm}: <b id="rpm-val-${idx}">0 RPM</b></span>
                 <span id="rpm-pct-${idx}">0%</span>
             </div>
             <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 6px;">
                 <div id="rpm-bar-${idx}" style="width: 0%; background: linear-gradient(90deg, #00f2fe, #4facfe); height: 100%;"></div>
             </div>
             <div style="display:flex; justify-content:space-between; font-size: 0.72rem; color: #cbd5e1; margin-bottom: 2px;">
-                <span>${t.hp || "HP"}: <b id="hp-val-${idx}">120 HP</b></span>
+                <span>${t.hp}: <b id="hp-val-${idx}">160 HP</b></span>
                 <span id="hp-pct-${idx}">100%</span>
             </div>
             <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
@@ -626,10 +666,9 @@ function updateTelemetryValues() {
         const hpPct = Math.max(0, Math.round((t.hp / t.maxHp) * 100));
         const speed = t.getLinearSpeed();
 
-        // 記錄致命一擊數據
         const imp = parseFloat(t.lastImpulseMag || 0);
         if (imp > 0.15) {
-            const dmg = imp * 45;
+            const dmg = imp * 22;
             if (dmg > matchStats.maxDmgVal) {
                 matchStats.maxDmgVal = dmg;
                 matchStats.maxDmgTime = ((performance.now() - matchStats.startTime) / 1000).toFixed(1);
@@ -665,7 +704,6 @@ function bindUI() {
     let chargeTimer = null;
     let chargeStart = 0;
 
-    // 🕹️ 蓄力發射：RPM 階梯震動阻尼與鬆手彈射爆震
     const bindChargeButton = (btnId, mode) => {
         const btn = document.getElementById(btnId);
         if (!btn) return;
@@ -679,7 +717,6 @@ function bindUI() {
                 const elapsed = (performance.now() - chargeStart) / 1000;
                 const chargeRpm = Math.min(14000, Math.round(7000 + elapsed * 4500));
                 
-                // 階梯式震動阻尼匹配
                 if (chargeRpm < 10000) {
                     update3DStatus(`⚡ CHARGING: ${chargeRpm.toLocaleString()} RPM`, "#38bdf8");
                     triggerHaptic("light");
@@ -697,7 +734,7 @@ function bindUI() {
             if (chargeTimer) {
                 clearInterval(chargeTimer);
                 chargeTimer = null;
-                triggerHaptic("burst"); // 鬆手彈射爆發震感
+                triggerHaptic("burst");
                 const elapsed = (performance.now() - chargeStart) / 1000;
                 const finalRpm = Math.min(14000, Math.round(7000 + elapsed * 4500));
                 run3ACountdownLaunch(mode, true, finalRpm);
@@ -734,6 +771,35 @@ function bindUI() {
         const box = document.getElementById('ui-overlay-box');
         box.style.display = box.style.display === 'none' ? 'block' : 'none';
     };
+
+    const dropzone = document.getElementById('ugc-dropzone');
+    const fileInput = document.getElementById('ugc-file-input');
+
+    if (dropzone && fileInput) {
+        dropzone.onclick = () => fileInput.click();
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                try {
+                    const arrayBuffer = evt.target.result;
+                    const header = new TextDecoder().decode(arrayBuffer.slice(0, 80));
+                    const isAscii = header.startsWith('solid');
+                    const isBinary = !header.trim() && arrayBuffer.byteLength > 84;
+
+                    if (!isAscii && !isBinary) throw new Error('無效的 STL 檔案格式');
+
+                    document.getElementById('ugc-drop-text').innerText = '✅ ' + (currentLang === 'zh' ? '已載入: ' : 'Loaded: ') + file.name;
+                    alert(currentLang === 'zh' ? '成功載入並校驗 3D 陀螺設計檔 (.stl)！' : 'Successfully loaded 3D design (.stl)!');
+                } catch (err) {
+                    alert('🚨 ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+    }
 }
 
 function gameLoop(now) {
