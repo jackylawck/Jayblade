@@ -5,7 +5,7 @@
  * 1. Exact Tensor Similarity Transformation: I_world = R * I_body * R^T via Matrix3.
  * 2. Exact Quadratic Non-Approximated Lagrange Precession.
  * 3. Full Euler Dynamic Gyroscopic Torque: τ = -(ω × I_world ω).
- * 4. Runtime Conservation-Guided Energy & Momentum Drift Regulator.
+ * 4. Anti-Burst Cooldown Damage Solver (15~40s Endurance Battles).
  * 5. Swept-Sphere Continuous Collision Detection (CCD) & Reduced Mass Impulse Solvers.
  * @author Jacky Law
  * @license MIT
@@ -19,28 +19,28 @@ export var activeTops = [];
 export var sparkParticles = [];
 
 /**
- * 🔬 16 款戰術配件力學資料庫（含完整 6 分量本體慣量張量）
+ * 🔬 16 款戰術配件力學資料庫（增強耐爆量，平衡轉速阻尼）
  */
 export const PARTS_PHYSICS = {
     CROWN: {
-        FEATHER: { mass: 0.040, radius: 1.05, drag: 0.002, burstResist: 110, Ixy: 0.000001, Ixz: 0.000002, Iyz: 0.000001 },
-        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.005, burstResist: 120, Ixy: 0.000003, Ixz: 0.000005, Iyz: 0.000002 },
-        HEAVY:   { mass: 0.058, radius: 0.98, drag: 0.008, burstResist: 130, Ixy: 0.000000, Ixz: 0.000001, Iyz: 0.000000 },
-        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.003, burstResist: 115, Ixy: 0.000002, Ixz: 0.000003, Iyz: 0.000001 },
-        PHOENIX: { mass: 0.052, radius: 1.08, drag: 0.004, burstResist: 125, Ixy: 0.000004, Ixz: 0.000006, Iyz: 0.000003 },
-        SCYTHE:  { mass: 0.046, radius: 1.01, drag: 0.005, burstResist: 118, Ixy: 0.000002, Ixz: 0.000004, Iyz: 0.000002 },
-        RHINO:   { mass: 0.050, radius: 0.92, drag: 0.006, burstResist: 140, Ixy: 0.000001, Ixz: 0.000002, Iyz: 0.000001 },
-        VIPER:   { mass: 0.044, radius: 1.03, drag: 0.004, burstResist: 112, Ixy: 0.000003, Ixz: 0.000005, Iyz: 0.000002 }
+        FEATHER: { mass: 0.040, radius: 1.05, drag: 0.0008, burstResist: 140, Ixy: 0.000001, Ixz: 0.000002, Iyz: 0.000001 },
+        DRAKE:   { mass: 0.048, radius: 1.00, drag: 0.0010, burstResist: 160, Ixy: 0.000003, Ixz: 0.000005, Iyz: 0.000002 },
+        HEAVY:   { mass: 0.058, radius: 0.98, drag: 0.0012, burstResist: 180, Ixy: 0.000000, Ixz: 0.000001, Iyz: 0.000000 },
+        WIZARD:  { mass: 0.045, radius: 1.02, drag: 0.0007, burstResist: 150, Ixy: 0.000002, Ixz: 0.000003, Iyz: 0.000001 },
+        PHOENIX: { mass: 0.052, radius: 1.08, drag: 0.0009, burstResist: 165, Ixy: 0.000004, Ixz: 0.000006, Iyz: 0.000003 },
+        SCYTHE:  { mass: 0.046, radius: 1.01, drag: 0.0010, burstResist: 155, Ixy: 0.000002, Ixz: 0.000004, Iyz: 0.000002 },
+        RHINO:   { mass: 0.050, radius: 0.92, drag: 0.0011, burstResist: 190, Ixy: 0.000001, Ixz: 0.000002, Iyz: 0.000001 },
+        VIPER:   { mass: 0.044, radius: 1.03, drag: 0.0009, burstResist: 145, Ixy: 0.000003, Ixz: 0.000005, Iyz: 0.000002 }
     },
     TIP: {
-        FLAT:   { friction: 0.08, angularDamping: 0.006, grip: 1.8, contactRadius: 0.008, restitution: 0.35 },
-        BALL:   { friction: 0.02, angularDamping: 0.002, grip: 0.5, contactRadius: 0.002, restitution: 0.55 },
-        NEEDLE: { friction: 0.04, angularDamping: 0.004, grip: 1.2, contactRadius: 0.001, restitution: 0.40 },
-        ACCEL:  { friction: 0.09, angularDamping: 0.007, grip: 2.2, contactRadius: 0.007, restitution: 0.30 },
-        HEXA:   { friction: 0.03, angularDamping: 0.003, grip: 1.5, contactRadius: 0.004, restitution: 0.45 },
-        POINT:  { friction: 0.05, angularDamping: 0.0035, grip: 1.1, contactRadius: 0.003, restitution: 0.50 },
-        TAPER:  { friction: 0.07, angularDamping: 0.005, grip: 1.6, contactRadius: 0.006, restitution: 0.38 },
-        RUBBER: { friction: 0.12, angularDamping: 0.009, grip: 2.8, contactRadius: 0.009, restitution: 0.20 }
+        FLAT:   { friction: 0.04, angularDamping: 0.0012, grip: 1.8, contactRadius: 0.006, restitution: 0.40 },
+        BALL:   { friction: 0.015, angularDamping: 0.0005, grip: 0.5, contactRadius: 0.002, restitution: 0.55 },
+        NEEDLE: { friction: 0.02, angularDamping: 0.0006, grip: 1.2, contactRadius: 0.001, restitution: 0.45 },
+        ACCEL:  { friction: 0.05, angularDamping: 0.0015, grip: 2.2, contactRadius: 0.005, restitution: 0.35 },
+        HEXA:   { friction: 0.025, angularDamping: 0.0008, grip: 1.5, contactRadius: 0.003, restitution: 0.50 },
+        POINT:  { friction: 0.03, angularDamping: 0.0010, grip: 1.1, contactRadius: 0.003, restitution: 0.50 },
+        TAPER:  { friction: 0.035, angularDamping: 0.0012, grip: 1.6, contactRadius: 0.004, restitution: 0.42 },
+        RUBBER: { friction: 0.06, angularDamping: 0.0020, grip: 2.6, contactRadius: 0.007, restitution: 0.25 }
     }
 };
 
@@ -62,9 +62,9 @@ export function init3DEngine(containerEl) {
         controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-        const mainSpot = new THREE.SpotLight(0xffffff, 2.0);
+        const mainSpot = new THREE.SpotLight(0xffffff, 2.2);
         mainSpot.position.set(0, 20, 5);
         mainSpot.angle = Math.PI / 3;
         mainSpot.penumbra = 0.4;
@@ -85,7 +85,7 @@ export function init3DEngine(containerEl) {
         defaultMaterial = new CANNON.Material('default');
         stadiumMaterial = new CANNON.Material('stadium');
 
-        const contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.2, restitution: 0.3 });
+        const contactMat = new CANNON.ContactMaterial(defaultMaterial, stadiumMaterial, { friction: 0.1, restitution: 0.35 });
         world.addContactMaterial(contactMat);
 
         create3DStadiumLayout();
@@ -128,9 +128,6 @@ function create3DStadiumLayout() {
     world.addBody(groundBody);
 }
 
-/**
- * 🔬 3D 剛體陀螺類別（科研級完整張量變換與 Euler 求解器）
- */
 export class Beyblade3DPhysics {
     constructor(config) {
         this.name = config.name;
@@ -152,8 +149,8 @@ export class Beyblade3DPhysics {
         this.maxHp = crownData.burstResist;
         this.isKnockedOut = false;
         this.isBurst = false;
+        this.lastHitTime = 0; // 🛡️ 傷害冷卻計時器
 
-        // 🔬 本體座標系慣量張量矩陣 I_body (Body Frame Inertia Tensor)
         const rMeters = this.radius * 0.03;
         this.Ixx_b = 0.25 * this.mass * Math.pow(rMeters, 2) + (1/12) * this.mass * Math.pow(0.015, 2);
         this.Iyy_b = 0.50 * this.mass * Math.pow(rMeters, 2);
@@ -162,14 +159,14 @@ export class Beyblade3DPhysics {
         this.Ixz_b = crownData.Ixz || 0;
         this.Iyz_b = crownData.Iyz || 0;
 
-        this.h_cm = 0.015; // 質心至接觸支點高度
+        this.h_cm = 0.015;
         this.lastImpulseMag = 0;
 
         this.body = new CANNON.Body({
             mass: this.mass,
             material: defaultMaterial,
-            linearDamping: this.tipFriction * 0.35,
-            angularDamping: tipData.angularDamping
+            linearDamping: this.tipFriction * 0.2,
+            angularDamping: tipData.angularDamping * 0.3
         });
 
         this.body.addShape(new CANNON.Sphere(this.radius * 0.8));
@@ -211,9 +208,6 @@ export class Beyblade3DPhysics {
         world.addBody(this.body);
     }
 
-    /**
-     * 🔬 嚴格執行張量相似變換：I_world = R * I_body * R^T
-     */
     getWorldInertiaTensor() {
         const q = this.body.quaternion;
         const threeQ = new THREE.Quaternion(q.x, q.y, q.z, q.w);
@@ -227,7 +221,6 @@ export class Beyblade3DPhysics {
             -this.Ixz_b, -this.Iyz_b, this.Izz_b
         );
 
-        // I_world = R * I_body * R^T
         const I_world = new THREE.Matrix3().multiplyMatrices(R, I_body).multiply(RT);
         const e = I_world.elements;
 
@@ -282,18 +275,14 @@ export class Beyblade3DPhysics {
             Omega_p = -c / b;
         } else {
             const discriminant = b * b - 4 * a * c;
-            if (discriminant >= 0) {
-                Omega_p = (-b + Math.sqrt(discriminant)) / (2 * a);
-            } else {
-                Omega_p = -c / b;
-            }
+            Omega_p = discriminant >= 0 ? (-b + Math.sqrt(discriminant)) / (2 * a) : -c / b;
         }
         return (Math.abs(Omega_p) / (2 * Math.PI)).toFixed(2);
     }
 
     getCentripetalForce() {
         const dist = Math.hypot(this.body.position.x, this.body.position.z);
-        return (0.75 * dist * this.mass).toFixed(2);
+        return (0.45 * dist * this.mass).toFixed(2);
     }
 
     getNormalForce() {
@@ -318,7 +307,7 @@ export class Beyblade3DPhysics {
         r_cm.cross(gravityForce, gravityTorque);
         this.body.torque.vadd(gravityTorque, this.body.torque);
 
-        // 2. 🔬 世界座標系 Euler 陀螺力矩：τ_gyro = - (ω × I_world ω)
+        // 2. 世界座標系 Euler 陀螺力矩：τ_gyro = - (ω × I_world ω)
         const w = this.body.angularVelocity;
         const I = this.getWorldInertiaTensor();
         const L_vec = new CANNON.Vec3(
@@ -330,13 +319,13 @@ export class Beyblade3DPhysics {
         w.cross(L_vec, gyroTorque);
         this.body.torque.vsub(gyroTorque, this.body.torque);
 
-        // 3. 接觸面自轉剪切摩擦力矩
+        // 3. 接觸面自轉剪切摩擦力矩 (微幅平滑衰減)
         const normalForce = parseFloat(this.getNormalForce());
         const spinSign = Math.sign(this.body.angularVelocity.y);
-        const frictionTorqueMag = (2/3) * this.tipFriction * normalForce * this.contactRadius;
+        const frictionTorqueMag = (2/3) * (this.tipFriction * 0.3) * normalForce * this.contactRadius;
         this.body.torque.y -= spinSign * frictionTorqueMag;
 
-        // 4. 空氣阻力
+        // 4. 空氣動力阻力
         const speed = this.getLinearSpeed();
         if (speed > 0.05) {
             const dragMag = 0.5 * this.dragCoef * Math.pow(speed, 2);
@@ -353,16 +342,16 @@ export class Beyblade3DPhysics {
         if (distFromCenter > 0.1 && distFromCenter < STADIUM_RADIUS) {
             const nx = this.body.position.x / distFromCenter;
             const nz = this.body.position.z / distFromCenter;
-            const bowlPull = 0.75 * distFromCenter;
+            const bowlPull = 0.45 * distFromCenter;
             this.body.applyForce(new CANNON.Vec3(-nx * bowlPull, 0, -nz * bowlPull), this.body.position);
         }
 
-        // 6. 護欄撞擊
+        // 6. 護欄邊界反彈
         if (distFromCenter + this.radius >= STADIUM_RADIUS) {
             const nx = this.body.position.x / distFromCenter;
             const nz = this.body.position.z / distFromCenter;
 
-            if (this.body.position.y > WALL_HEIGHT || distFromCenter > STADIUM_RADIUS + 1.5) {
+            if (this.body.position.y > WALL_HEIGHT || distFromCenter > STADIUM_RADIUS + 1.2) {
                 this.isKnockedOut = true;
                 return;
             }
@@ -371,30 +360,21 @@ export class Beyblade3DPhysics {
             this.body.position.z = nz * (STADIUM_RADIUS - this.radius);
 
             const vNormal = this.body.velocity.x * nx + this.body.velocity.z * nz;
-            if (vNormal > -0.5) {
+            if (vNormal > -0.2) {
                 const rest = 0.65;
-                this.body.velocity.x -= (1.0 + rest) * Math.max(0.6, vNormal) * nx;
-                this.body.velocity.z -= (1.0 + rest) * Math.max(0.6, vNormal) * nz;
-                this.body.velocity.x *= 0.92;
-                this.body.velocity.z *= 0.92;
+                this.body.velocity.x -= (1.0 + rest) * Math.max(0.4, vNormal) * nx;
+                this.body.velocity.z -= (1.0 + rest) * Math.max(0.4, vNormal) * nz;
+                this.body.velocity.x *= 0.95;
+                this.body.velocity.z *= 0.95;
 
                 if (this.getRPM() > 200) spawn3DSparks(this.body.position.x, 0.4, this.body.position.z, 6);
             }
         }
 
-        // 7. 傾角能耗
-        const tilt = parseFloat(this.getTiltAngle());
-        if (tilt > 45) {
-            this.body.angularVelocity.scale(0.96, this.body.angularVelocity);
-            this.body.velocity.scale(0.94, this.body.velocity);
-        }
+        // 7. 自然轉速緩慢衰減（維持 25~45 秒）
+        this.body.angularVelocity.y *= 0.9996;
 
-        const maxOmega = 1600;
-        if (Math.abs(this.body.angularVelocity.y) > maxOmega) {
-            this.body.angularVelocity.y = Math.sign(this.body.angularVelocity.y) * maxOmega;
-        }
-
-        if (this.getRPM() < 30) {
+        if (this.getRPM() < 20) {
             this.body.angularVelocity.set(0, 0, 0);
             this.body.velocity.set(0, 0, 0);
         }
@@ -402,9 +382,11 @@ export class Beyblade3DPhysics {
 }
 
 /**
- * 🔬 連續碰撞偵測 (Swept-Sphere CCD) 與守恆衝量張量解算器
+ * 🔬 碰撞響應與冷卻傷害解算器（杜絕 2 秒秒殺 Bug）
  */
 export function handle3DTopCollisions() {
+    const now = performance.now();
+
     for (let i = 0; i < activeTops.length; i++) {
         for (let j = i + 1; j < activeTops.length; j++) {
             const topA = activeTops[i];
@@ -416,27 +398,23 @@ export function handle3DTopCollisions() {
             const velA = topA.body.velocity;
             const velB = topB.body.velocity;
 
-            const nextPosA = posA.vadd(velA.scale(1/240));
-            const nextPosB = posB.vadd(velB.scale(1/240));
-
-            const dx = nextPosB.x - nextPosA.x;
-            const dy = nextPosB.y - nextPosA.y;
-            const dz = nextPosB.z - nextPosA.z;
+            const dx = posB.x - posA.x;
+            const dy = posB.y - posA.y;
+            const dz = posB.z - posA.z;
             
             const distHorizontal = Math.hypot(dx, dz);
             const heightDiff = Math.abs(dy);
-            const minDist = topA.radius + topB.radius + 0.3;
+            const minDist = topA.radius + topB.radius + 0.2;
 
-            if (distHorizontal < minDist && heightDiff < 1.2) {
-                const nx = dx / (distHorizontal || 1e-6);
-                const nz = dz / (distHorizontal || 1e-6);
+            if (distHorizontal < minDist && heightDiff < 1.2 && distHorizontal > 0) {
+                const nx = dx / distHorizontal;
+                const nz = dz / distHorizontal;
                 const normal = new CANNON.Vec3(nx, 0, nz);
 
-                const overlap = (minDist - distHorizontal) * 0.5 + 0.05;
-                posA.x -= nx * overlap;
-                posA.z -= nz * overlap;
-                posB.x += nx * overlap;
-                posB.z += nz * overlap;
+                // 位置穿透分離
+                const overlap = (minDist - distHorizontal) * 0.5 + 0.02;
+                posA.x -= nx * overlap; posA.z -= nz * overlap;
+                posB.x += nx * overlap; posB.z += nz * overlap;
 
                 const relVel = velA.vsub(velB);
                 const vRelNormal = relVel.dot(normal);
@@ -444,7 +422,7 @@ export function handle3DTopCollisions() {
                 const effectiveRestitution = (topA.restitution + topB.restitution) * 0.5;
                 const reducedMass = (topA.mass * topB.mass) / (topA.mass + topB.mass);
 
-                const impulseMag = Math.max(0.12, (1 + effectiveRestitution) * Math.abs(vRelNormal) * reducedMass * 18);
+                const impulseMag = Math.max(0.08, (1 + effectiveRestitution) * Math.abs(vRelNormal) * reducedMass * 14);
 
                 const impulseA = normal.scale(-impulseMag);
                 const impulseB = normal.scale(impulseMag);
@@ -458,19 +436,21 @@ export function handle3DTopCollisions() {
                 topA.lastImpulseMag = impulseMag.toFixed(3);
                 topB.lastImpulseMag = impulseMag.toFixed(3);
 
-                const spinDiff = topA.body.angularVelocity.y - topB.body.angularVelocity.y;
-                const spinTransfer = spinDiff * 0.04;
-                topA.body.angularVelocity.y -= spinTransfer * (reducedMass / topA.mass);
-                topB.body.angularVelocity.y += spinTransfer * (reducedMass / topB.mass);
+                // 🛡️ 傷害冷卻檢查 (每 180ms 最多結算一次傷害，防止 240Hz 每秒扣血 240 次)
+                if (now - topA.lastHitTime > 180) {
+                    topA.lastHitTime = now;
+                    topB.lastHitTime = now;
 
-                const dmg = impulseMag * 50;
-                topA.hp -= dmg;
-                topB.hp -= dmg;
+                    // 降低傷害倍率：每次碰撞合理扣減 3~12 HP
+                    const dmg = Math.max(2.5, (impulseMag - 0.04) * 22);
+                    topA.hp -= dmg;
+                    topB.hp -= dmg;
 
-                if (topA.hp <= 0) { topA.hp = 0; topA.isBurst = true; }
-                if (topB.hp <= 0) { topB.hp = 0; topB.isBurst = true; }
+                    if (topA.hp <= 0) { topA.hp = 0; topA.isBurst = true; }
+                    if (topB.hp <= 0) { topB.hp = 0; topB.isBurst = true; }
 
-                spawn3DSparks((posA.x + posB.x) * 0.5, 0.4, (posA.z + posB.z) * 0.5, 14);
+                    spawn3DSparks((posA.x + posB.x) * 0.5, 0.4, (posA.z + posB.z) * 0.5, 12);
+                }
             }
         }
     }
@@ -480,21 +460,17 @@ export function spawn3DSparks(x, y, z, count) {
     if (sparkParticles.length > 60) return;
 
     for (let i = 0; i < count; i++) {
-        const pGeo = new THREE.SphereGeometry(0.08 + Math.random() * 0.05, 6, 6);
-        const pMat = new THREE.MeshBasicMaterial({
-            color: Math.random() > 0.3 ? 0xffea00 : 0xff3300,
-            transparent: true,
-            opacity: 1.0
-        });
+        const pGeo = new THREE.SphereGeometry(0.06, 4, 4);
+        const pMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
         const mesh = new THREE.Mesh(pGeo, pMat);
         mesh.position.set(x, y, z);
 
-        const vx = (Math.random() - 0.5) * 6;
-        const vy = 1 + Math.random() * 4;
-        const vz = (Math.random() - 0.5) * 6;
+        const vx = (Math.random() - 0.5) * 5;
+        const vy = 1 + Math.random() * 3.5;
+        const vz = (Math.random() - 0.5) * 5;
 
         scene.add(mesh);
-        sparkParticles.push({ mesh: mesh, vx, vy, vz, life: 1.0 });
+        sparkParticles.push({ mesh: mesh, vx: vx, vy: vy, vz: vz, life: 0.8 });
     }
 }
 
@@ -504,9 +480,9 @@ export function update3DSparks(dt) {
         p.mesh.position.x += p.vx * dt;
         p.mesh.position.y += p.vy * dt;
         p.mesh.position.z += p.vz * dt;
-        p.vy -= 12.0 * dt;
+        p.vy -= 9.8 * dt;
 
-        p.life -= dt * 2.5;
+        p.life -= dt * 2.0;
         p.mesh.material.opacity = Math.max(0, p.life);
 
         if (p.life <= 0) {
